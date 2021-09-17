@@ -8,7 +8,7 @@ import type {
   DBDomain,
   DBLevel,
   DBOps,
-  DBTransaction
+  DBTransaction,
 } from './types';
 
 import level from 'level';
@@ -26,7 +26,7 @@ class DB {
     crypto,
     lock,
     fs,
-    logger
+    logger,
   }: {
     dbPath: string;
     crypto?: {
@@ -65,7 +65,7 @@ class DB {
   protected constructor({
     dbPath,
     crypto,
-    lock = new Mutex,
+    lock = new Mutex(),
     fs = require('fs'),
     logger,
   }: {
@@ -379,7 +379,7 @@ class DB {
       } else {
         cipherText = await this.crypto.ops.encrypt(
           this.crypto.key,
-          plainTextBuf
+          plainTextBuf,
         );
       }
       return utils.fromArrayBuffer(cipherText);
@@ -399,7 +399,7 @@ class DB {
     raw: boolean,
   ): Promise<T | Buffer> {
     if (this.crypto == null) {
-      return raw ? cipherTextBuf: utils.deserialize<T>(cipherTextBuf);
+      return raw ? cipherTextBuf : utils.deserialize<T>(cipherTextBuf);
     } else {
       let decrypted: ArrayBuffer | undefined;
       if (this.workerManager != null) {
@@ -416,7 +416,7 @@ class DB {
       } else {
         decrypted = await this.crypto.ops.decrypt(
           this.crypto.key,
-          cipherTextBuf
+          cipherTextBuf,
         );
       }
       if (decrypted == null) {

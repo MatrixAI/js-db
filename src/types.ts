@@ -16,7 +16,10 @@ interface FileSystem {
  */
 type Crypto = {
   encrypt(key: ArrayBuffer, plainText: ArrayBuffer): Promise<ArrayBuffer>;
-  decrypt(key: ArrayBuffer, cipherText: ArrayBuffer): Promise<ArrayBuffer | undefined>;
+  decrypt(
+    key: ArrayBuffer,
+    cipherText: ArrayBuffer,
+  ): Promise<ArrayBuffer | undefined>;
 };
 
 type DBWorkerManagerInterface = WorkerManagerInterface<Crypto>;
@@ -64,7 +67,7 @@ interface DBTransaction {
     key: string | Buffer,
     raw?: false,
   ): Promise<T | undefined>;
-  get<_T>(
+  get(
     domain: DBDomain,
     key: string | Buffer,
     raw: true,
@@ -98,5 +101,5 @@ export type {
   DBLevel,
   DBOp,
   DBOps,
-  DBTransaction
+  DBTransaction,
 };

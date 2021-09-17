@@ -7,29 +7,24 @@ import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { spawn, Worker } from 'threads';
-
-// if we want an example worker module
-// for encrypting/decrypting things
-// we can start with a web worker
-// but that means using node forge
-// probably a good idea
-// but unless the crypto should be passed in
-// from the outside
-// remember you have to generate a random key too
-import { EFSWorkerModule } from '@/workers';
-
 import DB from '@/DB';
-import * as utils from '@/utils';
+import { DBWorkerModule } from './workers/dbWorkerModule';
+import * as utils from './utils';
 
 describe('DB', () => {
   const logger = new Logger('DB Test', LogLevel.WARN, [new StreamHandler()]);
+  const crypto = {
+    key: utils.generateKeySync(256),
+    ops: {
+      encrypt: utils.encrypt,
+      decrypt: utils.decrypt,
+    },
+  };
   let dataDir: string;
-  let dbKey: Buffer;
   beforeEach(async () => {
     dataDir = await fs.promises.mkdtemp(
       path.join(os.tmpdir(), 'encryptedfs-test-'),
     );
-    dbKey = await utils.generateKey(256);
   });
   afterEach(async () => {
     await fs.promises.rm(dataDir, {
@@ -39,14 +34,14 @@ describe('DB', () => {
   });
   test('async construction constructs the db leveldb', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, logger });
     const dbPathContents = await fs.promises.readdir(dbPath);
     expect(dbPathContents.length).toBeGreaterThan(1);
     await db.stop();
   });
   test('get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     await db.db.clear();
     await db.put([], 'a', 'value0');
@@ -62,7 +57,7 @@ describe('DB', () => {
   });
   test('batch put and del', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     await db.batch([
       {
@@ -107,7 +102,7 @@ describe('DB', () => {
   });
   test('db levels are leveldbs', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     await db.db.put('a', await db.serializeEncrypt('value0', false));
     expect(await db.get([], 'a')).toBe('value0');
@@ -126,7 +121,7 @@ describe('DB', () => {
   });
   test('db levels are just ephemeral abstractions', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     // There's no need to actually create a sublevel instance
     // if you are always going to directly use the root
@@ -141,7 +136,7 @@ describe('DB', () => {
   });
   test('db levels are facilitated by key prefixes', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     const level1 = await db.level('level1');
     const level2a = await db.level('100', level1);
@@ -149,7 +144,7 @@ describe('DB', () => {
     let count;
     // Expect level1 to be empty
     count = 0;
-    for await (const _k of level1.createKeyStream()) {
+    for await (const _ of level1.createKeyStream()) {
       count++;
     }
     expect(count).toBe(0);
@@ -174,7 +169,7 @@ describe('DB', () => {
   });
   test('clearing a db level clears all sublevels', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     const level1 = await db.level('level1');
     await db.level('level2', level1);
@@ -193,7 +188,7 @@ describe('DB', () => {
   test('lexicographic iteration order', async () => {
     // Leveldb stores keys in lexicographic order
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     // Sorted order [ 'AQ', 'L', 'Q', 'fP' ]
     const keys = ['Q', 'fP', 'AQ', 'L'];
@@ -212,7 +207,7 @@ describe('DB', () => {
   test('lexicographic integer iteration', async () => {
     // Using the lexicographic-integer encoding
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     // Sorted order should be [3, 4, 42, 100]
     const keys = [100, 3, 4, 42];
@@ -231,7 +226,7 @@ describe('DB', () => {
   });
   test('db level lexicographic iteration', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     const level1 = await db.level('level1');
     const keys1 = ['Q', 'fP', 'AQ', 'L'];
@@ -265,7 +260,7 @@ describe('DB', () => {
   });
   test('get and put and del on string and buffer keys', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     await db.db.clear();
     // 'string' is the same as Buffer.from('string')
@@ -293,7 +288,7 @@ describe('DB', () => {
   });
   test('streams can be consumed with promises', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     await db.put([], 'a', 'value0');
     await db.put([], 'b', 'value1');
@@ -326,7 +321,7 @@ describe('DB', () => {
   });
   test('counting sublevels', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
     await db.put([], 'a', 'value0');
     await db.put([], 'b', 'value1');
@@ -355,10 +350,10 @@ describe('DB', () => {
   });
   test('parallelized get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
-    const workerManager = new WorkerManager<EFSWorkerModule>({ logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    const workerManager = new WorkerManager<DBWorkerModule>({ logger });
     await workerManager.start({
-      workerFactory: () => spawn(new Worker('../../src/workers/efsWorker')),
+      workerFactory: () => spawn(new Worker('./workers/dbWorker')),
       cores: 1,
     });
     db.setWorkerManager(workerManager);
@@ -378,10 +373,10 @@ describe('DB', () => {
   });
   test('parallelized batch put and del', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbKey, dbPath, logger });
-    const workerManager = new WorkerManager<EFSWorkerModule>({ logger });
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    const workerManager = new WorkerManager<DBWorkerModule>({ logger });
     await workerManager.start({
-      workerFactory: () => spawn(new Worker('../../src/workers/efsWorker')),
+      workerFactory: () => spawn(new Worker('./workers/dbWorker')),
       cores: 4,
     });
     db.setWorkerManager(workerManager);
@@ -427,5 +422,60 @@ describe('DB', () => {
     expect(await db.get([], 'd')).toBe('value3');
     await db.stop();
     await workerManager.stop();
+  });
+  test('works without crypto', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, logger });
+    await db.start();
+    await db.db.clear();
+    await db.put([], 'a', 'value0');
+    expect(await db.get([], 'a')).toBe('value0');
+    await db.del([], 'a');
+    expect(await db.get([], 'a')).toBeUndefined();
+    await db.level('level1');
+    await db.put(['level1'], 'a', 'value1');
+    expect(await db.get(['level1'], 'a')).toBe('value1');
+    await db.del(['level1'], 'a');
+    expect(await db.get(['level1'], 'a')).toBeUndefined();
+    await db.batch([
+      {
+        type: 'put',
+        domain: [],
+        key: 'a',
+        value: 'value0',
+        raw: false,
+      },
+      {
+        type: 'put',
+        domain: [],
+        key: 'b',
+        value: 'value1',
+        raw: false,
+      },
+      {
+        type: 'put',
+        domain: [],
+        key: 'c',
+        value: 'value2',
+        raw: false,
+      },
+      {
+        type: 'del',
+        domain: [],
+        key: 'a',
+      },
+      {
+        type: 'put',
+        domain: [],
+        key: 'd',
+        value: 'value3',
+        raw: false,
+      },
+    ]);
+    expect(await db.get([], 'a')).toBeUndefined();
+    expect(await db.get([], 'b')).toBe('value1');
+    expect(await db.get([], 'c')).toBe('value2');
+    expect(await db.get([], 'd')).toBe('value3');
+    await db.stop();
   });
 });

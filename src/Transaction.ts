@@ -61,7 +61,7 @@ class Transaction implements DBTransaction {
     key: string | Buffer,
     raw?: false,
   ): Promise<T | undefined>;
-  public async get<_T>(
+  public async get(
     domain: DBDomain,
     key: string | Buffer,
     raw: true,
