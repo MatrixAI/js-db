@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@matrixai/logger": "^2.0.1",
-    "@matrixai/workers": "^1.1.1",
+    "@matrixai/workers": "^1.2.2",
     "abstract-leveldown": "^7.0.0",
     "async-mutex": "^0.3.1",
     "level": "^6.0.1",

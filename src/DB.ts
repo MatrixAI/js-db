@@ -156,11 +156,11 @@ class DB {
 
   public async destroy(): Promise<void> {
     return this.withLocks(async () => {
-      if (this.destroyed) {
+      if (this._destroyed) {
         return;
       }
       if (this._running) {
-        throw new errors.ErrorDBStarted();
+        throw new errors.ErrorDBRunning();
       }
       await this.fs.promises.rm(this.dbPath, { recursive: true });
       this._destroyed = true;
@@ -208,7 +208,7 @@ class DB {
   ): Promise<T> {
     return this.withLocks(async () => {
       if (!this._running) {
-        throw new errors.ErrorDBNotStarted();
+        throw new errors.ErrorDBNotRunning();
       }
       const tran = new Transaction({ db: this, logger: this.logger });
       let value: T;
@@ -230,7 +230,7 @@ class DB {
     dbLevel: DBLevel = this._db,
   ): Promise<DBLevel> {
     if (!this._running) {
-      throw new errors.ErrorDBNotStarted();
+      throw new errors.ErrorDBNotRunning();
     }
     try {
       return new Promise<DBLevel>((resolve) => {
@@ -254,7 +254,7 @@ class DB {
 
   public async count(dbLevel: DBLevel = this._db): Promise<number> {
     if (!this._running) {
-      throw new errors.ErrorDBNotStarted();
+      throw new errors.ErrorDBNotRunning();
     }
     let count = 0;
     for await (const _ of dbLevel.createKeyStream()) {
@@ -279,7 +279,7 @@ class DB {
     raw: boolean = false,
   ): Promise<T | undefined> {
     if (!this._running) {
-      throw new errors.ErrorDBNotStarted();
+      throw new errors.ErrorDBNotRunning();
     }
     let data;
     try {
@@ -312,7 +312,7 @@ class DB {
     raw: boolean = false,
   ): Promise<void> {
     if (!this._running) {
-      throw new errors.ErrorDBNotStarted();
+      throw new errors.ErrorDBNotRunning();
     }
     const data = await this.serializeEncrypt(value, raw as any);
     return this._db.put(utils.domainPath(domain, key), data);
@@ -320,14 +320,14 @@ class DB {
 
   public async del(domain: DBDomain, key: string | Buffer): Promise<void> {
     if (!this._running) {
-      throw new errors.ErrorDBNotStarted();
+      throw new errors.ErrorDBNotRunning();
     }
     return this._db.del(utils.domainPath(domain, key));
   }
 
   public async batch(ops: Readonly<DBOps>): Promise<void> {
     if (!this._running) {
-      throw new errors.ErrorDBNotStarted();
+      throw new errors.ErrorDBNotRunning();
     }
     const opsP: Array<Promise<AbstractBatch> | AbstractBatch> = [];
     for (const op of ops) {

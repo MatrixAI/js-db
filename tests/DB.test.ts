@@ -39,6 +39,35 @@ describe('DB', () => {
     expect(dbPathContents.length).toBeGreaterThan(1);
     await db.stop();
   });
+  test('async destruction removes state', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, logger });
+    await db.stop();
+    await db.destroy();
+    expect(fs.promises.readdir(dbPath)).rejects.toThrow(/ENOENT/);
+  });
+  test('async start and stop preserves state', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    // This is a noop
+    await db.start();
+    await db.put([], 'a', 'value0');
+    await db.stop();
+    await db.start();
+    expect(await db.get([], 'a')).toBe('value0');
+    await db.stop();
+  });
+  test('async start and stop preserves state without crypto', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, logger });
+    // This is a noop
+    await db.start();
+    await db.put([], 'a', 'value0');
+    await db.stop();
+    await db.start();
+    expect(await db.get([], 'a')).toBe('value0');
+    await db.stop();
+  });
   test('get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
@@ -351,11 +380,12 @@ describe('DB', () => {
   test('parallelized get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const workerManager = new WorkerManager<DBWorkerModule>({ logger });
-    await workerManager.start({
-      workerFactory: () => spawn(new Worker('./workers/dbWorker')),
-      cores: 1,
-    });
+    const workerManager =
+      await WorkerManager.createWorkerManager<DBWorkerModule>({
+        workerFactory: () => spawn(new Worker('./workers/dbWorker')),
+        cores: 1,
+        logger,
+      });
     db.setWorkerManager(workerManager);
     await db.start();
     await db.db.clear();
@@ -369,16 +399,17 @@ describe('DB', () => {
     await db.del(['level1'], 'a');
     expect(await db.get(['level1'], 'a')).toBeUndefined();
     await db.stop();
-    await workerManager.stop();
+    await workerManager.destroy();
   });
   test('parallelized batch put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const workerManager = new WorkerManager<DBWorkerModule>({ logger });
-    await workerManager.start({
-      workerFactory: () => spawn(new Worker('./workers/dbWorker')),
-      cores: 4,
-    });
+    const workerManager =
+      await WorkerManager.createWorkerManager<DBWorkerModule>({
+        workerFactory: () => spawn(new Worker('./workers/dbWorker')),
+        cores: 4,
+        logger,
+      });
     db.setWorkerManager(workerManager);
     await db.start();
     await db.batch([
@@ -421,7 +452,7 @@ describe('DB', () => {
     expect(await db.get([], 'c')).toBe('value2');
     expect(await db.get([], 'd')).toBe('value3');
     await db.stop();
-    await workerManager.stop();
+    await workerManager.destroy();
   });
   test('works without crypto', async () => {
     const dbPath = `${dataDir}/db`;
