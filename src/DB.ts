@@ -24,9 +24,9 @@ class DB {
   public static async createDB({
     dbPath,
     crypto,
-    lock,
-    fs,
-    logger,
+    lock = new Mutex(),
+    fs = require('fs'),
+    logger = new Logger(this.name),
   }: {
     dbPath: string;
     crypto?: {
@@ -65,8 +65,8 @@ class DB {
   protected constructor({
     dbPath,
     crypto,
-    lock = new Mutex(),
-    fs = require('fs'),
+    lock,
+    fs,
     logger,
   }: {
     dbPath: string;
@@ -74,11 +74,11 @@ class DB {
       key: Buffer;
       ops: Crypto;
     };
-    lock?: MutexInterface;
-    fs?: FileSystem;
-    logger?: Logger;
+    lock: MutexInterface;
+    fs: FileSystem;
+    logger: Logger;
   }) {
-    this.logger = logger ?? new Logger(this.constructor.name);
+    this.logger = logger;
     this.dbPath = dbPath;
     this.crypto = crypto;
     this.lock = lock;
@@ -162,8 +162,10 @@ class DB {
       if (this._running) {
         throw new errors.ErrorDBRunning();
       }
+      this.logger.info('Destroying DB');
       await this.fs.promises.rm(this.dbPath, { recursive: true });
       this._destroyed = true;
+      this.logger.info('Destroyed DB');
     });
   }
 
