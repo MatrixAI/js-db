@@ -25,6 +25,7 @@
     "abstract-leveldown": "^7.0.0",
     "async-mutex": "^0.3.1",
     "level": "^6.0.1",
+    "level-auto-index": "^2.0.0",
     "levelup": "^5.0.1",
     "sublevel-prefixer": "^1.0.0",
     "subleveldown": "^5.0.1",
