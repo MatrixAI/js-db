@@ -26,6 +26,8 @@
     "async-mutex": "^0.3.1",
     "level": "^6.0.1",
     "level-auto-index": "^2.0.0",
+    "level-hookdown": "^3.1.2",
+    "level-idx": "^2.0.0",
     "levelup": "^5.0.1",
     "sublevel-prefixer": "^1.0.0",
     "subleveldown": "^5.0.1",
@@ -33,9 +35,12 @@
     "ts-custom-error": "^3.2.0"
   },
   "devDependencies": {
+    "@types/abstract-leveldown": "^5.0.2",
     "@types/jest": "^26.0.20",
+    "@types/level": "^6.0.0",
     "@types/node": "^14.14.35",
     "@types/node-forge": "^0.10.4",
+    "@types/subleveldown": "^4.1.1",
     "@typescript-eslint/eslint-plugin": "^4.12.0",
     "@typescript-eslint/parser": "^4.12.0",
     "benny": "^3.6.15",
