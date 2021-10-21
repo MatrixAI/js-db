@@ -6,6 +6,9 @@ import hookdown from 'level-hookdown';
 import subleveldown from 'subleveldown';
 import AutoIndex from 'level-auto-index';
 import Index from 'level-idx';
+import sublevelprefixer from 'sublevel-prefixer';
+
+const prefixer = sublevelprefixer('!');
 
 type Callback<P extends Array<any> = [], R = any, E extends Error = Error> = {
   (e: E, ...params: Partial<P>): R;
@@ -36,7 +39,7 @@ async function main () {
 
   // all buffers are Uint8Arrays and all Uint8Arrays are ArrayBuffer
 
-  const db = await new Promise<LevelDB<Buffer | string, Buffer | string>>((resolve, reject) => {
+  const db = await new Promise<LevelDB<string | ArrayBuffer, Buffer>>((resolve, reject) => {
     const db = level(
       './tmp/db',
       {
@@ -67,8 +70,13 @@ async function main () {
 
   const prehook1 = (op: HookOp, cb: Callback) => {
     console.log('pre1', op);
+    if (op.type == 'put') {
+      op.key = Buffer.from('changed');
+      op.value = Buffer.from('changed');
+    }
     cb();
   };
+
   const prehook2 = (op: HookOp, cb: Callback) => {
     console.log('pre2', op);
     cb();
@@ -90,7 +98,9 @@ async function main () {
   hookdb.posthooks.push(posthook1);
   hookdb.posthooks.push(posthook2);
 
-  await db.put('beep', 'boop');
+  await db.put(Buffer.from('beep'), Buffer.from('boop'));
+
+  console.log(await db.get(Buffer.from('changed')));
 
   // await db.del('beep');
   // await db.batch([
@@ -98,7 +108,12 @@ async function main () {
   //   { type: 'put', key: 'omther', value: 'what' }
   // ]);
 
-  console.log((await db.get('beep')).toString());
+  // TEST if you can mutate the operation
+  // if you can't you cannot use this to do encryption
+  // if you can, then this is precisely what you need to use for an "encryption layer"
+  // also how do other level systems work? I guess they wrap the db module as well
+  // but these hooks only work against put, del, batch, not get
+  // that's dumb, without a get hook, that can mutate things how can you use this as a generic wrapper
 
 }
 

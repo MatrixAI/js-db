@@ -55,13 +55,3 @@ npm publish --access public
 git push
 git push --tags
 ```
-
----
-
-The indexing libraries are built like this.
-
-1. level-idx
-2. level-auto-index
-3. level-hookdown
-
-Perhaps our encryption/decryption can be changed to use `level-hookdown`, and if there's an order of hooks, then we should be able to implement this.
