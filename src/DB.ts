@@ -89,7 +89,7 @@ class DB {
     this.fs = fs;
   }
 
-  get db(): LevelDB<string, Buffer> {
+  get db(): LevelDB<string | Buffer, Buffer> {
     return this._db;
   }
 
