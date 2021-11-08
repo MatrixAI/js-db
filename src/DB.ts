@@ -27,6 +27,7 @@ class DB {
     lock = new Mutex(),
     fs = require('fs'),
     logger = new Logger(this.name),
+    fresh = false,
   }: {
     dbPath: string;
     crypto?: {
@@ -36,7 +37,9 @@ class DB {
     lock?: MutexInterface;
     fs?: FileSystem;
     logger?: Logger;
+    fresh?: boolean;
   }) {
+    logger.info(`Creating ${this.name}`);
     const db = new DB({
       dbPath,
       crypto,
@@ -44,7 +47,8 @@ class DB {
       fs,
       logger,
     });
-    await db.start();
+    await db.start({ fresh });
+    logger.info(`Created ${this.name}`);
     return db;
   }
 
@@ -101,7 +105,11 @@ class DB {
     return this._destroyed;
   }
 
-  public async start(): Promise<void> {
+  public async start({
+    fresh = false,
+  }: {
+    fresh?: boolean;
+  } = {}) {
     return this.withLocks(async () => {
       if (this._running) {
         return;
@@ -109,13 +117,33 @@ class DB {
       if (this._destroyed) {
         throw new errors.ErrorDBDestroyed();
       }
-      this.logger.info('Starting DB');
+      this.logger.info(`Starting ${this.constructor.name}`);
       this.logger.info(`Setting DB path to ${this.dbPath}`);
+      if (fresh) {
+        try {
+          await this.fs.promises.rm(this.dbPath, {
+            force: true,
+            recursive: true,
+          });
+        } catch (e) {
+          throw new errors.ErrorDBDelete(e.message, {
+            errno: e.errno,
+            syscall: e.syscall,
+            code: e.code,
+            path: e.path,
+          });
+        }
+      }
       try {
-        await this.fs.promises.mkdir(this.dbPath, { recursive: true });
+        await this.fs.promises.mkdir(this.dbPath);
       } catch (e) {
         if (e.code !== 'EEXIST') {
-          throw e;
+          throw new errors.ErrorDBCreate(e.message, {
+            errno: e.errno,
+            syscall: e.syscall,
+            code: e.code,
+            path: e.path,
+          });
         }
       }
       const dbLevel = await new Promise<LevelDB<string | Buffer, Buffer>>(
@@ -138,7 +166,7 @@ class DB {
       );
       this._db = dbLevel;
       this._running = true;
-      this.logger.info('Started DB');
+      this.logger.info(`Started ${this.constructor.name}`);
     });
   }
 
@@ -147,10 +175,10 @@ class DB {
       if (!this._running) {
         return;
       }
-      this.logger.info('Stopping DB');
+      this.logger.info(`Stopping ${this.constructor.name}`);
       await this.db.close();
       this._running = false;
-      this.logger.info('Stopped DB');
+      this.logger.info(`Stopped ${this.constructor.name}`);
     });
   }
 
@@ -162,10 +190,22 @@ class DB {
       if (this._running) {
         throw new errors.ErrorDBRunning();
       }
-      this.logger.info('Destroying DB');
-      await this.fs.promises.rm(this.dbPath, { recursive: true });
+      this.logger.info(`Destroying ${this.constructor.name}`);
+      try {
+        await this.fs.promises.rm(this.dbPath, {
+          force: true,
+          recursive: true,
+        });
+      } catch (e) {
+        throw new errors.ErrorDBDelete(e.message, {
+          errno: e.errno,
+          syscall: e.syscall,
+          code: e.code,
+          path: e.path,
+        });
+      }
       this._destroyed = true;
-      this.logger.info('Destroyed DB');
+      this.logger.info(`Destroyed ${this.constructor.name}`);
     });
   }
 

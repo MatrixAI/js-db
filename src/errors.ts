@@ -1,12 +1,24 @@
+import type { POJO } from './types';
+
 import { CustomError } from 'ts-custom-error';
 
-class ErrorDB extends CustomError {}
+class ErrorDB extends CustomError {
+  data: POJO;
+  constructor(message: string = '', data: POJO = {}) {
+    super(message);
+    this.data = data;
+  }
+}
 
 class ErrorDBRunning extends ErrorDB {}
 
 class ErrorDBNotRunning extends ErrorDB {}
 
 class ErrorDBDestroyed extends ErrorDB {}
+
+class ErrorDBCreate extends ErrorDB {}
+
+class ErrorDBDelete extends ErrorDB {}
 
 class ErrorDBLevelPrefix extends ErrorDB {}
 
@@ -25,6 +37,8 @@ export {
   ErrorDBRunning,
   ErrorDBNotRunning,
   ErrorDBDestroyed,
+  ErrorDBCreate,
+  ErrorDBDelete,
   ErrorDBLevelPrefix,
   ErrorDBDecrypt,
   ErrorDBParse,

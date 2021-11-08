@@ -3,6 +3,11 @@ import type { AbstractLevelDOWN, AbstractIterator } from 'abstract-leveldown';
 import type { LevelUp } from 'levelup';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 
+/**
+ * Plain data dictionary
+ */
+type POJO = { [key: string]: any };
+
 interface FileSystem {
   promises: {
     rm: typeof fs.promises.rm;
@@ -94,6 +99,7 @@ interface DBTransaction {
 }
 
 export type {
+  POJO,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
