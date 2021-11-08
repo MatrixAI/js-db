@@ -91,9 +91,10 @@
 								<li class="tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited"><a href="errors.ErrorDBDestroyed.html#constructor" class="tsd-kind-icon">constructor</a></li>
 							</ul>
 						</section>
-						<section class="tsd-index-section tsd-is-inherited tsd-is-external">
+						<section class="tsd-index-section tsd-is-inherited">
 							<h3>Properties</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited"><a href="errors.ErrorDBDestroyed.html#data" class="tsd-kind-icon">data</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="errors.ErrorDBDestroyed.html#message" class="tsd-kind-icon">message</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="errors.ErrorDBDestroyed.html#name" class="tsd-kind-icon">name</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="errors.ErrorDBDestroyed.html#stack" class="tsd-kind-icon">stack</a></li>
@@ -116,20 +117,23 @@
 					<a name="constructor" class="tsd-anchor"></a>
 					<h3>constructor</h3>
 					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited">
-						<li class="tsd-signature tsd-kind-icon">new <wbr>ErrorDBDestroyed<span class="tsd-signature-symbol">(</span>message<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="errors.ErrorDBDestroyed.html" class="tsd-signature-type" data-tsd-kind="Class">ErrorDBDestroyed</a></li>
+						<li class="tsd-signature tsd-kind-icon">new <wbr>ErrorDBDestroyed<span class="tsd-signature-symbol">(</span>message<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">string</span>, data<span class="tsd-signature-symbol">?: </span><a href="../modules/types.html#POJO" class="tsd-signature-type" data-tsd-kind="Type alias">POJO</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="errors.ErrorDBDestroyed.html" class="tsd-signature-type" data-tsd-kind="Class">ErrorDBDestroyed</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from <a href="errors.ErrorDB.html">ErrorDB</a>.<a href="errors.ErrorDB.html#constructor">constructor</a></p>
 								<ul>
-									<li>Defined in node_modules/ts-custom-error/dist/custom-error.d.ts:3</li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/errors.ts#L7">src/errors.ts:7</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> message: <span class="tsd-signature-type">string</span></h5>
+									<h5>message: <span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> = &#x27;&#x27;</span></h5>
+								</li>
+								<li>
+									<h5>data: <a href="../modules/types.html#POJO" class="tsd-signature-type" data-tsd-kind="Type alias">POJO</a><span class="tsd-signature-symbol"> = {}</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <a href="errors.ErrorDBDestroyed.html" class="tsd-signature-type" data-tsd-kind="Class">ErrorDBDestroyed</a></h4>
@@ -137,8 +141,19 @@
 					</ul>
 				</section>
 			</section>
-			<section class="tsd-panel-group tsd-member-group tsd-is-inherited tsd-is-external">
+			<section class="tsd-panel-group tsd-member-group tsd-is-inherited">
 				<h2>Properties</h2>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited">
+					<a name="data" class="tsd-anchor"></a>
+					<h3>data</h3>
+					<div class="tsd-signature tsd-kind-icon">data<span class="tsd-signature-symbol">:</span> <a href="../modules/types.html#POJO" class="tsd-signature-type" data-tsd-kind="Type alias">POJO</a></div>
+					<aside class="tsd-sources">
+						<p>Inherited from <a href="errors.ErrorDB.html">ErrorDB</a>.<a href="errors.ErrorDB.html#data">data</a></p>
+						<ul>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/errors.ts#L6">src/errors.ts:6</a></li>
+						</ul>
+					</aside>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external">
 					<a name="message" class="tsd-anchor"></a>
 					<h3>message</h3>
@@ -295,7 +310,13 @@
 						<a href="errors.ErrorDBCommitted.html" class="tsd-kind-icon">ErrorDBCommitted</a>
 					</li>
 					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="errors.ErrorDBCreate.html" class="tsd-kind-icon">ErrorDBCreate</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
 						<a href="errors.ErrorDBDecrypt.html" class="tsd-kind-icon">ErrorDBDecrypt</a>
+					</li>
+					<li class=" tsd-kind-class tsd-parent-kind-module">
+						<a href="errors.ErrorDBDelete.html" class="tsd-kind-icon">ErrorDBDelete</a>
 					</li>
 				</ul>
 				<ul class="current">
@@ -304,6 +325,9 @@
 						<ul>
 							<li class=" tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited">
 								<a href="errors.ErrorDBDestroyed.html#constructor" class="tsd-kind-icon">constructor</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-inherited">
+								<a href="errors.ErrorDBDestroyed.html#data" class="tsd-kind-icon">data</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external">
 								<a href="errors.ErrorDBDestroyed.html#message" class="tsd-kind-icon">message</a>
@@ -360,13 +384,14 @@
 				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
 			</ul>
 			<ul class="tsd-legend">
+				<li class="tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited constructor</span></li>
+				<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited property</span></li>
+			</ul>
+			<ul class="tsd-legend">
 				<li class="tsd-kind-interface"><span class="tsd-kind-icon">Interface</span></li>
 			</ul>
 			<ul class="tsd-legend">
 				<li class="tsd-kind-class"><span class="tsd-kind-icon">Class</span></li>
-			</ul>
-			<ul class="tsd-legend">
-				<li class="tsd-kind-constructor tsd-parent-kind-class tsd-is-inherited"><span class="tsd-kind-icon">Inherited constructor</span></li>
 			</ul>
 		</div>
 	</div>
