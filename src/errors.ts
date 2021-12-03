@@ -2,11 +2,15 @@ import type { POJO } from './types';
 
 import { CustomError } from 'ts-custom-error';
 
+type ErrorChain = Error & { chain?: ErrorChain };
+
 class ErrorDB extends CustomError {
   data: POJO;
-  constructor(message: string = '', data: POJO = {}) {
+  cause?: ErrorChain;
+  constructor(message: string = '', data: POJO = {}, cause?: ErrorChain) {
     super(message);
     this.data = data;
+    this.cause = cause;
   }
 }
 

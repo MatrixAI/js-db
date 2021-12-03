@@ -126,44 +126,39 @@ class DB {
             recursive: true,
           });
         } catch (e) {
-          throw new errors.ErrorDBDelete(e.message, {
-            errno: e.errno,
-            syscall: e.syscall,
-            code: e.code,
-            path: e.path,
-          });
+          throw new errors.ErrorDBDelete(e.message, undefined, e);
         }
       }
       try {
         await this.fs.promises.mkdir(this.dbPath);
       } catch (e) {
         if (e.code !== 'EEXIST') {
-          throw new errors.ErrorDBCreate(e.message, {
-            errno: e.errno,
-            syscall: e.syscall,
-            code: e.code,
-            path: e.path,
-          });
+          throw new errors.ErrorDBCreate(e.message, undefined, e);
         }
       }
-      const dbLevel = await new Promise<LevelDB<string | Buffer, Buffer>>(
-        (resolve, reject) => {
-          const db = level(
-            this.dbPath,
-            {
-              keyEncoding: 'binary',
-              valueEncoding: 'binary',
-            },
-            (e) => {
-              if (e) {
-                reject(e);
-              } else {
-                resolve(db);
-              }
-            },
-          );
-        },
-      );
+      let dbLevel;
+      try {
+        dbLevel = await new Promise<LevelDB<string | Buffer, Buffer>>(
+          (resolve, reject) => {
+            const db = level(
+              this.dbPath,
+              {
+                keyEncoding: 'binary',
+                valueEncoding: 'binary',
+              },
+              (e) => {
+                if (e) {
+                  reject(e);
+                } else {
+                  resolve(db);
+                }
+              },
+            );
+          },
+        );
+      } catch (e) {
+        throw new errors.ErrorDBCreate(e.message, undefined, e);
+      }
       this._db = dbLevel;
       this._running = true;
       this.logger.info(`Started ${this.constructor.name}`);
