@@ -2,7 +2,7 @@ import type { POJO } from './types';
 
 import { CustomError } from 'ts-custom-error';
 
-type ErrorChain = Error & { chain?: ErrorChain };
+type ErrorChain = Error & { cause?: ErrorChain };
 
 class ErrorDB extends CustomError {
   data: POJO;
