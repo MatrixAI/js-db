@@ -17,7 +17,7 @@
     "lint": "eslint '{src,tests,benches}/**/*.{js,ts}'",
     "lintfix": "eslint '{src,tests,benches}/**/*.{js,ts}' --fix",
     "docs": "rm -r ./docs || true; typedoc --gitRevision master --tsconfig ./tsconfig.build.json --out ./docs src && touch ./docs/.nojekyll",
-    "bench": "ts-node -r tsconfig-paths/register ./benches"
+    "bench": "rm -r ./benches/results || true; ts-node -r tsconfig-paths/register ./benches"
   },
   "dependencies": {
     "@matrixai/async-init": "^1.6.0",
