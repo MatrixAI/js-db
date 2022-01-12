@@ -270,14 +270,24 @@ class DB {
       throw new errors.ErrorDBNotRunning();
     }
     try {
-      return new Promise<DBLevel>((resolve) => {
+      return await new Promise<DBLevel>((resolve, reject) => {
         const dbLevelNew = subleveldown(dbLevel, domain, {
           keyEncoding: 'binary',
           valueEncoding: 'binary',
           open: (cb) => {
+            // This `cb` is defaulted (hardcoded) to a function that emits an error event
+            // When using `level`, we are able to provide a callback that overrides this `cb`
+            // However `subleveldown` does not provide a callback parameter
+            // It provides this `open` option, which requires us to call `cb` to finish
+            // If we provide an exception as a parameter, it will be received by the `error` event handler
             cb(undefined);
             resolve(dbLevelNew);
           },
+        });
+        // @ts-ignore error event for subleveldown
+        dbLevelNew.on('error', (e) => {
+          // Errors during construction of the sublevel will be emitted as events
+          reject(e);
         });
       });
     } catch (e) {

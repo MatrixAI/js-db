@@ -32,14 +32,14 @@ describe('DB', () => {
       recursive: true,
     });
   });
-  test('async construction constructs the db leveldb', async () => {
+  test('async construction constructs the filesystem state', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, logger });
     const dbPathContents = await fs.promises.readdir(dbPath);
     expect(dbPathContents.length).toBeGreaterThan(1);
     await db.stop();
   });
-  test('async destruction removes state', async () => {
+  test('async destruction removes filesystem state', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, logger });
     await db.stop();
@@ -66,6 +66,23 @@ describe('DB', () => {
     await db.stop();
     await db.start();
     expect(await db.get([], 'a')).toBe('value0');
+    await db.stop();
+  });
+  test('async start and stop requires recreation of db levels', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, logger });
+    await db.start();
+    let level1 = await db.level('level1');
+    await db.put(['level1'], 'key', 'value');
+    await db.stop();
+    await db.start();
+    // The `level1` has to be recreated after `await db.stop()`
+    await expect(db.level('level2', level1)).rejects.toThrow(
+      /Inner database is not open/,
+    );
+    level1 = await db.level('level1');
+    await db.level('level2', level1);
+    expect(await db.get(['level1'], 'key')).toBe('value');
     await db.stop();
   });
   test('creating fresh db', async () => {
