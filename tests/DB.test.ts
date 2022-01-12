@@ -1,4 +1,5 @@
 import type { DBOp } from '@/types';
+import type { DBWorkerModule } from './workers/dbWorkerModule';
 
 import os from 'os';
 import path from 'path';
@@ -8,7 +9,6 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
-import { DBWorkerModule } from './workers/dbWorkerModule';
 import * as utils from './utils';
 
 describe('DB', () => {
@@ -44,7 +44,7 @@ describe('DB', () => {
     const db = await DB.createDB({ dbPath, logger });
     await db.stop();
     await db.destroy();
-    expect(fs.promises.readdir(dbPath)).rejects.toThrow(/ENOENT/);
+    await expect(fs.promises.readdir(dbPath)).rejects.toThrow(/ENOENT/);
   });
   test('async start and stop preserves state', async () => {
     const dbPath = `${dataDir}/db`;
