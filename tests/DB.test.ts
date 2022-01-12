@@ -68,6 +68,15 @@ describe('DB', () => {
     expect(await db.get([], 'a')).toBe('value0');
     await db.stop();
   });
+  test('creating fresh db', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db1 = await DB.createDB({ dbPath, logger });
+    await db1.put([], 'key', 'value');
+    await db1.stop();
+    const db2 = await DB.createDB({ dbPath, logger, fresh: true });
+    expect(await db2.get([], 'key')).toBeUndefined();
+    await db2.stop();
+  });
   test('get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
