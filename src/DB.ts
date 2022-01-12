@@ -16,10 +16,19 @@ import subleveldown from 'subleveldown';
 import { Transfer } from 'threads';
 import { Mutex } from 'async-mutex';
 import Logger from '@matrixai/logger';
+import {
+  CreateDestroyStartStop,
+  ready,
+} from '@matrixai/async-init/dist/CreateDestroyStartStop';
 import Transaction from './Transaction';
 import * as utils from './utils';
 import * as errors from './errors';
 
+interface DB extends CreateDestroyStartStop {}
+@CreateDestroyStartStop(
+  new errors.ErrorDBRunning(),
+  new errors.ErrorDBDestroyed(),
+)
 class DB {
   public static async createDB({
     dbPath,
@@ -38,7 +47,7 @@ class DB {
     fs?: FileSystem;
     logger?: Logger;
     fresh?: boolean;
-  }) {
+  }): Promise<DB> {
     logger.info(`Creating ${this.name}`);
     const db = new DB({
       dbPath,
@@ -63,10 +72,8 @@ class DB {
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
   protected _db: LevelDB<string | Buffer, Buffer>;
-  protected _running: boolean = false;
-  protected _destroyed: boolean = false;
 
-  protected constructor({
+  constructor({
     dbPath,
     crypto,
     lock,
@@ -97,111 +104,79 @@ class DB {
     return this.lock.isLocked();
   }
 
-  get running(): boolean {
-    return this._running;
-  }
-
-  get destroyed(): boolean {
-    return this._destroyed;
-  }
-
   public async start({
     fresh = false,
   }: {
     fresh?: boolean;
   } = {}) {
-    return this.withLocks(async () => {
-      if (this._running) {
-        return;
-      }
-      if (this._destroyed) {
-        throw new errors.ErrorDBDestroyed();
-      }
-      this.logger.info(`Starting ${this.constructor.name}`);
-      this.logger.info(`Setting DB path to ${this.dbPath}`);
-      if (fresh) {
-        try {
-          await this.fs.promises.rm(this.dbPath, {
-            force: true,
-            recursive: true,
-          });
-        } catch (e) {
-          throw new errors.ErrorDBDelete(e.message, undefined, e);
-        }
-      }
-      try {
-        await this.fs.promises.mkdir(this.dbPath);
-      } catch (e) {
-        if (e.code !== 'EEXIST') {
-          throw new errors.ErrorDBCreate(e.message, undefined, e);
-        }
-      }
-      let dbLevel;
-      try {
-        dbLevel = await new Promise<LevelDB<string | Buffer, Buffer>>(
-          (resolve, reject) => {
-            const db = level(
-              this.dbPath,
-              {
-                keyEncoding: 'binary',
-                valueEncoding: 'binary',
-              },
-              (e) => {
-                if (e) {
-                  reject(e);
-                } else {
-                  resolve(db);
-                }
-              },
-            );
-          },
-        );
-      } catch (e) {
-        throw new errors.ErrorDBCreate(e.message, undefined, e);
-      }
-      this._db = dbLevel;
-      this._running = true;
-      this.logger.info(`Started ${this.constructor.name}`);
-    });
-  }
-
-  public async stop(): Promise<void> {
-    return this.withLocks(async () => {
-      if (!this._running) {
-        return;
-      }
-      this.logger.info(`Stopping ${this.constructor.name}`);
-      await this.db.close();
-      this._running = false;
-      this.logger.info(`Stopped ${this.constructor.name}`);
-    });
-  }
-
-  public async destroy(): Promise<void> {
-    return this.withLocks(async () => {
-      if (this._destroyed) {
-        return;
-      }
-      if (this._running) {
-        throw new errors.ErrorDBRunning();
-      }
-      this.logger.info(`Destroying ${this.constructor.name}`);
+    this.logger.info(`Starting ${this.constructor.name}`);
+    this.logger.info(`Setting DB path to ${this.dbPath}`);
+    if (fresh) {
       try {
         await this.fs.promises.rm(this.dbPath, {
           force: true,
           recursive: true,
         });
       } catch (e) {
-        throw new errors.ErrorDBDelete(e.message, {
-          errno: e.errno,
-          syscall: e.syscall,
-          code: e.code,
-          path: e.path,
-        });
+        throw new errors.ErrorDBDelete(e.message, undefined, e);
       }
-      this._destroyed = true;
-      this.logger.info(`Destroyed ${this.constructor.name}`);
-    });
+    }
+    try {
+      await this.fs.promises.mkdir(this.dbPath);
+    } catch (e) {
+      if (e.code !== 'EEXIST') {
+        throw new errors.ErrorDBCreate(e.message, undefined, e);
+      }
+    }
+    let dbLevel;
+    try {
+      dbLevel = await new Promise<LevelDB<string | Buffer, Buffer>>(
+        (resolve, reject) => {
+          const db = level(
+            this.dbPath,
+            {
+              keyEncoding: 'binary',
+              valueEncoding: 'binary',
+            },
+            (e) => {
+              if (e) {
+                reject(e);
+              } else {
+                resolve(db);
+              }
+            },
+          );
+        },
+      );
+    } catch (e) {
+      throw new errors.ErrorDBCreate(e.message, undefined, e);
+    }
+    this._db = dbLevel;
+    this.logger.info(`Started ${this.constructor.name}`);
+  }
+
+  public async stop(): Promise<void> {
+    this.logger.info(`Stopping ${this.constructor.name}`);
+    await this.db.close();
+    this.logger.info(`Stopped ${this.constructor.name}`);
+  }
+
+  public async destroy(): Promise<void> {
+    this.logger.info(`Destroying ${this.constructor.name}`);
+    try {
+      await this.fs.promises.rm(this.dbPath, {
+        force: true,
+        recursive: true,
+      });
+    } catch (e) {
+      throw new errors.ErrorDBDelete(e.message, {
+        errno: e.errno,
+        syscall: e.syscall,
+        code: e.code,
+        path: e.path,
+      });
+    }
+    this.logger.info(`Destroyed ${this.constructor.name}`);
   }
 
   public setWorkerManager(workerManager: DBWorkerManagerInterface) {
@@ -239,14 +214,12 @@ class DB {
    * And commits the operations at the very end
    * This allows one to create a lock to be shared between mutliple transactions
    */
+  @ready(new errors.ErrorDBNotRunning())
   public async transact<T>(
     f: (t: DBTransaction) => Promise<T>,
     locks: Array<MutexInterface> = [this.lock],
   ): Promise<T> {
     return this.withLocks(async () => {
-      if (!this._running) {
-        throw new errors.ErrorDBNotRunning();
-      }
       const tran = new Transaction({ db: this, logger: this.logger });
       let value: T;
       try {
@@ -262,22 +235,30 @@ class DB {
     }, locks);
   }
 
+  @ready(new errors.ErrorDBNotRunning())
   public async level(
     domain: string,
     dbLevel: DBLevel = this._db,
   ): Promise<DBLevel> {
-    if (!this._running) {
-      throw new errors.ErrorDBNotRunning();
-    }
     try {
-      return new Promise<DBLevel>((resolve) => {
+      return await new Promise<DBLevel>((resolve, reject) => {
         const dbLevelNew = subleveldown(dbLevel, domain, {
           keyEncoding: 'binary',
           valueEncoding: 'binary',
           open: (cb) => {
+            // This `cb` is defaulted (hardcoded) to a function that emits an error event
+            // When using `level`, we are able to provide a callback that overrides this `cb`
+            // However `subleveldown` does not provide a callback parameter
+            // It provides this `open` option, which requires us to call `cb` to finish
+            // If we provide an exception as a parameter, it will be received by the `error` event handler
             cb(undefined);
             resolve(dbLevelNew);
           },
+        });
+        // @ts-ignore error event for subleveldown
+        dbLevelNew.on('error', (e) => {
+          // Errors during construction of the sublevel will be emitted as events
+          reject(e);
         });
       });
     } catch (e) {
@@ -289,10 +270,8 @@ class DB {
     }
   }
 
+  @ready(new errors.ErrorDBNotRunning())
   public async count(dbLevel: DBLevel = this._db): Promise<number> {
-    if (!this._running) {
-      throw new errors.ErrorDBNotRunning();
-    }
     let count = 0;
     for await (const _ of dbLevel.createKeyStream()) {
       count++;
@@ -310,14 +289,12 @@ class DB {
     key: string | Buffer,
     raw: true,
   ): Promise<Buffer | undefined>;
+  @ready(new errors.ErrorDBNotRunning())
   public async get<T>(
     domain: DBDomain,
     key: string | Buffer,
     raw: boolean = false,
   ): Promise<T | undefined> {
-    if (!this._running) {
-      throw new errors.ErrorDBNotRunning();
-    }
     let data;
     try {
       data = await this._db.get(utils.domainPath(domain, key));
@@ -342,30 +319,24 @@ class DB {
     value: Buffer,
     raw: true,
   ): Promise<void>;
+  @ready(new errors.ErrorDBNotRunning())
   public async put(
     domain: DBDomain,
     key: string | Buffer,
     value: any,
     raw: boolean = false,
   ): Promise<void> {
-    if (!this._running) {
-      throw new errors.ErrorDBNotRunning();
-    }
     const data = await this.serializeEncrypt(value, raw as any);
     return this._db.put(utils.domainPath(domain, key), data);
   }
 
+  @ready(new errors.ErrorDBNotRunning())
   public async del(domain: DBDomain, key: string | Buffer): Promise<void> {
-    if (!this._running) {
-      throw new errors.ErrorDBNotRunning();
-    }
     return this._db.del(utils.domainPath(domain, key));
   }
 
+  @ready(new errors.ErrorDBNotRunning())
   public async batch(ops: Readonly<DBOps>): Promise<void> {
-    if (!this._running) {
-      throw new errors.ErrorDBNotRunning();
-    }
     const opsP: Array<Promise<AbstractBatch> | AbstractBatch> = [];
     for (const op of ops) {
       if (op.type === 'del') {

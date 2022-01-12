@@ -1,4 +1,5 @@
 import type { DBOp } from '@/types';
+import type { DBWorkerModule } from './workers/dbWorkerModule';
 
 import os from 'os';
 import path from 'path';
@@ -8,7 +9,6 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
-import { DBWorkerModule } from './workers/dbWorkerModule';
 import * as utils from './utils';
 
 describe('DB', () => {
@@ -32,19 +32,19 @@ describe('DB', () => {
       recursive: true,
     });
   });
-  test('async construction constructs the db leveldb', async () => {
+  test('async construction constructs the filesystem state', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, logger });
     const dbPathContents = await fs.promises.readdir(dbPath);
     expect(dbPathContents.length).toBeGreaterThan(1);
     await db.stop();
   });
-  test('async destruction removes state', async () => {
+  test('async destruction removes filesystem state', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, logger });
     await db.stop();
     await db.destroy();
-    expect(fs.promises.readdir(dbPath)).rejects.toThrow(/ENOENT/);
+    await expect(fs.promises.readdir(dbPath)).rejects.toThrow(/ENOENT/);
   });
   test('async start and stop preserves state', async () => {
     const dbPath = `${dataDir}/db`;
@@ -67,6 +67,32 @@ describe('DB', () => {
     await db.start();
     expect(await db.get([], 'a')).toBe('value0');
     await db.stop();
+  });
+  test('async start and stop requires recreation of db levels', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, logger });
+    await db.start();
+    let level1 = await db.level('level1');
+    await db.put(['level1'], 'key', 'value');
+    await db.stop();
+    await db.start();
+    // The `level1` has to be recreated after `await db.stop()`
+    await expect(db.level('level2', level1)).rejects.toThrow(
+      /Inner database is not open/,
+    );
+    level1 = await db.level('level1');
+    await db.level('level2', level1);
+    expect(await db.get(['level1'], 'key')).toBe('value');
+    await db.stop();
+  });
+  test('creating fresh db', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db1 = await DB.createDB({ dbPath, logger });
+    await db1.put([], 'key', 'value');
+    await db1.stop();
+    const db2 = await DB.createDB({ dbPath, logger, fresh: true });
+    expect(await db2.get([], 'key')).toBeUndefined();
+    await db2.stop();
   });
   test('get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
