@@ -61,6 +61,23 @@ async function main () {
     );
   });
 
+  // ok if we need to base encode all the things
+
+  // right now the indexes don't work
+  // cause it tries to acquire the value straight away
+  // the only way would be do a compound index, where  you get 1!a title 2!a title
+  // but that doesn't seem to allow us to know how many there is
+  // so it has to be a sublevel
+  // a title is a sublevel -> pointing to indices
+  // but we will need to base encode to avoid the problem of using values there
+  // hex encoding is always lexicographic preserving
+
+  // if you're hashing you won't need to base encode at the end
+  // and therefore the sort order doesn't matter
+  // IdDeterministic can be used for that, as it is just hashing
+  // but if you are doing a base encoding
+  // then it would just be hex encoding
+
   const another = await new Promise<LevelUp>((resolve) => {
     const dbLevelNew = subleveldown(
       db,

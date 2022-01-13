@@ -29,6 +29,7 @@
     "level-hookdown": "^3.1.2",
     "level-idx": "^2.0.0",
     "levelup": "^5.0.1",
+    "multiformats": "^9.4.9",
     "sublevel-prefixer": "^1.0.0",
     "subleveldown": "^5.0.1",
     "threads": "^1.6.5",
