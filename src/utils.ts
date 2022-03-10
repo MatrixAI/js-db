@@ -3,7 +3,9 @@ import type { DBDomain } from './types';
 import sublevelprefixer from 'sublevel-prefixer';
 import * as dbErrors from './errors';
 
-const prefixer = sublevelprefixer('!');
+const prefix = '!';
+
+const prefixer = sublevelprefixer(prefix);
 
 function domainPath(levels: DBDomain, key: string | Buffer): string | Buffer {
   if (!levels.length) {
@@ -49,4 +51,11 @@ function fromArrayBuffer(
   return Buffer.from(b, offset, length);
 }
 
-export { domainPath, serialize, deserialize, toArrayBuffer, fromArrayBuffer };
+export {
+  prefix,
+  domainPath,
+  serialize,
+  deserialize,
+  toArrayBuffer,
+  fromArrayBuffer,
+};
