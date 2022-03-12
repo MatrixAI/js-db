@@ -72,6 +72,32 @@ async function decrypt(
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
 }
 
+/**
+ * Positive base 10 numbers to hex string
+ * Big-endian order
+ * Use parseInt for vice-versa
+ */
+function dec2Hex(dec: number, size: number): string {
+  dec %= 16 ** size;
+  // `>>>` coerces dec to unsigned integer
+  return (dec >>> 0).toString(16).padStart(size, '0');
+}
+
+/**
+ * Uint8Array to hex string
+ */
+function bytes2Hex(bytes: Uint8Array): string {
+  return [...bytes].map((n) => dec2Hex(n, 2)).join('');
+}
+
+/**
+ * Uint8Array to Positive BigInt
+ */
+function bytes2BigInt(bytes: Uint8Array): bigint {
+  const hex = bytes2Hex(bytes);
+  return BigInt('0x' + hex);
+}
+
 export {
   getRandomBytes,
   getRandomBytesSync,
@@ -79,4 +105,7 @@ export {
   generateKeySync,
   encrypt,
   decrypt,
+  dec2Hex,
+  bytes2Hex,
+  bytes2BigInt,
 };

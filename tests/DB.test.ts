@@ -4,6 +4,7 @@ import type { DBWorkerModule } from './workers/dbWorkerModule';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
+import nodeCrypto from 'crypto';
 import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
@@ -257,6 +258,29 @@ describe('DB', () => {
     }
     expect(keys).not.toEqual(keysIterated);
     expect(keys.sort()).toEqual(keysIterated);
+    await db.stop();
+  });
+  test('lexicographic buffer iteration order', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    const keys: Array<Buffer> = Array.from({ length: 100 }, () =>
+      nodeCrypto.randomBytes(3),
+    );
+    for (const k of keys) {
+      await db.put([], k, 'value');
+    }
+    const keysIterated: Array<Buffer> = [];
+    for await (const k of db.db.createKeyStream()) {
+      keysIterated.push(k as Buffer);
+    }
+    expect(keys).not.toStrictEqual(keysIterated);
+    expect(keys.sort(Buffer.compare)).toStrictEqual(keysIterated);
+    // Buffers can be considered can be considered big-endian numbers
+    const keysNumeric = keys.map(utils.bytes2BigInt);
+    // Therefore lexicographic ordering of buffers is equal to numeric ordering of bytes
+    expect(
+      keysNumeric.slice(1).every((item, i) => keysNumeric[i] <= item),
+    ).toBe(true);
     await db.stop();
   });
   test('lexicographic integer iteration', async () => {
