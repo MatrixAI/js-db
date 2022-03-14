@@ -1,6 +1,6 @@
 {
   "name": "@matrixai/db",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "author": "Roger Qiu",
   "description": "DB",
   "license": "Apache-2.0",
