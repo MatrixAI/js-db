@@ -1,26 +1,28 @@
-import type { AbstractBatch } from 'abstract-leveldown';
-import type { LevelDB } from 'level';
-import type { MutexInterface } from 'async-mutex';
 import type {
+  AbstractBatch,
+  AbstractIteratorOptions,
+} from 'abstract-leveldown';
+import type { LevelDB } from 'level';
+import type {
+  POJO,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
   DBDomain,
   DBLevel,
+  DBIterator,
   DBOps,
-  DBTransaction,
+  ResourceAcquire,
 } from './types';
-
 import level from 'level';
 import subleveldown from 'subleveldown';
 import { Transfer } from 'threads';
-import { Mutex } from 'async-mutex';
 import Logger from '@matrixai/logger';
 import {
   CreateDestroyStartStop,
   ready,
 } from '@matrixai/async-init/dist/CreateDestroyStartStop';
-import Transaction from './Transaction';
+import DBTransaction from './DBTransaction';
 import * as utils from './utils';
 import * as errors from './errors';
 
@@ -33,7 +35,6 @@ class DB {
   public static async createDB({
     dbPath,
     crypto,
-    lock = new Mutex(),
     fs = require('fs'),
     logger = new Logger(this.name),
     fresh = false,
@@ -43,7 +44,6 @@ class DB {
       key: Buffer;
       ops: Crypto;
     };
-    lock?: MutexInterface;
     fs?: FileSystem;
     logger?: Logger;
     fresh?: boolean;
@@ -52,7 +52,6 @@ class DB {
     const db = new DB({
       dbPath,
       crypto,
-      lock,
       fs,
       logger,
     });
@@ -67,16 +66,17 @@ class DB {
     key: Buffer;
     ops: Crypto;
   };
-  protected lock: MutexInterface;
   protected fs: FileSystem;
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
   protected _db: LevelDB<string | Buffer, Buffer>;
+  protected _dataDb: DBLevel;
+  protected _transactionsDb: DBLevel;
+  protected transactionCounter: number = 0;
 
   constructor({
     dbPath,
     crypto,
-    lock,
     fs,
     logger,
   }: {
@@ -85,23 +85,25 @@ class DB {
       key: Buffer;
       ops: Crypto;
     };
-    lock: MutexInterface;
     fs: FileSystem;
     logger: Logger;
   }) {
     this.logger = logger;
     this.dbPath = dbPath;
     this.crypto = crypto;
-    this.lock = lock;
     this.fs = fs;
   }
 
-  get db(): LevelDB<string, Buffer> {
+  get db(): LevelDB<string | Buffer, Buffer> {
     return this._db;
   }
 
-  get locked(): boolean {
-    return this.lock.isLocked();
+  get dataDb(): DBLevel {
+    return this._dataDb;
+  }
+
+  get transactionsDb(): DBLevel {
+    return this._transactionsDb;
   }
 
   public async start({
@@ -121,37 +123,11 @@ class DB {
         throw new errors.ErrorDBDelete(e.message, undefined, e);
       }
     }
-    try {
-      await this.fs.promises.mkdir(this.dbPath);
-    } catch (e) {
-      if (e.code !== 'EEXIST') {
-        throw new errors.ErrorDBCreate(e.message, undefined, e);
-      }
-    }
-    let dbLevel;
-    try {
-      dbLevel = await new Promise<LevelDB<string | Buffer, Buffer>>(
-        (resolve, reject) => {
-          const db = level(
-            this.dbPath,
-            {
-              keyEncoding: 'binary',
-              valueEncoding: 'binary',
-            },
-            (e) => {
-              if (e) {
-                reject(e);
-              } else {
-                resolve(db);
-              }
-            },
-          );
-        },
-      );
-    } catch (e) {
-      throw new errors.ErrorDBCreate(e.message, undefined, e);
-    }
-    this._db = dbLevel;
+    const db = await this.setupDb(this.dbPath);
+    const { dataDb, transactionsDb } = await this.setupRootLevels(db);
+    this._db = db;
+    this._dataDb = dataDb;
+    this._transactionsDb = transactionsDb;
     this.logger.info(`Started ${this.constructor.name}`);
   }
 
@@ -187,96 +163,109 @@ class DB {
     delete this.workerManager;
   }
 
-  public async withLocks<T>(
-    f: () => Promise<T>,
-    locks: Array<MutexInterface> = [this.lock],
-  ): Promise<T> {
-    const releases: Array<MutexInterface.Releaser> = [];
-    for (const l of locks) {
-      releases.push(await l.acquire());
-    }
-    try {
-      return await f();
-    } finally {
-      // Release them in the opposite order
-      releases.reverse();
-      for (const r of releases) {
-        r();
-      }
-    }
-  }
-
-  /**
-   * Attempts to lock in sequence
-   * If you don't pass any
-   * Then it will just lock globally
-   * Otherwise it tries to run the transaction
-   * And commits the operations at the very end
-   * This allows one to create a lock to be shared between mutliple transactions
-   */
   @ready(new errors.ErrorDBNotRunning())
-  public async transact<T>(
-    f: (t: DBTransaction) => Promise<T>,
-    locks: Array<MutexInterface> = [this.lock],
-  ): Promise<T> {
-    return this.withLocks(async () => {
-      const tran = new Transaction({ db: this, logger: this.logger });
-      let value: T;
-      try {
-        value = await f(tran);
-        await tran.commit();
-      } catch (e) {
-        await tran.rollback();
-        throw e;
-      }
-      // Only finalize if commit succeeded
-      await tran.finalize();
-      return value;
-    }, locks);
+  public transaction(): ResourceAcquire<DBTransaction> {
+    return async () => {
+      const transactionId = this.transactionCounter++;
+      const transactionDb = await this._level(
+        transactionId.toString(),
+        this.transactionsDb,
+      );
+      const tran = await DBTransaction.createTransaction({
+        db: this,
+        transactionId,
+        transactionDb,
+        logger: this.logger,
+      });
+      return [
+        async (e?: Error) => {
+          try {
+            if (e == null) {
+              try {
+                await tran.commit();
+              } catch (e) {
+                await tran.rollback();
+                throw e;
+              }
+              await tran.finalize();
+            } else {
+              await tran.rollback();
+            }
+          } finally {
+            await tran.destroy();
+          }
+        },
+        tran,
+      ];
+    };
   }
 
   @ready(new errors.ErrorDBNotRunning())
   public async level(
     domain: string,
-    dbLevel: DBLevel = this._db,
-  ): Promise<DBLevel> {
-    try {
-      return await new Promise<DBLevel>((resolve, reject) => {
-        const dbLevelNew = subleveldown(dbLevel, domain, {
-          keyEncoding: 'binary',
-          valueEncoding: 'binary',
-          open: (cb) => {
-            // This `cb` is defaulted (hardcoded) to a function that emits an error event
-            // When using `level`, we are able to provide a callback that overrides this `cb`
-            // However `subleveldown` does not provide a callback parameter
-            // It provides this `open` option, which requires us to call `cb` to finish
-            // If we provide an exception as a parameter, it will be received by the `error` event handler
-            cb(undefined);
-            resolve(dbLevelNew);
-          },
-        });
-        // @ts-ignore error event for subleveldown
-        dbLevelNew.on('error', (e) => {
-          // Errors during construction of the sublevel will be emitted as events
-          reject(e);
-        });
-      });
-    } catch (e) {
-      if (e instanceof RangeError) {
-        // Some domain prefixes will conflict with the separator
-        throw new errors.ErrorDBLevelPrefix();
+    dbLevel: DBLevel = this._dataDb,
+  ): ReturnType<DB['_level']> {
+    return this._level(domain, dbLevel);
+  }
+
+  public iterator(
+    options: AbstractIteratorOptions & { key: false; value: false },
+    dbLevel: DBLevel,
+  ): DBIterator<undefined, undefined>;
+  public iterator(
+    options: AbstractIteratorOptions & { key: false },
+    dbLevel: DBLevel,
+  ): DBIterator<undefined, Buffer>;
+  public iterator(
+    options: AbstractIteratorOptions & { value: false },
+    dbLevel: DBLevel,
+  ): DBIterator<Buffer, undefined>;
+  public iterator(
+    options?: AbstractIteratorOptions,
+    dbLevel?: DBLevel,
+  ): DBIterator<Buffer, Buffer>;
+  @ready(new errors.ErrorDBNotRunning())
+  public iterator(
+    options?: AbstractIteratorOptions,
+    dbLevel: DBLevel = this._dataDb,
+  ): DBIterator {
+    const iterator = dbLevel.iterator(options);
+    const next = iterator.next.bind(iterator);
+    // @ts-ignore AbstractIterator type is outdated
+    iterator.next = async (cb) => {
+      const kv = await next(cb);
+      if (kv != null) {
+        kv[1] = await this.deserializeDecrypt(kv[1], true);
       }
-      throw e;
-    }
+      return kv;
+    };
+    return iterator as unknown as DBIterator;
   }
 
   @ready(new errors.ErrorDBNotRunning())
-  public async count(dbLevel: DBLevel = this._db): Promise<number> {
+  public async clear(dbLevel: DBLevel = this._dataDb): Promise<void> {
+    await dbLevel.clear();
+  }
+
+  @ready(new errors.ErrorDBNotRunning())
+  public async count(dbLevel: DBLevel = this._dataDb): Promise<number> {
     let count = 0;
     for await (const _ of dbLevel.createKeyStream()) {
       count++;
     }
     return count;
+  }
+
+  @ready(new errors.ErrorDBNotRunning())
+  public async dump(dbLevel: DBLevel = this._dataDb): Promise<POJO> {
+    const records = {};
+    for await (const o of dbLevel.createReadStream()) {
+      const key = (o as any).key.toString();
+      const data = (o as any).value as Buffer;
+      const value = await this.deserializeDecrypt(data, false);
+      records[key] = value;
+    }
+    return records;
   }
 
   public async get<T>(
@@ -297,7 +286,7 @@ class DB {
   ): Promise<T | undefined> {
     let data;
     try {
-      data = await this._db.get(utils.domainPath(domain, key));
+      data = await this._dataDb.get(utils.domainPath(domain, key));
     } catch (e) {
       if (e.notFound) {
         return undefined;
@@ -327,12 +316,12 @@ class DB {
     raw: boolean = false,
   ): Promise<void> {
     const data = await this.serializeEncrypt(value, raw as any);
-    return this._db.put(utils.domainPath(domain, key), data);
+    return this._dataDb.put(utils.domainPath(domain, key), data);
   }
 
   @ready(new errors.ErrorDBNotRunning())
   public async del(domain: DBDomain, key: string | Buffer): Promise<void> {
-    return this._db.del(utils.domainPath(domain, key));
+    return this._dataDb.del(utils.domainPath(domain, key));
   }
 
   @ready(new errors.ErrorDBNotRunning())
@@ -357,7 +346,7 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    return this._db.batch(opsB);
+    return this._dataDb.batch(opsB);
   }
 
   public async serializeEncrypt(value: any, raw: false): Promise<Buffer>;
@@ -432,6 +421,87 @@ class DB {
       }
       const plainTextBuf = utils.fromArrayBuffer(decrypted);
       return raw ? plainTextBuf : utils.deserialize<T>(plainTextBuf);
+    }
+  }
+
+  protected async setupDb(
+    dbPath: string,
+  ): Promise<LevelDB<string | Buffer, Buffer>> {
+    try {
+      await this.fs.promises.mkdir(dbPath);
+    } catch (e) {
+      if (e.code !== 'EEXIST') {
+        throw new errors.ErrorDBCreate(e.message, undefined, e);
+      }
+    }
+    let db: LevelDB<string | Buffer, Buffer>;
+    try {
+      db = await new Promise<LevelDB<string | Buffer, Buffer>>(
+        (resolve, reject) => {
+          const db = level(
+            dbPath,
+            {
+              keyEncoding: 'binary',
+              valueEncoding: 'binary',
+            },
+            (e) => {
+              if (e) {
+                reject(e);
+              } else {
+                resolve(db);
+              }
+            },
+          );
+        },
+      );
+    } catch (e) {
+      throw new errors.ErrorDBCreate(e.message, undefined, e);
+    }
+    return db;
+  }
+
+  protected async setupRootLevels(
+    db: LevelDB<string | Buffer, Buffer>,
+  ): Promise<{
+    dataDb: DBLevel;
+    transactionsDb: DBLevel;
+  }> {
+    const dataDb = await this._level('data', db);
+    const transactionsDb = await this._level('transactions', db);
+    return {
+      dataDb,
+      transactionsDb,
+    };
+  }
+
+  protected async _level(domain: string, dbLevel: DBLevel): Promise<DBLevel> {
+    try {
+      return await new Promise<DBLevel>((resolve, reject) => {
+        const dbLevelNew = subleveldown(dbLevel, domain, {
+          keyEncoding: 'binary',
+          valueEncoding: 'binary',
+          open: (cb) => {
+            // This `cb` is defaulted (hardcoded) to a function that emits an error event
+            // When using `level`, we are able to provide a callback that overrides this `cb`
+            // However `subleveldown` does not provide a callback parameter
+            // It provides this `open` option, which requires us to call `cb` to finish
+            // If we provide an exception as a parameter, it will be received by the `error` event handler
+            cb(undefined);
+            resolve(dbLevelNew);
+          },
+        });
+        // @ts-ignore error event for subleveldown
+        dbLevelNew.on('error', (e) => {
+          // Errors during construction of the sublevel will be emitted as events
+          reject(e);
+        });
+      });
+    } catch (e) {
+      if (e instanceof RangeError) {
+        // Some domain prefixes will conflict with the separator
+        throw new errors.ErrorDBLevelPrefix();
+      }
+      throw e;
     }
   }
 }

@@ -30,11 +30,13 @@ class ErrorDBDecrypt extends ErrorDB {}
 
 class ErrorDBParse extends ErrorDB {}
 
-class ErrorDBCommitted extends ErrorDB {}
+class ErrorDBTransactionDestroyed extends ErrorDB {}
 
-class ErrorDBNotCommited extends ErrorDB {}
+class ErrorDBTransactionCommitted extends ErrorDB {}
 
-class ErrorDBRollbacked extends ErrorDB {}
+class ErrorDBTransactionNotCommited extends ErrorDB {}
+
+class ErrorDBTransactionRollbacked extends ErrorDB {}
 
 export {
   ErrorDB,
@@ -46,7 +48,8 @@ export {
   ErrorDBLevelPrefix,
   ErrorDBDecrypt,
   ErrorDBParse,
-  ErrorDBCommitted,
-  ErrorDBNotCommited,
-  ErrorDBRollbacked,
+  ErrorDBTransactionDestroyed,
+  ErrorDBTransactionCommitted,
+  ErrorDBTransactionNotCommited,
+  ErrorDBTransactionRollbacked,
 };

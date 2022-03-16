@@ -36,6 +36,17 @@ type DBLevel = LevelUp<
   AbstractIterator<Buffer, Buffer>
 >;
 
+/**
+ * Custom type for our iterator
+ * This takes over from the outdated AbstractIterator used in abstract-leveldown
+ */
+type DBIterator<K = Buffer | undefined, V = Buffer | undefined> = {
+  seek: (k: Buffer | string) => void;
+  next: () => Promise<[K, V] | undefined>;
+  end: () => Promise<void>;
+  [Symbol.asyncIterator]: () => AsyncGenerator<[K, V]>;
+};
+
 type DBOp_ =
   | {
       domain: DBDomain;
@@ -60,43 +71,15 @@ type DBOp =
 
 type DBOps = Array<DBOp>;
 
-interface DBTransaction {
-  ops: Readonly<DBOps>;
-  snap: ReadonlyMap<string, any>;
-  callbacksSuccess: Readonly<Array<() => any>>;
-  callbacksFailure: Readonly<Array<() => any>>;
-  committed: boolean;
+type ResourceAcquire<Resource = void> = () => Promise<
+  readonly [ResourceRelease, Resource?]
+>;
 
-  get<T>(
-    domain: DBDomain,
-    key: string | Buffer,
-    raw?: false,
-  ): Promise<T | undefined>;
-  get(
-    domain: DBDomain,
-    key: string | Buffer,
-    raw: true,
-  ): Promise<Buffer | undefined>;
+type ResourceRelease = (e?: Error) => Promise<void>;
 
-  put(
-    domain: DBDomain,
-    key: string | Buffer,
-    value: any,
-    raw?: false,
-  ): Promise<void>;
-  put(
-    domain: DBDomain,
-    key: string | Buffer,
-    value: Buffer,
-    raw: true,
-  ): Promise<void>;
-
-  del(domain: DBDomain, key: string | Buffer): Promise<void>;
-
-  queueSuccess(f: () => any): void;
-
-  queueFailure(f: () => any): void;
-}
+type Resources<T extends readonly ResourceAcquire<any>[]> = {
+  [K in keyof T]: T[K] extends ResourceAcquire<infer R> ? R : never;
+};
 
 export type {
   POJO,
@@ -105,7 +88,10 @@ export type {
   DBWorkerManagerInterface,
   DBDomain,
   DBLevel,
+  DBIterator,
   DBOp,
   DBOps,
-  DBTransaction,
+  ResourceAcquire,
+  ResourceRelease,
+  Resources,
 };
