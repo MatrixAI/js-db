@@ -1,6 +1,5 @@
 import type { DBOp } from '@/types';
 import type { DBWorkerModule } from './workers/dbWorkerModule';
-
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
@@ -10,15 +9,18 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
-import * as utils from './utils';
+import * as utils from '@/utils';
+import * as testUtils from './utils';
 
-describe('DB', () => {
-  const logger = new Logger('DB Test', LogLevel.WARN, [new StreamHandler()]);
+describe(DB.name, () => {
+  const logger = new Logger(`${DB.name} Test`, LogLevel.WARN, [
+    new StreamHandler(),
+  ]);
   const crypto = {
-    key: utils.generateKeySync(256),
+    key: testUtils.generateKeySync(256),
     ops: {
-      encrypt: utils.encrypt,
-      decrypt: utils.decrypt,
+      encrypt: testUtils.encrypt,
+      decrypt: testUtils.decrypt,
     },
   };
   let dataDir: string;
@@ -99,7 +101,6 @@ describe('DB', () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
-    await db.db.clear();
     await db.put([], 'a', 'value0');
     expect(await db.get([], 'a')).toBe('value0');
     await db.del([], 'a');
@@ -160,10 +161,10 @@ describe('DB', () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
-    await db.db.put('a', await db.serializeEncrypt('value0', false));
+    await db.dataDb.put('a', await db.serializeEncrypt('value0', false));
     expect(await db.get([], 'a')).toBe('value0');
     await db.put([], 'b', 'value0');
-    expect(await db.deserializeDecrypt(await db.db.get('b'), false)).toBe(
+    expect(await db.deserializeDecrypt(await db.dataDb.get('b'), false)).toBe(
       'value0',
     );
     const level1 = await db.level('level1');
@@ -252,7 +253,7 @@ describe('DB', () => {
       await db.put([], k, 'value');
     }
     const keysIterated: Array<string> = [];
-    for await (const k of db.db.createKeyStream()) {
+    for await (const k of db.dataDb.createKeyStream()) {
       // Keys are buffers due to key encoding
       keysIterated.push(k.toString('utf-8'));
     }
@@ -270,13 +271,13 @@ describe('DB', () => {
       await db.put([], k, 'value');
     }
     const keysIterated: Array<Buffer> = [];
-    for await (const k of db.db.createKeyStream()) {
+    for await (const k of db.dataDb.createKeyStream()) {
       keysIterated.push(k as Buffer);
     }
     expect(keys).not.toStrictEqual(keysIterated);
     expect(keys.sort(Buffer.compare)).toStrictEqual(keysIterated);
     // Buffers can be considered can be considered big-endian numbers
-    const keysNumeric = keys.map(utils.bytes2BigInt);
+    const keysNumeric = keys.map(testUtils.bytes2BigInt);
     // Therefore lexicographic ordering of buffers is equal to numeric ordering of bytes
     expect(
       keysNumeric.slice(1).every((item, i) => keysNumeric[i] <= item),
@@ -294,7 +295,7 @@ describe('DB', () => {
       await db.put([], Buffer.from(lexi.pack(k)), 'value');
     }
     const keysIterated: Array<number> = [];
-    for await (const k of db.db.createKeyStream()) {
+    for await (const k of db.dataDb.createKeyStream()) {
       // Keys are buffers due to key encoding
       keysIterated.push(lexi.unpack([...k]));
     }
@@ -341,7 +342,6 @@ describe('DB', () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
     await db.start();
-    await db.db.clear();
     // 'string' is the same as Buffer.from('string')
     // even across levels
     await db.put([], 'string', 'value1');
@@ -373,7 +373,7 @@ describe('DB', () => {
     await db.put([], 'b', 'value1');
     await db.put([], 'c', 'value2');
     await db.put([], 'd', 'value3');
-    const keyStream = db.db.createKeyStream();
+    const keyStream = db.dataDb.createKeyStream();
     const ops = await new Promise<Array<DBOp>>((resolve, reject) => {
       const ops: Array<DBOp> = [];
       keyStream.on('data', (k) => {
@@ -396,6 +396,45 @@ describe('DB', () => {
     expect(await db.get([], 'b')).toBeUndefined();
     expect(await db.get([], 'c')).toBeUndefined();
     expect(await db.get([], 'd')).toBeUndefined();
+    await db.stop();
+  });
+  test('iterating sublevels', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    await db.put([], 'a', 'value0');
+    await db.put([], 'b', 'value1');
+    await db.put([], 'c', 'value2');
+    await db.put([], 'd', 'value3');
+    await db.put(['level1'], 'a', 'value0');
+    await db.put(['level1'], 'b', 'value1');
+    await db.put(['level1'], 'c', 'value2');
+    await db.put(['level1'], 'd', 'value3');
+    let results: Array<[string, string]>;
+    results = [];
+    for await (const [k, v] of db.iterator()) {
+      results.push([k.toString(), JSON.parse(v.toString())]);
+    }
+    expect(results).toStrictEqual([
+      [`${utils.prefix}level1${utils.prefix}a`, 'value0'],
+      [`${utils.prefix}level1${utils.prefix}b`, 'value1'],
+      [`${utils.prefix}level1${utils.prefix}c`, 'value2'],
+      [`${utils.prefix}level1${utils.prefix}d`, 'value3'],
+      ['a', 'value0'],
+      ['b', 'value1'],
+      ['c', 'value2'],
+      ['d', 'value3'],
+    ]);
+    results = [];
+    const level1 = await db.level('level1');
+    for await (const [k, v] of db.iterator(undefined, level1)) {
+      results.push([k.toString(), JSON.parse(v.toString())]);
+    }
+    expect(results).toStrictEqual([
+      ['a', 'value0'],
+      ['b', 'value1'],
+      ['c', 'value2'],
+      ['d', 'value3'],
+    ]);
     await db.stop();
   });
   test('counting sublevels', async () => {
@@ -438,7 +477,6 @@ describe('DB', () => {
       });
     db.setWorkerManager(workerManager);
     await db.start();
-    await db.db.clear();
     await db.put([], 'a', 'value0');
     expect(await db.get([], 'a')).toBe('value0');
     await db.del([], 'a');
@@ -508,7 +546,6 @@ describe('DB', () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, logger });
     await db.start();
-    await db.db.clear();
     await db.put([], 'a', 'value0');
     expect(await db.get([], 'a')).toBe('value0');
     await db.del([], 'a');

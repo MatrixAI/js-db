@@ -1,5 +1,4 @@
 import type { DBDomain } from './types';
-
 import sublevelprefixer from 'sublevel-prefixer';
 import * as dbErrors from './errors';
 

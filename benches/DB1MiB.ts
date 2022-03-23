@@ -11,11 +11,10 @@ const logger = new Logger('DB1MiB Bench', LogLevel.WARN, [new StreamHandler()]);
 
 async function main() {
   const dataDir = await fs.promises.mkdtemp(
-    path.join(os.tmpdir(), 'encryptedfs-benches-'),
+    path.join(os.tmpdir(), 'db-benches-'),
   );
   const dbPath = `${dataDir}/db`;
   const db = await DB.createDB({ dbPath, logger });
-  await db.start();
   const data0 = crypto.randomBytes(0);
   const data1MiB = crypto.randomBytes(1024 * 1024);
   const summary = await b.suite(
