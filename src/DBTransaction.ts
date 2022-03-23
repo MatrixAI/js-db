@@ -117,15 +117,6 @@ class DBTransaction {
     return records;
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async count(domain: DBDomain = []): Promise<number> {
-    let count = 0;
-    for await (const _ of await this.iterator(undefined, domain)) {
-      count++;
-    }
-    return count;
-  }
-
   public async iterator(
     options: AbstractIteratorOptions & { values: false },
     domain?: DBDomain,
@@ -266,6 +257,22 @@ class DBTransaction {
       },
     };
     return iterator;
+  }
+
+  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  public async clear(domain: DBDomain = []): Promise<void> {
+    for await (const [k] of await this.iterator({ values: false }, domain)) {
+      await this.del(domain, k);
+    }
+  }
+
+  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  public async count(domain: DBDomain = []): Promise<number> {
+    let count = 0;
+    for await (const _ of await this.iterator({ values: false }, domain)) {
+      count++;
+    }
+    return count;
   }
 
   public async get<T>(

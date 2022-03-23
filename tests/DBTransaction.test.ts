@@ -83,6 +83,40 @@ describe(DBTransaction.name, () => {
     // Transaction state is cleared
     expect(await db.dump(db.transactionsDb)).toStrictEqual({});
   });
+  test('transactional clear', async () => {
+    await db.put([], '1', '1');
+    await db.put([], '2', '2');
+    await db.put([], '3', '3');
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.clear();
+    });
+    expect(await db.dump()).toStrictEqual({});
+    await db.clear();
+    await db.put([], '1', '1');
+    await db.put(['level1'], '2', '2');
+    await db.put(['level1', 'level2'], '3', '3');
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.clear(['level1']);
+    });
+    expect(await db.dump()).toStrictEqual({
+      '1': '1',
+    });
+  });
+  test('transactional count', async () => {
+    await db.put([], '1', '1');
+    await db.put([], '2', '2');
+    await db.put([], '3', '3');
+    await withF([db.transaction()], async ([tran]) => {
+      expect(await tran.count()).toBe(3);
+    });
+    await db.clear();
+    await db.put([], '1', '1');
+    await db.put(['level1'], '2', '2');
+    await db.put(['level1', 'level2'], '3', '3');
+    await withF([db.transaction()], async ([tran]) => {
+      expect(await tran.count(['level1'])).toBe(2);
+    });
+  });
   test('no dirty reads', async () => {
     await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get([], 'hello')).toBeUndefined();

@@ -468,6 +468,8 @@ class DB {
   }> {
     const dataDb = await this._level('data', db);
     const transactionsDb = await this._level('transactions', db);
+    // Clear any dirty state in the transactions
+    await transactionsDb.clear();
     return {
       dataDb,
       transactionsDb,
