@@ -3,6 +3,7 @@ import type {
   AbstractIteratorOptions,
 } from 'abstract-leveldown';
 import type { LevelDB } from 'level';
+import type { ResourceAcquire } from '@matrixai/resources';
 import type {
   POJO,
   FileSystem,
@@ -12,7 +13,6 @@ import type {
   DBLevel,
   DBIterator,
   DBOps,
-  ResourceAcquire,
 } from './types';
 import level from 'level';
 import subleveldown from 'subleveldown';

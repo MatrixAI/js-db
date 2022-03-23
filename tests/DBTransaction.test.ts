@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
+import { withF } from '@matrixai/resources';
 import DB from '@/DB';
 import DBTransaction from '@/DBTransaction';
 import * as utils from '@/utils';
@@ -53,7 +54,7 @@ describe(DBTransaction.name, () => {
     expect(await db.dump(db.transactionsDb)).toStrictEqual({});
   });
   test('get, put and del', async () => {
-    const p = utils.withF([db.transaction()], async ([tran]) => {
+    const p = withF([db.transaction()], async ([tran]) => {
       expect(await tran.get([], 'foo')).toBeUndefined();
       // Add foo -> bar to the transaction
       await tran.put([], 'foo', 'bar');
@@ -83,19 +84,19 @@ describe(DBTransaction.name, () => {
     expect(await db.dump(db.transactionsDb)).toStrictEqual({});
   });
   test('no dirty reads', async () => {
-    await utils.withF([db.transaction()], async ([tran1]) => {
+    await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get([], 'hello')).toBeUndefined();
-      await utils.withF([db.transaction()], async ([tran2]) => {
+      await withF([db.transaction()], async ([tran2]) => {
         await tran2.put([], 'hello', 'world');
         // `tran2` has not yet committed
         expect(await tran1.get([], 'hello')).toBeUndefined();
       });
     });
     await db.clear();
-    await utils.withF([db.transaction()], async ([tran1]) => {
+    await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get([], 'hello')).toBeUndefined();
       await tran1.put([], 'hello', 'foo');
-      await utils.withF([db.transaction()], async ([tran2]) => {
+      await withF([db.transaction()], async ([tran2]) => {
         // `tran1` has not yet committed
         expect(await tran2.get([], 'hello')).toBeUndefined();
         await tran2.put([], 'hello', 'bar');
@@ -105,19 +106,19 @@ describe(DBTransaction.name, () => {
     });
   });
   test('non-repeatable reads', async () => {
-    await utils.withF([db.transaction()], async ([tran1]) => {
+    await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get([], 'hello')).toBeUndefined();
-      await utils.withF([db.transaction()], async ([tran2]) => {
+      await withF([db.transaction()], async ([tran2]) => {
         await tran2.put([], 'hello', 'world');
       });
       // `tran2` is now committed
       expect(await tran1.get([], 'hello')).toBe('world');
     });
     await db.clear();
-    await utils.withF([db.transaction()], async ([tran1]) => {
+    await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get([], 'hello')).toBeUndefined();
       await tran1.put([], 'hello', 'foo');
-      await utils.withF([db.transaction()], async ([tran2]) => {
+      await withF([db.transaction()], async ([tran2]) => {
         // `tran1` has not yet committed
         expect(await tran2.get([], 'hello')).toBeUndefined();
         await tran2.put([], 'hello', 'bar');
@@ -132,7 +133,7 @@ describe(DBTransaction.name, () => {
     await db.put([], '2', '2');
     await db.put([], '3', '3');
     let rows: Array<[string, string]>;
-    await utils.withF([db.transaction()], async ([tran1]) => {
+    await withF([db.transaction()], async ([tran1]) => {
       rows = [];
       for await (const [k, v] of await tran1.iterator()) {
         rows.push([k.toString(), JSON.parse(v.toString())]);
@@ -142,7 +143,7 @@ describe(DBTransaction.name, () => {
         ['2', '2'],
         ['3', '3'],
       ]);
-      await utils.withF([db.transaction()], async ([tran2]) => {
+      await withF([db.transaction()], async ([tran2]) => {
         await tran2.del([], '1');
         await tran2.put([], '4', '4');
         rows = [];
@@ -167,9 +168,9 @@ describe(DBTransaction.name, () => {
     });
   });
   test('lost updates', async () => {
-    await utils.withF([db.transaction()], async ([tran1]) => {
+    await withF([db.transaction()], async ([tran1]) => {
       await tran1.put([], 'hello', 'foo');
-      await utils.withF([db.transaction()], async ([tran2]) => {
+      await withF([db.transaction()], async ([tran2]) => {
         await tran2.put([], 'hello', 'bar');
       });
       expect(await tran1.get([], 'hello')).toBe('foo');
@@ -200,7 +201,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
     await db.put([], 'k', 'k');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -247,7 +248,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
     await db.put([], 'k', 'k');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -294,7 +295,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'd', 'd');
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -337,7 +338,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'd', 'd');
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -380,7 +381,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'd', 'd');
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -419,7 +420,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'd', 'd');
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -464,7 +465,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
     await db.put([], 'k', 'k');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -510,7 +511,7 @@ describe(DBTransaction.name, () => {
     await db.put([], 'e', 'e');
     await db.put([], 'h', 'h');
     await db.put([], 'k', 'k');
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       await tran.put([], 'a', '1');
       await tran.put([], 'c', '3');
       await tran.put([], 'e', '5');
@@ -558,7 +559,7 @@ describe(DBTransaction.name, () => {
       results.push(2);
     });
     const mockFailure = jest.fn();
-    await utils.withF([db.transaction()], async ([tran]) => {
+    await withF([db.transaction()], async ([tran]) => {
       tran.queueSuccess(mockSuccess1);
       tran.queueSuccess(mockSuccess2);
       tran.queueFailure(mockFailure);
@@ -578,7 +579,7 @@ describe(DBTransaction.name, () => {
       results.push(2);
     });
     await expect(
-      utils.withF([db.transaction()], async ([tran]) => {
+      withF([db.transaction()], async ([tran]) => {
         tran.queueSuccess(mockSuccess);
         tran.queueFailure(mockFailure1);
         tran.queueFailure(mockFailure2);
@@ -595,7 +596,7 @@ describe(DBTransaction.name, () => {
     await db.put([], '2', 'b');
     const mockFailure = jest.fn();
     await expect(
-      utils.withF([db.transaction()], async ([tran]) => {
+      withF([db.transaction()], async ([tran]) => {
         await tran.put([], '1', '1');
         await tran.put([], '2', '2');
         tran.queueFailure(mockFailure);

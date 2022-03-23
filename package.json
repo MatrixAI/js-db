@@ -22,6 +22,7 @@
   "dependencies": {
     "@matrixai/async-init": "^1.6.0",
     "@matrixai/logger": "^2.1.0",
+    "@matrixai/resources": "^1.0.0",
     "@matrixai/workers": "^1.2.5",
     "abstract-leveldown": "^7.2.0",
     "level": "7.0.1",
