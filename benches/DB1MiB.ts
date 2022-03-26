@@ -20,20 +20,20 @@ async function main() {
   const summary = await b.suite(
     'DB1MiB',
     b.add('get 1 MiB of data', async () => {
-      await db.put([], '1kib', data1MiB, true);
+      await db.put('1kib', data1MiB, true);
       return async () => {
-        await db.get([], '1kib', true);
+        await db.get('1kib', true);
       };
     }),
     b.add('put 1 MiB of data', async () => {
-      await db.put([], '1kib', data1MiB, true);
+      await db.put('1kib', data1MiB, true);
     }),
     b.add('put zero data', async () => {
-      await db.put([], '0', data0, true);
+      await db.put('0', data0, true);
     }),
     b.add('put zero data then del', async () => {
-      await db.put([], '0', data0, true);
-      await db.del([], '0');
+      await db.put('0', data0, true);
+      await db.del('0');
     }),
     b.cycle(),
     b.complete(),

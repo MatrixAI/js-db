@@ -5,17 +5,15 @@ import type {
 import type { LevelDB } from 'level';
 import type { ResourceAcquire } from '@matrixai/resources';
 import type {
-  POJO,
+  KeyPath,
+  LevelPath,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
-  DBDomain,
-  DBLevel,
   DBIterator,
   DBOps,
 } from './types';
 import level from 'level';
-import subleveldown from 'subleveldown';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import {
@@ -70,8 +68,6 @@ class DB {
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
   protected _db: LevelDB<string | Buffer, Buffer>;
-  protected _dataDb: DBLevel;
-  protected _transactionsDb: DBLevel;
   protected transactionCounter: number = 0;
 
   constructor({
@@ -94,16 +90,8 @@ class DB {
     this.fs = fs;
   }
 
-  get db(): LevelDB<string | Buffer, Buffer> {
+  get db(): Readonly<LevelDB<string | Buffer, Buffer>> {
     return this._db;
-  }
-
-  get dataDb(): DBLevel {
-    return this._dataDb;
-  }
-
-  get transactionsDb(): DBLevel {
-    return this._transactionsDb;
   }
 
   public async start({
@@ -124,16 +112,14 @@ class DB {
       }
     }
     const db = await this.setupDb(this.dbPath);
-    const { dataDb, transactionsDb } = await this.setupRootLevels(db);
+    await this.setupRootLevels(db);
     this._db = db;
-    this._dataDb = dataDb;
-    this._transactionsDb = transactionsDb;
     this.logger.info(`Started ${this.constructor.name}`);
   }
 
   public async stop(): Promise<void> {
     this.logger.info(`Stopping ${this.constructor.name}`);
-    await this.db.close();
+    await this._db.close();
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
@@ -167,14 +153,9 @@ class DB {
   public transaction(): ResourceAcquire<DBTransaction> {
     return async () => {
       const transactionId = this.transactionCounter++;
-      const transactionDb = await this._level(
-        transactionId.toString(),
-        this.transactionsDb,
-      );
       const tran = await DBTransaction.createTransaction({
         db: this,
         transactionId,
-        transactionDb,
         logger: this.logger,
       });
       return [
@@ -200,93 +181,47 @@ class DB {
     };
   }
 
-  @ready(new errors.ErrorDBNotRunning())
-  public async level(
-    domain: string,
-    dbLevel: DBLevel = this._dataDb,
-  ): ReturnType<DB['_level']> {
-    return this._level(domain, dbLevel);
-  }
-
-  public iterator(
-    options: AbstractIteratorOptions & { key: false; value: false },
-    dbLevel: DBLevel,
-  ): DBIterator<undefined, undefined>;
-  public iterator(
-    options: AbstractIteratorOptions & { key: false },
-    dbLevel: DBLevel,
-  ): DBIterator<undefined, Buffer>;
-  public iterator(
-    options: AbstractIteratorOptions & { value: false },
-    dbLevel: DBLevel,
-  ): DBIterator<Buffer, undefined>;
-  public iterator(
-    options?: AbstractIteratorOptions,
-    dbLevel?: DBLevel,
-  ): DBIterator<Buffer, Buffer>;
-  @ready(new errors.ErrorDBNotRunning())
-  public iterator(
-    options?: AbstractIteratorOptions,
-    dbLevel: DBLevel = this._dataDb,
-  ): DBIterator {
-    const iterator = dbLevel.iterator(options);
-    const next = iterator.next.bind(iterator);
-    // @ts-ignore AbstractIterator type is outdated
-    iterator.next = async (cb) => {
-      const kv = await next(cb);
-      if (kv != null) {
-        kv[1] = await this.deserializeDecrypt(kv[1], true);
-      }
-      return kv;
-    };
-    return iterator as unknown as DBIterator;
-  }
-
-  @ready(new errors.ErrorDBNotRunning())
-  public async clear(dbLevel: DBLevel = this._dataDb): Promise<void> {
-    await dbLevel.clear();
-  }
-
-  @ready(new errors.ErrorDBNotRunning())
-  public async count(dbLevel: DBLevel = this._dataDb): Promise<number> {
-    let count = 0;
-    for await (const _ of dbLevel.createKeyStream()) {
-      count++;
-    }
-    return count;
-  }
-
-  @ready(new errors.ErrorDBNotRunning())
-  public async dump(dbLevel: DBLevel = this._dataDb): Promise<POJO> {
-    const records = {};
-    for await (const o of dbLevel.createReadStream()) {
-      const key = (o as any).key.toString();
-      const data = (o as any).value as Buffer;
-      const value = await this.deserializeDecrypt(data, false);
-      records[key] = value;
-    }
-    return records;
-  }
-
+  /**
+   * Gets a value from the DB
+   * Use raw to return the raw decrypted buffer
+   */
   public async get<T>(
-    domain: DBDomain,
-    key: string | Buffer,
+    keyPath: KeyPath | string | Buffer,
     raw?: false,
   ): Promise<T | undefined>;
   public async get(
-    domain: DBDomain,
-    key: string | Buffer,
+    keyPath: KeyPath | string | Buffer,
     raw: true,
   ): Promise<Buffer | undefined>;
   @ready(new errors.ErrorDBNotRunning())
   public async get<T>(
-    domain: DBDomain,
-    key: string | Buffer,
+    keyPath: KeyPath | string | Buffer,
+    raw: boolean = false,
+  ): Promise<T | undefined> {
+    if (!Array.isArray(keyPath)) {
+      keyPath = [keyPath] as KeyPath;
+    }
+    keyPath = ['data', ...keyPath];
+    if (utils.checkSepKeyPath(keyPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    return this._get<T>(keyPath, raw as any);
+  }
+
+  /**
+   * Get from root level
+   * @internal
+   */
+  public async _get<T>(keyPath: KeyPath, raw?: false): Promise<T | undefined>;
+  public async _get(keyPath: KeyPath, raw: true): Promise<Buffer | undefined>;
+  public async _get<T>(
+    keyPath: KeyPath,
     raw: boolean = false,
   ): Promise<T | undefined> {
     let data;
     try {
-      data = await this._dataDb.get(utils.domainPath(domain, key));
+      const key = utils.keyPathToKey(keyPath);
+      data = await this._db.get(key);
     } catch (e) {
       if (e.notFound) {
         return undefined;
@@ -296,49 +231,99 @@ class DB {
     return this.deserializeDecrypt<T>(data, raw as any);
   }
 
+  /**
+   * Put a key and value into the DB
+   * Use raw to put raw encrypted buffer
+   */
   public async put(
-    domain: DBDomain,
-    key: string | Buffer,
+    keyPath: KeyPath | string | Buffer,
     value: any,
     raw?: false,
   ): Promise<void>;
   public async put(
-    domain: DBDomain,
-    key: string | Buffer,
+    keyPath: KeyPath | string | Buffer,
     value: Buffer,
     raw: true,
   ): Promise<void>;
   @ready(new errors.ErrorDBNotRunning())
   public async put(
-    domain: DBDomain,
-    key: string | Buffer,
+    keyPath: KeyPath | string | Buffer,
+    value: any,
+    raw: boolean = false,
+  ): Promise<void> {
+    if (!Array.isArray(keyPath)) {
+      keyPath = [keyPath] as KeyPath;
+    }
+    keyPath = ['data', ...keyPath];
+    if (utils.checkSepKeyPath(keyPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    return this._put(keyPath, value, raw as any);
+  }
+
+  /**
+   * Put from root level
+   * @internal
+   */
+  public async _put(keyPath: KeyPath, value: any, raw?: false): Promise<void>;
+  public async _put(keyPath: KeyPath, value: Buffer, raw: true): Promise<void>;
+  public async _put(
+    keyPath: KeyPath,
     value: any,
     raw: boolean = false,
   ): Promise<void> {
     const data = await this.serializeEncrypt(value, raw as any);
-    return this._dataDb.put(utils.domainPath(domain, key), data);
+    return this._db.put(utils.keyPathToKey(keyPath), data);
   }
 
+  /**
+   * Deletes a key from the DB
+   */
   @ready(new errors.ErrorDBNotRunning())
-  public async del(domain: DBDomain, key: string | Buffer): Promise<void> {
-    return this._dataDb.del(utils.domainPath(domain, key));
+  public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
+    if (!Array.isArray(keyPath)) {
+      keyPath = [keyPath] as KeyPath;
+    }
+    keyPath = ['data', ...keyPath];
+    if (utils.checkSepKeyPath(keyPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    return this._del(keyPath);
   }
 
+  /**
+   * Delete from root level
+   * @internal
+   */
+  public async _del(keyPath: KeyPath): Promise<void> {
+    return this._db.del(utils.keyPathToKey(keyPath));
+  }
+
+  /**
+   * Batches operations together atomically
+   */
   @ready(new errors.ErrorDBNotRunning())
   public async batch(ops: Readonly<DBOps>): Promise<void> {
     const opsP: Array<Promise<AbstractBatch> | AbstractBatch> = [];
     for (const op of ops) {
+      if (!Array.isArray(op.keyPath)) {
+        op.keyPath = [op.keyPath] as KeyPath;
+      }
+      op.keyPath = ['data', ...op.keyPath];
+      if (utils.checkSepKeyPath(op.keyPath)) {
+        throw new errors.ErrorDBLevelSep();
+      }
       if (op.type === 'del') {
         opsP.push({
           type: op.type,
-          key: utils.domainPath(op.domain, op.key),
+          key: utils.keyPathToKey(op.keyPath),
         });
       } else {
         opsP.push(
           this.serializeEncrypt(op.value, (op.raw === true) as any).then(
             (data) => ({
               type: op.type,
-              key: utils.domainPath(op.domain, op.key),
+              key: utils.keyPathToKey(op.keyPath as KeyPath),
               value: data,
             }),
           ),
@@ -346,7 +331,233 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    return this._dataDb.batch(opsB);
+    return this._db.batch(opsB);
+  }
+
+  /**
+   * Batch from root level
+   * @internal
+   */
+  public async _batch(ops: Readonly<DBOps>): Promise<void> {
+    const opsP: Array<Promise<AbstractBatch> | AbstractBatch> = [];
+    for (const op of ops) {
+      if (!Array.isArray(op.keyPath)) {
+        op.keyPath = [op.keyPath] as KeyPath;
+      }
+      if (op.type === 'del') {
+        opsP.push({
+          type: op.type,
+          key: utils.keyPathToKey(op.keyPath as KeyPath),
+        });
+      } else {
+        opsP.push(
+          this.serializeEncrypt(op.value, (op.raw === true) as any).then(
+            (data) => ({
+              type: op.type,
+              key: utils.keyPathToKey(op.keyPath as KeyPath),
+              value: data,
+            }),
+          ),
+        );
+      }
+    }
+    const opsB = await Promise.all(opsP);
+    return this._db.batch(opsB);
+  }
+
+  /**
+   * Public iterator that works from the data level
+   * If keys and values are both false, this iterator will not run at all
+   * You must have at least one of them being true or undefined
+   */
+  public iterator(
+    options: AbstractIteratorOptions & { keys: false; values: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, undefined>;
+  public iterator(
+    options: AbstractIteratorOptions & { keys: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, Buffer>;
+  public iterator(
+    options: AbstractIteratorOptions & { values: false },
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, undefined>;
+  public iterator(
+    options?: AbstractIteratorOptions,
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, Buffer>;
+  @ready(new errors.ErrorDBNotRunning())
+  public iterator(
+    options?: AbstractIteratorOptions,
+    levelPath: LevelPath = [],
+  ): DBIterator {
+    levelPath = ['data', ...levelPath];
+    if (utils.checkSepLevelPath(levelPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    return this._iterator(this._db, options, levelPath);
+  }
+
+  /**
+   * Iterator from root level
+   * @internal
+   */
+  public _iterator(
+    db: LevelDB,
+    options: AbstractIteratorOptions & { keys: false; values: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, undefined>;
+  public _iterator(
+    db: LevelDB,
+    options: AbstractIteratorOptions & { keys: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, Buffer>;
+  public _iterator(
+    db: LevelDB,
+    options: AbstractIteratorOptions & { values: false },
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, undefined>;
+  public _iterator(
+    db: LevelDB,
+    options?: AbstractIteratorOptions,
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, Buffer>;
+  public _iterator(
+    db: LevelDB,
+    options?: AbstractIteratorOptions,
+    levelPath: LevelPath = [],
+  ): DBIterator {
+    options = options ?? {};
+    const levelKeyStart = utils.levelPathToKey(levelPath);
+    if (options.gt != null) {
+      options.gt = Buffer.concat([
+        levelKeyStart,
+        typeof options.gt === 'string' ? Buffer.from(options.gt) : options.gt,
+      ]);
+    }
+    if (options.gte != null) {
+      options.gte = Buffer.concat([
+        levelKeyStart,
+        typeof options.gte === 'string'
+          ? Buffer.from(options.gte)
+          : options.gte,
+      ]);
+    }
+    if (options.gt == null && options.gte == null) {
+      options.gt = levelKeyStart;
+    }
+    if (options?.lt != null) {
+      options.lt = Buffer.concat([
+        levelKeyStart,
+        typeof options.lt === 'string' ? Buffer.from(options.lt) : options.lt,
+      ]);
+    }
+    if (options?.lte != null) {
+      options.lte = Buffer.concat([
+        levelKeyStart,
+        typeof options.lte === 'string'
+          ? Buffer.from(options.lte)
+          : options.lte,
+      ]);
+    }
+    if (options.lt == null && options.lte == null) {
+      const levelKeyEnd = Buffer.from(levelKeyStart);
+      levelKeyEnd[levelKeyEnd.length - 1] += 1;
+      options.lt = levelKeyEnd;
+    }
+    const iterator = db.iterator(options);
+    const seek = iterator.seek.bind(iterator);
+    const next = iterator.next.bind(iterator);
+    // @ts-ignore AbstractIterator type is outdated
+    iterator.seek = (k: Buffer | string): void => {
+      seek(utils.keyPathToKey([...levelPath, k] as unknown as KeyPath));
+    };
+    // @ts-ignore AbstractIterator type is outdated
+    iterator.next = async () => {
+      const kv = await next();
+      // If kv is undefined, we have reached the end of iteration
+      if (kv != null) {
+        // Handle keys: false
+        if (kv[0] != null) {
+          // Truncate level path so the returned key is relative to the level path
+          const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
+          kv[0] = utils.keyPathToKey(keyPath as unknown as KeyPath);
+        }
+        // Handle values: false
+        if (kv[1] != null) {
+          kv[1] = await this.deserializeDecrypt(kv[1], true);
+        }
+      }
+      return kv;
+    };
+    return iterator as unknown as DBIterator;
+  }
+
+  /**
+   * Clear all key values for a specific level
+   * This is not atomic, it will iterate over a snapshot of the DB
+   */
+  @ready(new errors.ErrorDBNotRunning())
+  public async clear(levelPath: LevelPath = []): Promise<void> {
+    levelPath = ['data', ...levelPath];
+    if (utils.checkSepLevelPath(levelPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    await this._clear(this._db, levelPath);
+  }
+
+  /**
+   * Clear from root level
+   * @internal
+   */
+  public async _clear(db: LevelDB, levelPath: LevelPath = []): Promise<void> {
+    for await (const [k] of this._iterator(db, { values: false }, levelPath)) {
+      await db.del(utils.keyPathToKey([...levelPath, k] as unknown as KeyPath));
+    }
+  }
+
+  @ready(new errors.ErrorDBNotRunning())
+  public async count(levelPath: LevelPath = []): Promise<number> {
+    let count = 0;
+    for await (const _ of this.iterator({ values: false }, levelPath)) {
+      count++;
+    }
+    return count;
+  }
+
+  /**
+   * Dump from root level
+   * It is intended for diagnostics
+   */
+  public async dump(
+    levelPath?: LevelPath,
+    raw?: false,
+  ): Promise<Array<[string, any]>>;
+  public async dump(
+    levelPath: LevelPath | undefined,
+    raw: true,
+  ): Promise<Array<[Buffer, Buffer]>>;
+  @ready(new errors.ErrorDBNotRunning())
+  public async dump(
+    levelPath: LevelPath = [],
+    raw: boolean = false,
+  ): Promise<Array<[string | Buffer, any]>> {
+    if (utils.checkSepLevelPath(levelPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    const records: Array<[string | Buffer, any]> = [];
+    for await (const [k, v] of this._iterator(this._db, undefined, levelPath)) {
+      let key: string | Buffer, value: any;
+      if (raw) {
+        key = k;
+        value = v;
+      } else {
+        key = k.toString('utf-8');
+        value = utils.deserialize(v);
+      }
+      records.push([key, value]);
+    }
+    return records;
   }
 
   public async serializeEncrypt(value: any, raw: false): Promise<Buffer>;
@@ -460,51 +671,9 @@ class DB {
     return db;
   }
 
-  protected async setupRootLevels(
-    db: LevelDB<string | Buffer, Buffer>,
-  ): Promise<{
-    dataDb: DBLevel;
-    transactionsDb: DBLevel;
-  }> {
-    const dataDb = await this._level('data', db);
-    const transactionsDb = await this._level('transactions', db);
-    // Clear any dirty state in the transactions
-    await transactionsDb.clear();
-    return {
-      dataDb,
-      transactionsDb,
-    };
-  }
-
-  protected async _level(domain: string, dbLevel: DBLevel): Promise<DBLevel> {
-    try {
-      return await new Promise<DBLevel>((resolve, reject) => {
-        const dbLevelNew = subleveldown(dbLevel, domain, {
-          keyEncoding: 'binary',
-          valueEncoding: 'binary',
-          open: (cb) => {
-            // This `cb` is defaulted (hardcoded) to a function that emits an error event
-            // When using `level`, we are able to provide a callback that overrides this `cb`
-            // However `subleveldown` does not provide a callback parameter
-            // It provides this `open` option, which requires us to call `cb` to finish
-            // If we provide an exception as a parameter, it will be received by the `error` event handler
-            cb(undefined);
-            resolve(dbLevelNew);
-          },
-        });
-        // @ts-ignore error event for subleveldown
-        dbLevelNew.on('error', (e) => {
-          // Errors during construction of the sublevel will be emitted as events
-          reject(e);
-        });
-      });
-    } catch (e) {
-      if (e instanceof RangeError) {
-        // Some domain prefixes will conflict with the separator
-        throw new errors.ErrorDBLevelPrefix();
-      }
-      throw e;
-    }
+  protected async setupRootLevels(db: LevelDB): Promise<void> {
+    // Clear any dirty state in transactions
+    await this._clear(db, ['transactions']);
   }
 }
 

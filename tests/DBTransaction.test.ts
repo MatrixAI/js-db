@@ -38,138 +38,136 @@ describe(DBTransaction.name, () => {
   test('snapshot state is cleared after releasing transactions', async () => {
     const acquireTran1 = db.transaction();
     const [releaseTran1, tran1] = await acquireTran1();
-    await tran1!.put([], 'hello', 'world');
+    await tran1!.put('hello', 'world');
     const acquireTran2 = db.transaction();
     const [releaseTran2, tran2] = await acquireTran2();
-    await tran2!.put([], 'hello', 'world');
-    expect(await db.dump(db.transactionsDb)).toStrictEqual({
-      [`${utils.prefix}0${utils.prefix}hello`]: 'world',
-      [`${utils.prefix}1${utils.prefix}hello`]: 'world',
-    });
+    await tran2!.put('hello', 'world');
+    expect(await db.dump(['transactions'])).toStrictEqual([
+      [`${utils.sep}0${utils.sep}hello`, 'world'],
+      [`${utils.sep}1${utils.sep}hello`, 'world'],
+    ]);
     await releaseTran1();
-    expect(await db.dump(db.transactionsDb)).toStrictEqual({
-      [`${utils.prefix}1${utils.prefix}hello`]: 'world',
-    });
+    expect(await db.dump(['transactions'])).toStrictEqual([
+      [`${utils.sep}1${utils.sep}hello`, 'world'],
+    ]);
     await releaseTran2();
-    expect(await db.dump(db.transactionsDb)).toStrictEqual({});
+    expect(await db.dump(['transactions'])).toStrictEqual([]);
   });
   test('get, put and del', async () => {
     const p = withF([db.transaction()], async ([tran]) => {
-      expect(await tran.get([], 'foo')).toBeUndefined();
+      expect(await tran.get('foo')).toBeUndefined();
       // Add foo -> bar to the transaction
-      await tran.put([], 'foo', 'bar');
+      await tran.put('foo', 'bar');
       // Add hello -> world to the transaction
-      await tran.put([], 'hello', 'world');
-      expect(await tran.get([], 'foo')).toBe('bar');
-      expect(await tran.get([], 'hello')).toBe('world');
-      expect(await tran.dump()).toStrictEqual({
-        foo: 'bar',
-        hello: 'world',
-      });
+      await tran.put('hello', 'world');
+      expect(await tran.get('foo')).toBe('bar');
+      expect(await tran.get('hello')).toBe('world');
+      expect(await tran.dump()).toStrictEqual([
+        ['foo', 'bar'],
+        ['hello', 'world'],
+      ]);
       // Delete hello -> world
-      await tran.del([], 'hello');
+      await tran.del('hello');
       // Transaction state should be used
-      expect(Object.entries(await db.dump(db.transactionsDb)).length > 0).toBe(
+      expect(Object.entries(await db.dump(['transactions'])).length > 0).toBe(
         true,
       );
     });
     // While the transaction is executed, there is no data
-    expect(await db.dump()).toStrictEqual({});
+    expect(await db.dump(['data'])).toStrictEqual([]);
     await p;
     // Now the state should be applied to the DB
-    expect(await db.dump()).toStrictEqual({
-      foo: 'bar',
-    });
+    expect(await db.dump(['data'])).toStrictEqual([['foo', 'bar']]);
     // Transaction state is cleared
-    expect(await db.dump(db.transactionsDb)).toStrictEqual({});
+    expect(await db.dump(['transactions'])).toStrictEqual([]);
   });
   test('transactional clear', async () => {
-    await db.put([], '1', '1');
-    await db.put([], '2', '2');
-    await db.put([], '3', '3');
+    await db.put('1', '1');
+    await db.put('2', '2');
+    await db.put('3', '3');
+    // Transactional clear, clears all values
     await withF([db.transaction()], async ([tran]) => {
       await tran.clear();
     });
-    expect(await db.dump()).toStrictEqual({});
+    expect(await db.dump(['data'])).toStrictEqual([]);
+    // Noop
     await db.clear();
-    await db.put([], '1', '1');
-    await db.put(['level1'], '2', '2');
-    await db.put(['level1', 'level2'], '3', '3');
+    await db.put('1', '1');
+    await db.put(['level1', '2'], '2');
+    await db.put(['level1', 'level2', '3'], '3');
     await withF([db.transaction()], async ([tran]) => {
       await tran.clear(['level1']);
     });
-    expect(await db.dump()).toStrictEqual({
-      '1': '1',
-    });
+    expect(await db.dump(['data'])).toStrictEqual([['1', '1']]);
   });
   test('transactional count', async () => {
-    await db.put([], '1', '1');
-    await db.put([], '2', '2');
-    await db.put([], '3', '3');
+    await db.put('1', '1');
+    await db.put('2', '2');
+    await db.put('3', '3');
     await withF([db.transaction()], async ([tran]) => {
       expect(await tran.count()).toBe(3);
     });
     await db.clear();
-    await db.put([], '1', '1');
-    await db.put(['level1'], '2', '2');
-    await db.put(['level1', 'level2'], '3', '3');
+    await db.put('1', '1');
+    await db.put(['level1', '2'], '2');
+    await db.put(['level1', 'level2', '3'], '3');
     await withF([db.transaction()], async ([tran]) => {
       expect(await tran.count(['level1'])).toBe(2);
     });
   });
   test('no dirty reads', async () => {
     await withF([db.transaction()], async ([tran1]) => {
-      expect(await tran1.get([], 'hello')).toBeUndefined();
+      expect(await tran1.get('hello')).toBeUndefined();
       await withF([db.transaction()], async ([tran2]) => {
-        await tran2.put([], 'hello', 'world');
+        await tran2.put('hello', 'world');
         // `tran2` has not yet committed
-        expect(await tran1.get([], 'hello')).toBeUndefined();
+        expect(await tran1.get('hello')).toBeUndefined();
       });
     });
     await db.clear();
     await withF([db.transaction()], async ([tran1]) => {
-      expect(await tran1.get([], 'hello')).toBeUndefined();
-      await tran1.put([], 'hello', 'foo');
+      expect(await tran1.get('hello')).toBeUndefined();
+      await tran1.put('hello', 'foo');
       await withF([db.transaction()], async ([tran2]) => {
         // `tran1` has not yet committed
-        expect(await tran2.get([], 'hello')).toBeUndefined();
-        await tran2.put([], 'hello', 'bar');
+        expect(await tran2.get('hello')).toBeUndefined();
+        await tran2.put('hello', 'bar');
         // `tran2` has not yet committed
-        expect(await tran1.get([], 'hello')).toBe('foo');
+        expect(await tran1.get('hello')).toBe('foo');
       });
     });
   });
   test('non-repeatable reads', async () => {
     await withF([db.transaction()], async ([tran1]) => {
-      expect(await tran1.get([], 'hello')).toBeUndefined();
+      expect(await tran1.get('hello')).toBeUndefined();
       await withF([db.transaction()], async ([tran2]) => {
-        await tran2.put([], 'hello', 'world');
+        await tran2.put('hello', 'world');
       });
       // `tran2` is now committed
-      expect(await tran1.get([], 'hello')).toBe('world');
+      expect(await tran1.get('hello')).toBe('world');
     });
     await db.clear();
     await withF([db.transaction()], async ([tran1]) => {
-      expect(await tran1.get([], 'hello')).toBeUndefined();
-      await tran1.put([], 'hello', 'foo');
+      expect(await tran1.get('hello')).toBeUndefined();
+      await tran1.put('hello', 'foo');
       await withF([db.transaction()], async ([tran2]) => {
         // `tran1` has not yet committed
-        expect(await tran2.get([], 'hello')).toBeUndefined();
-        await tran2.put([], 'hello', 'bar');
+        expect(await tran2.get('hello')).toBeUndefined();
+        await tran2.put('hello', 'bar');
       });
       // `tran2` is now committed
       // however because `foo` has been written in tran1, it stays as `foo`
-      expect(await tran1.get([], 'hello')).toBe('foo');
+      expect(await tran1.get('hello')).toBe('foo');
     });
   });
   test('phantom reads', async () => {
-    await db.put([], '1', '1');
-    await db.put([], '2', '2');
-    await db.put([], '3', '3');
+    await db.put('1', '1');
+    await db.put('2', '2');
+    await db.put('3', '3');
     let rows: Array<[string, string]>;
     await withF([db.transaction()], async ([tran1]) => {
       rows = [];
-      for await (const [k, v] of await tran1.iterator()) {
+      for await (const [k, v] of tran1.iterator()) {
         rows.push([k.toString(), JSON.parse(v.toString())]);
       }
       expect(rows).toStrictEqual([
@@ -178,10 +176,10 @@ describe(DBTransaction.name, () => {
         ['3', '3'],
       ]);
       await withF([db.transaction()], async ([tran2]) => {
-        await tran2.del([], '1');
-        await tran2.put([], '4', '4');
+        await tran2.del('1');
+        await tran2.put('4', '4');
         rows = [];
-        for await (const [k, v] of await tran1.iterator()) {
+        for await (const [k, v] of tran1.iterator()) {
           rows.push([k.toString(), JSON.parse(v.toString())]);
         }
         expect(rows).toStrictEqual([
@@ -191,7 +189,7 @@ describe(DBTransaction.name, () => {
         ]);
       });
       rows = [];
-      for await (const [k, v] of await tran1.iterator()) {
+      for await (const [k, v] of tran1.iterator()) {
         rows.push([k.toString(), JSON.parse(v.toString())]);
       }
       expect(rows).toStrictEqual([
@@ -203,14 +201,14 @@ describe(DBTransaction.name, () => {
   });
   test('lost updates', async () => {
     await withF([db.transaction()], async ([tran1]) => {
-      await tran1.put([], 'hello', 'foo');
+      await tran1.put('hello', 'foo');
       await withF([db.transaction()], async ([tran2]) => {
-        await tran2.put([], 'hello', 'bar');
+        await tran2.put('hello', 'bar');
       });
-      expect(await tran1.get([], 'hello')).toBe('foo');
+      expect(await tran1.get('hello')).toBe('foo');
     });
     // `tran2` write is lost because `tran1` committed last
-    expect(await db.get([], 'hello')).toBe('foo');
+    expect(await db.get('hello')).toBe('foo');
   });
   test('iterator with same largest key', async () => {
     /*
@@ -229,21 +227,20 @@ describe(DBTransaction.name, () => {
       | k    | k = k | k = 11   | k = 11 |
     */
     const results: Array<[string, string]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
-    await db.put([], 'k', 'k');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
+    await db.put('k', 'k');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      await tran.put([], 'j', '10');
-      await tran.put([], 'k', '11');
-      const iterator = await tran.iterator();
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      await tran.put('j', '10');
+      await tran.put('k', '11');
+      for await (const [k, v] of tran.iterator()) {
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -276,21 +273,20 @@ describe(DBTransaction.name, () => {
       | k    | k = k | k = 11   | k = 11 |
     */
     const results: Array<[string, string]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
-    await db.put([], 'k', 'k');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
+    await db.put('k', 'k');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      await tran.put([], 'j', '10');
-      await tran.put([], 'k', '11');
-      const iterator = await tran.iterator({ reverse: true });
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      await tran.put('j', '10');
+      await tran.put('k', '11');
+      for await (const [k, v] of tran.iterator({ reverse: true })) {
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -324,19 +320,18 @@ describe(DBTransaction.name, () => {
       | j    |       | j = 10   | j = 10 |
     */
     const results: Array<[string, string]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      await tran.put([], 'j', '10');
-      const iterator = await tran.iterator();
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      await tran.put('j', '10');
+      for await (const [k, v] of tran.iterator()) {
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -367,19 +362,18 @@ describe(DBTransaction.name, () => {
       | j    |       | j = 10   | j = 10 |
     */
     const results: Array<[string, string]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      await tran.put([], 'j', '10');
-      const iterator = await tran.iterator({ reverse: true });
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      await tran.put('j', '10');
+      for await (const [k, v] of tran.iterator({ reverse: true })) {
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -410,18 +404,17 @@ describe(DBTransaction.name, () => {
       | h    | h = h |          | h = h  |
     */
     const results: Array<[string, string]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      const iterator = await tran.iterator();
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      for await (const [k, v] of tran.iterator()) {
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -449,18 +442,17 @@ describe(DBTransaction.name, () => {
       | h    | h = h |          | h = h  |
     */
     const results: Array<[string, string]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      const iterator = await tran.iterator({ reverse: true });
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      for await (const [k, v] of tran.iterator({ reverse: true })) {
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -493,21 +485,20 @@ describe(DBTransaction.name, () => {
       | k    | k = k | k = 11   | k = 11 |
     */
     const results: Array<[string, undefined]> = [];
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
-    await db.put([], 'k', 'k');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
+    await db.put('k', 'k');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      await tran.put([], 'j', '10');
-      await tran.put([], 'k', '11');
-      const iterator = await tran.iterator({ values: false });
-      for await (const [k, v] of iterator) {
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      await tran.put('j', '10');
+      await tran.put('k', '11');
+      for await (const [k, v] of tran.iterator({ values: false })) {
         results.push([k.toString(), v]);
       }
     });
@@ -539,19 +530,19 @@ describe(DBTransaction.name, () => {
       | j    |       | j = 10   | j = 10 |
       | k    | k = k | k = 11   | k = 11 |
     */
-    await db.put([], 'a', 'a');
-    await db.put([], 'b', 'b');
-    await db.put([], 'd', 'd');
-    await db.put([], 'e', 'e');
-    await db.put([], 'h', 'h');
-    await db.put([], 'k', 'k');
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
+    await db.put('k', 'k');
     await withF([db.transaction()], async ([tran]) => {
-      await tran.put([], 'a', '1');
-      await tran.put([], 'c', '3');
-      await tran.put([], 'e', '5');
-      await tran.put([], 'f', '6');
-      await tran.put([], 'j', '10');
-      await tran.put([], 'k', '11');
+      await tran.put('a', '1');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.put('f', '6');
+      await tran.put('j', '10');
+      await tran.put('k', '11');
       const iterator = await tran.iterator();
       iterator.seek('a');
       expect(await iterator.next()).toStrictEqual([
@@ -626,19 +617,19 @@ describe(DBTransaction.name, () => {
     expect(results).toStrictEqual([1, 2]);
   });
   test('rollback on error', async () => {
-    await db.put([], '1', 'a');
-    await db.put([], '2', 'b');
+    await db.put('1', 'a');
+    await db.put('2', 'b');
     const mockFailure = jest.fn();
     await expect(
       withF([db.transaction()], async ([tran]) => {
-        await tran.put([], '1', '1');
-        await tran.put([], '2', '2');
+        await tran.put('1', '1');
+        await tran.put('2', '2');
         tran.queueFailure(mockFailure);
         throw new Error('Oh no!');
       }),
     ).rejects.toThrow('Oh no!');
     expect(mockFailure).toBeCalled();
-    expect(await db.get([], '1')).toBe('a');
-    expect(await db.get([], '2')).toBe('b');
+    expect(await db.get('1')).toBe('a');
+    expect(await db.get('2')).toBe('b');
   });
 });

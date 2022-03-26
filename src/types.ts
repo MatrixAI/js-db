@@ -1,12 +1,15 @@
 import type fs from 'fs';
-import type { AbstractLevelDOWN, AbstractIterator } from 'abstract-leveldown';
-import type { LevelUp } from 'levelup';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 
 /**
  * Plain data dictionary
  */
 type POJO = { [key: string]: any };
+
+/**
+ * Non-empty array
+ */
+type NonEmptyArray<T> = [T, ...T[]];
 
 interface FileSystem {
   promises: {
@@ -29,12 +32,17 @@ type Crypto = {
 
 type DBWorkerManagerInterface = WorkerManagerInterface<Crypto>;
 
-type DBDomain = Readonly<Array<string>>;
+/**
+ * Path to a key
+ * This must be an non-empty array
+ */
+type KeyPath = Readonly<NonEmptyArray<string | Buffer>>;
 
-type DBLevel = LevelUp<
-  AbstractLevelDOWN<string | Buffer, Buffer>,
-  AbstractIterator<Buffer, Buffer>
->;
+/**
+ * Path to a DB level
+ * Empty level path refers to the root level
+ */
+type LevelPath = Readonly<Array<string | Buffer>>;
 
 /**
  * Custom type for our iterator
@@ -49,14 +57,12 @@ type DBIterator<K = Buffer | undefined, V = Buffer | undefined> = {
 
 type DBOp_ =
   | {
-      domain: DBDomain;
-      key: string | Buffer;
+      keyPath: KeyPath | string | Buffer;
       value: any;
       raw?: false;
     }
   | {
-      domain: DBDomain;
-      key: string | Buffer;
+      keyPath: KeyPath | string | Buffer;
       value: Buffer;
       raw: true;
     };
@@ -73,11 +79,12 @@ type DBOps = Array<DBOp>;
 
 export type {
   POJO,
+  NonEmptyArray,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
-  DBDomain,
-  DBLevel,
+  KeyPath,
+  LevelPath,
   DBIterator,
   DBOp,
   DBOps,
