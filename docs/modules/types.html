@@ -79,12 +79,13 @@
 							<h3>Type aliases</h3>
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#Crypto" class="tsd-kind-icon">Crypto</a></li>
-								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#DBDomain" class="tsd-kind-icon">DBDomain</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter"><a href="types.html#DBIterator" class="tsd-kind-icon">DBIterator</a></li>
-								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#DBLevel" class="tsd-kind-icon">DBLevel</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#DBOp" class="tsd-kind-icon">DBOp</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#DBOps" class="tsd-kind-icon">DBOps</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#DBWorkerManagerInterface" class="tsd-kind-icon">DBWorker<wbr>Manager<wbr>Interface</a></li>
+								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#KeyPath" class="tsd-kind-icon">Key<wbr>Path</a></li>
+								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#LevelPath" class="tsd-kind-icon">Level<wbr>Path</a></li>
+								<li class="tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter"><a href="types.html#NonEmptyArray" class="tsd-kind-icon">Non<wbr>Empty<wbr>Array</a></li>
 								<li class="tsd-kind-type-alias tsd-parent-kind-module"><a href="types.html#POJO" class="tsd-kind-icon">POJO</a></li>
 							</ul>
 						</section>
@@ -99,7 +100,7 @@
 					<div class="tsd-signature tsd-kind-icon">Crypto<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{ </span>decrypt<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>encrypt<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L22">src/types.ts:22</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L25">src/types.ts:25</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -120,7 +121,7 @@
 									<li class="tsd-description">
 										<aside class="tsd-sources">
 											<ul>
-												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L24">src/types.ts:24</a></li>
+												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L27">src/types.ts:27</a></li>
 											</ul>
 										</aside>
 										<h4 class="tsd-parameters-title">Parameters</h4>
@@ -145,7 +146,7 @@
 									<li class="tsd-description">
 										<aside class="tsd-sources">
 											<ul>
-												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L23">src/types.ts:23</a></li>
+												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L26">src/types.ts:26</a></li>
 											</ul>
 										</aside>
 										<h4 class="tsd-parameters-title">Parameters</h4>
@@ -164,23 +165,13 @@
 						</ul>
 					</div>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
-					<a name="DBDomain" class="tsd-anchor"></a>
-					<h3>DBDomain</h3>
-					<div class="tsd-signature tsd-kind-icon">DBDomain<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L32">src/types.ts:32</a></li>
-						</ul>
-					</aside>
-				</section>
 				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter">
 					<a name="DBIterator" class="tsd-anchor"></a>
 					<h3>DBIterator</h3>
 					<div class="tsd-signature tsd-kind-icon">DBIterator&lt;K, V&gt;<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{ </span>[asyncIterator]<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>end<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>next<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">; </span>seek<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol"> }</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L43">src/types.ts:43</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L51">src/types.ts:51</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -210,7 +201,7 @@
 									<li class="tsd-description">
 										<aside class="tsd-sources">
 											<ul>
-												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L47">src/types.ts:47</a></li>
+												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L55">src/types.ts:55</a></li>
 											</ul>
 										</aside>
 										<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">AsyncGenerator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">[</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">V</span><span class="tsd-signature-symbol">]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">unknown</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -226,7 +217,7 @@
 									<li class="tsd-description">
 										<aside class="tsd-sources">
 											<ul>
-												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L46">src/types.ts:46</a></li>
+												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L54">src/types.ts:54</a></li>
 											</ul>
 										</aside>
 										<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -242,7 +233,7 @@
 									<li class="tsd-description">
 										<aside class="tsd-sources">
 											<ul>
-												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L45">src/types.ts:45</a></li>
+												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L53">src/types.ts:53</a></li>
 											</ul>
 										</aside>
 										<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-symbol">[</span><span class="tsd-signature-type">K</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">V</span><span class="tsd-signature-symbol">]</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -258,7 +249,7 @@
 									<li class="tsd-description">
 										<aside class="tsd-sources">
 											<ul>
-												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L44">src/types.ts:44</a></li>
+												<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L52">src/types.ts:52</a></li>
 											</ul>
 										</aside>
 										<h4 class="tsd-parameters-title">Parameters</h4>
@@ -275,22 +266,12 @@
 					</div>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
-					<a name="DBLevel" class="tsd-anchor"></a>
-					<h3>DBLevel</h3>
-					<div class="tsd-signature tsd-kind-icon">DBLevel<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">LevelUp</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">AbstractLevelDOWN</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">AbstractIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></div>
-					<aside class="tsd-sources">
-						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L34">src/types.ts:34</a></li>
-						</ul>
-					</aside>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
 					<a name="DBOp" class="tsd-anchor"></a>
 					<h3>DBOp</h3>
 					<div class="tsd-signature tsd-kind-icon">DBOp<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">{ </span>type<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">&quot;put&quot;</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">DBOp_</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">{ </span>type<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">&quot;del&quot;</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-type">Omit</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">DBOp_</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">&quot;value&quot;</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">&quot;raw&quot;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L64">src/types.ts:64</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L70">src/types.ts:70</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -300,7 +281,7 @@
 					<div class="tsd-signature tsd-kind-icon">DBOps<span class="tsd-signature-symbol">:</span> <a href="types.html#DBOp" class="tsd-signature-type" data-tsd-kind="Type alias">DBOp</a><span class="tsd-signature-symbol">[]</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L72">src/types.ts:72</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L78">src/types.ts:78</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -310,9 +291,62 @@
 					<div class="tsd-signature tsd-kind-icon">DBWorker<wbr>Manager<wbr>Interface<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">WorkerManagerInterface</span><span class="tsd-signature-symbol">&lt;</span><a href="types.html#Crypto" class="tsd-signature-type" data-tsd-kind="Type alias">Crypto</a><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L30">src/types.ts:30</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L33">src/types.ts:33</a></li>
 						</ul>
 					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
+					<a name="KeyPath" class="tsd-anchor"></a>
+					<h3>Key<wbr>Path</h3>
+					<div class="tsd-signature tsd-kind-icon">Key<wbr>Path<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="types.html#NonEmptyArray" class="tsd-signature-type" data-tsd-kind="Type alias">NonEmptyArray</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L39">src/types.ts:39</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Path to a key
+							This must be an non-empty array</p>
+						</div>
+					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
+					<a name="LevelPath" class="tsd-anchor"></a>
+					<h3>Level<wbr>Path</h3>
+					<div class="tsd-signature tsd-kind-icon">Level<wbr>Path<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Readonly</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L45">src/types.ts:45</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Path to a DB level
+							Empty level path refers to the root level</p>
+						</div>
+					</div>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter">
+					<a name="NonEmptyArray" class="tsd-anchor"></a>
+					<h3>Non<wbr>Empty<wbr>Array</h3>
+					<div class="tsd-signature tsd-kind-icon">Non<wbr>Empty<wbr>Array&lt;T&gt;<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">[</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-symbol">...</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">]</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L12">src/types.ts:12</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Non-empty array</p>
+						</div>
+					</div>
+					<h4 class="tsd-type-parameters-title">Type parameters</h4>
+					<ul class="tsd-type-parameters">
+						<li>
+							<h4>T</h4>
+						</li>
+					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-type-alias tsd-parent-kind-module">
 					<a name="POJO" class="tsd-anchor"></a>
@@ -320,7 +354,7 @@
 					<div class="tsd-signature tsd-kind-icon">POJO<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">{}</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L9">src/types.ts:9</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/types.ts#L7">src/types.ts:7</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -373,14 +407,8 @@
 					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
 						<a href="types.html#Crypto" class="tsd-kind-icon">Crypto</a>
 					</li>
-					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
-						<a href="types.html#DBDomain" class="tsd-kind-icon">DBDomain</a>
-					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter">
 						<a href="types.html#DBIterator" class="tsd-kind-icon">DBIterator</a>
-					</li>
-					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
-						<a href="types.html#DBLevel" class="tsd-kind-icon">DBLevel</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
 						<a href="types.html#DBOp" class="tsd-kind-icon">DBOp</a>
@@ -390,6 +418,15 @@
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
 						<a href="types.html#DBWorkerManagerInterface" class="tsd-kind-icon">DBWorker<wbr>Manager<wbr>Interface</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
+						<a href="types.html#KeyPath" class="tsd-kind-icon">Key<wbr>Path</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
+						<a href="types.html#LevelPath" class="tsd-kind-icon">Level<wbr>Path</a>
+					</li>
+					<li class=" tsd-kind-type-alias tsd-parent-kind-module tsd-has-type-parameter">
+						<a href="types.html#NonEmptyArray" class="tsd-kind-icon">Non<wbr>Empty<wbr>Array</a>
 					</li>
 					<li class=" tsd-kind-type-alias tsd-parent-kind-module">
 						<a href="types.html#POJO" class="tsd-kind-icon">POJO</a>

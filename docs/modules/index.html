@@ -74,14 +74,15 @@
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#Crypto" class="tsd-kind-icon">Crypto</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DB" class="tsd-kind-icon">DB</a></li>
-								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBDomain" class="tsd-kind-icon">DBDomain</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBIterator" class="tsd-kind-icon">DBIterator</a></li>
-								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBLevel" class="tsd-kind-icon">DBLevel</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBOp" class="tsd-kind-icon">DBOp</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBOps" class="tsd-kind-icon">DBOps</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBTransaction" class="tsd-kind-icon">DBTransaction</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#DBWorkerManagerInterface" class="tsd-kind-icon">DBWorker<wbr>Manager<wbr>Interface</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#FileSystem" class="tsd-kind-icon">File<wbr>System</a></li>
+								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#KeyPath" class="tsd-kind-icon">Key<wbr>Path</a></li>
+								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#LevelPath" class="tsd-kind-icon">Level<wbr>Path</a></li>
+								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#NonEmptyArray" class="tsd-kind-icon">Non<wbr>Empty<wbr>Array</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#POJO" class="tsd-kind-icon">POJO</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#errors" class="tsd-kind-icon">errors</a></li>
 								<li class="tsd-kind-reference tsd-parent-kind-module"><a href="index.html#utils" class="tsd-kind-icon">utils</a></li>
@@ -103,19 +104,9 @@
 					Renames and exports <a href="../classes/DB.default.html">default</a>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
-					<a name="DBDomain" class="tsd-anchor"></a>
-					<h3>DBDomain</h3>
-					Re-exports <a href="types.html#DBDomain">DBDomain</a>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
 					<a name="DBIterator" class="tsd-anchor"></a>
 					<h3>DBIterator</h3>
 					Re-exports <a href="types.html#DBIterator">DBIterator</a>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
-					<a name="DBLevel" class="tsd-anchor"></a>
-					<h3>DBLevel</h3>
-					Re-exports <a href="types.html#DBLevel">DBLevel</a>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
 					<a name="DBOp" class="tsd-anchor"></a>
@@ -141,6 +132,21 @@
 					<a name="FileSystem" class="tsd-anchor"></a>
 					<h3>File<wbr>System</h3>
 					Re-exports <a href="../interfaces/types.FileSystem.html">FileSystem</a>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
+					<a name="KeyPath" class="tsd-anchor"></a>
+					<h3>Key<wbr>Path</h3>
+					Re-exports <a href="types.html#KeyPath">KeyPath</a>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
+					<a name="LevelPath" class="tsd-anchor"></a>
+					<h3>Level<wbr>Path</h3>
+					Re-exports <a href="types.html#LevelPath">LevelPath</a>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
+					<a name="NonEmptyArray" class="tsd-anchor"></a>
+					<h3>Non<wbr>Empty<wbr>Array</h3>
+					Re-exports <a href="types.html#NonEmptyArray">NonEmptyArray</a>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-reference tsd-parent-kind-module">
 					<a name="POJO" class="tsd-anchor"></a>
@@ -194,13 +200,7 @@
 						<a href="index.html#DB" class="tsd-kind-icon">DB</a>
 					</li>
 					<li class=" tsd-kind-reference tsd-parent-kind-module">
-						<a href="index.html#DBDomain" class="tsd-kind-icon">DBDomain</a>
-					</li>
-					<li class=" tsd-kind-reference tsd-parent-kind-module">
 						<a href="index.html#DBIterator" class="tsd-kind-icon">DBIterator</a>
-					</li>
-					<li class=" tsd-kind-reference tsd-parent-kind-module">
-						<a href="index.html#DBLevel" class="tsd-kind-icon">DBLevel</a>
 					</li>
 					<li class=" tsd-kind-reference tsd-parent-kind-module">
 						<a href="index.html#DBOp" class="tsd-kind-icon">DBOp</a>
@@ -216,6 +216,15 @@
 					</li>
 					<li class=" tsd-kind-reference tsd-parent-kind-module">
 						<a href="index.html#FileSystem" class="tsd-kind-icon">File<wbr>System</a>
+					</li>
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="index.html#KeyPath" class="tsd-kind-icon">Key<wbr>Path</a>
+					</li>
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="index.html#LevelPath" class="tsd-kind-icon">Level<wbr>Path</a>
+					</li>
+					<li class=" tsd-kind-reference tsd-parent-kind-module">
+						<a href="index.html#NonEmptyArray" class="tsd-kind-icon">Non<wbr>Empty<wbr>Array</a>
 					</li>
 					<li class=" tsd-kind-reference tsd-parent-kind-module">
 						<a href="index.html#POJO" class="tsd-kind-icon">POJO</a>
