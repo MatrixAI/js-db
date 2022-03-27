@@ -213,6 +213,9 @@ class DB {
    * @internal
    */
   public async _get<T>(keyPath: KeyPath, raw?: false): Promise<T | undefined>;
+  /**
+   * @internal
+   */
   public async _get(keyPath: KeyPath, raw: true): Promise<Buffer | undefined>;
   public async _get<T>(
     keyPath: KeyPath,
@@ -266,6 +269,9 @@ class DB {
    * @internal
    */
   public async _put(keyPath: KeyPath, value: any, raw?: false): Promise<void>;
+  /**
+   * @internal
+   */
   public async _put(keyPath: KeyPath, value: Buffer, raw: true): Promise<void>;
   public async _put(
     keyPath: KeyPath,
@@ -407,16 +413,25 @@ class DB {
     options: AbstractIteratorOptions & { keys: false; values: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
+  /**
+   * @internal
+   */
   public _iterator(
     db: LevelDB,
     options: AbstractIteratorOptions & { keys: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
+  /**
+   * @internal
+   */
   public _iterator(
     db: LevelDB,
     options: AbstractIteratorOptions & { values: false },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, undefined>;
+  /**
+   * @internal
+   */
   public _iterator(
     db: LevelDB,
     options?: AbstractIteratorOptions,
