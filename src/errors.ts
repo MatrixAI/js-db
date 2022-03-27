@@ -24,11 +24,13 @@ class ErrorDBCreate extends ErrorDB {}
 
 class ErrorDBDelete extends ErrorDB {}
 
-class ErrorDBLevelPrefix extends ErrorDB {}
+class ErrorDBLevelSep extends ErrorDB {}
 
 class ErrorDBDecrypt extends ErrorDB {}
 
-class ErrorDBParse extends ErrorDB {}
+class ErrorDBParseKey extends ErrorDB {}
+
+class ErrorDBParseValue extends ErrorDB {}
 
 class ErrorDBTransactionDestroyed extends ErrorDB {}
 
@@ -45,9 +47,10 @@ export {
   ErrorDBDestroyed,
   ErrorDBCreate,
   ErrorDBDelete,
-  ErrorDBLevelPrefix,
+  ErrorDBLevelSep,
   ErrorDBDecrypt,
-  ErrorDBParse,
+  ErrorDBParseKey,
+  ErrorDBParseValue,
   ErrorDBTransactionDestroyed,
   ErrorDBTransactionCommitted,
   ErrorDBTransactionNotCommited,

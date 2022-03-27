@@ -1,10 +1,10 @@
 import type { AbstractIteratorOptions } from 'abstract-leveldown';
 import type DB from './DB';
-import type { POJO, DBDomain, DBLevel, DBIterator, DBOps } from './types';
+import type { KeyPath, LevelPath, DBIterator, DBOps } from './types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
-import * as dbUtils from './utils';
-import * as dbErrors from './errors';
+import * as utils from './utils';
+import * as errors from './errors';
 
 /**
  * Minimal read-committed transaction system
@@ -32,27 +32,24 @@ interface DBTransaction extends CreateDestroy {}
 class DBTransaction {
   public static async createTransaction({
     db,
-    transactionDb,
     transactionId,
     logger = new Logger(this.name),
   }: {
     db: DB;
-    transactionDb: DBLevel;
     transactionId: number;
     logger?: Logger;
   }): Promise<DBTransaction> {
     return new this({
       db,
-      transactionDb,
       transactionId,
       logger,
     });
   }
 
   public readonly transactionId: number;
+  public readonly transactionPath: LevelPath;
 
   protected db: DB;
-  protected transactionDb: DBLevel;
   protected logger: Logger;
   protected _ops: DBOps = [];
   protected _callbacksSuccess: Array<() => any> = [];
@@ -62,23 +59,21 @@ class DBTransaction {
 
   public constructor({
     db,
-    transactionDb,
     transactionId,
     logger,
   }: {
     db: DB;
-    transactionDb: DBLevel;
     transactionId: number;
     logger: Logger;
   }) {
     this.logger = logger;
     this.db = db;
-    this.transactionDb = transactionDb;
     this.transactionId = transactionId;
+    this.transactionPath = ['transactions', this.transactionId.toString()];
   }
 
   public async destroy() {
-    await this.transactionDb.clear();
+    await this.db._clear(this.db.db, this.transactionPath);
   }
 
   get ops(): Readonly<DBOps> {
@@ -101,60 +96,128 @@ class DBTransaction {
     return this._rollbacked;
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async dump(domain: DBDomain = []): Promise<POJO> {
-    let transactionLevel = this.transactionDb;
-    for (const d of domain) {
-      transactionLevel = await this.db.level(d, transactionLevel);
+  public async get<T>(
+    keyPath: KeyPath | string | Buffer,
+    raw?: false,
+  ): Promise<T | undefined>;
+  public async get(
+    keyPath: KeyPath | string | Buffer,
+    raw: true,
+  ): Promise<Buffer | undefined>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async get<T>(
+    keyPath: KeyPath | string | Buffer,
+    raw: boolean = false,
+  ): Promise<T | undefined> {
+    if (!Array.isArray(keyPath)) {
+      keyPath = [keyPath] as KeyPath;
     }
-    const records = {};
-    for await (const o of transactionLevel.createReadStream()) {
-      const key = (o as any).key.toString();
-      const data = (o as any).value as Buffer;
-      const value = await this.db.deserializeDecrypt(data, false);
-      records[key] = value;
+    if (utils.checkSepKeyPath(keyPath as KeyPath)) {
+      throw new errors.ErrorDBLevelSep();
     }
-    return records;
+    let value = await this.db._get<T>(
+      [...this.transactionPath, ...keyPath] as unknown as KeyPath,
+      raw as any,
+    );
+    if (value === undefined) {
+      value = await this.db.get<T>(keyPath, raw as any);
+      // Don't set it in the transaction DB
+      // Because this is not a repeatable-read "snapshot"
+    }
+    return value;
   }
 
-  public async iterator(
+  public async put(
+    keyPath: KeyPath | string | Buffer,
+    value: any,
+    raw?: false,
+  ): Promise<void>;
+  public async put(
+    keyPath: KeyPath | string | Buffer,
+    value: Buffer,
+    raw: true,
+  ): Promise<void>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async put(
+    keyPath: KeyPath | string | Buffer,
+    value: any,
+    raw: boolean = false,
+  ): Promise<void> {
+    if (!Array.isArray(keyPath)) {
+      keyPath = [keyPath] as KeyPath;
+    }
+    if (utils.checkSepKeyPath(keyPath as KeyPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    await this.db._put(
+      [...this.transactionPath, ...keyPath] as unknown as KeyPath,
+      value,
+      raw as any,
+    );
+    this._ops.push({
+      type: 'put',
+      keyPath,
+      value,
+      raw,
+    });
+  }
+
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
+    if (!Array.isArray(keyPath)) {
+      keyPath = [keyPath] as KeyPath;
+    }
+    if (utils.checkSepKeyPath(keyPath as KeyPath)) {
+      throw new errors.ErrorDBLevelSep();
+    }
+    await this.db._del([
+      ...this.transactionPath,
+      ...keyPath,
+    ] as unknown as KeyPath);
+    this._ops.push({
+      type: 'del',
+      keyPath,
+    });
+  }
+
+  public iterator(
     options: AbstractIteratorOptions & { values: false },
-    domain?: DBDomain,
-  ): Promise<DBIterator<Buffer, undefined>>;
-  public async iterator(
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, undefined>;
+  public iterator(
     options?: AbstractIteratorOptions,
-    domain?: DBDomain,
-  ): Promise<DBIterator<Buffer, Buffer>>;
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async iterator(
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, Buffer>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public iterator(
     options?: AbstractIteratorOptions,
-    domain: DBDomain = [],
-  ): Promise<DBIterator> {
-    let dataLevel = this.db.dataDb;
-    for (const d of domain) {
-      dataLevel = await this.db.level(d, dataLevel);
-    }
-    const dataIterator = dataLevel.iterator({
-      ...options,
-      keys: true,
-      keyAsBuffer: true,
-      valuesAsBuffer: true,
-    });
-    let transactionLevel = this.transactionDb;
-    for (const d of domain) {
-      transactionLevel = await this.db.level(d, transactionLevel);
-    }
-    const tranIterator = transactionLevel.iterator({
-      ...options,
-      keys: true,
-      keyAsBuffer: true,
-      valuesAsBuffer: true,
-    });
+    levelPath: LevelPath = [],
+  ): DBIterator {
+    const dataIterator = this.db._iterator(
+      this.db.db,
+      {
+        ...options,
+        keys: true,
+        keyAsBuffer: true,
+        valueAsBuffer: true,
+      },
+      ['data', ...levelPath],
+    );
+    const tranIterator = this.db._iterator(
+      this.db.db,
+      {
+        ...options,
+        keys: true,
+        keyAsBuffer: true,
+        valueAsBuffer: true,
+      },
+      [...this.transactionPath, ...levelPath],
+    );
     const order = options?.reverse ? 'desc' : 'asc';
     const iterator = {
       _ended: false,
       _nexting: false,
-      seek: (k: Buffer | string) => {
+      seek: (k: Buffer | string): void => {
         if (iterator._ended) {
           throw new Error('cannot call seek() after end()');
         }
@@ -167,17 +230,15 @@ class DBTransaction {
         dataIterator.seek(k);
         tranIterator.seek(k);
       },
-      end: async () => {
+      end: async (): Promise<void> => {
         if (iterator._ended) {
           throw new Error('end() already called on iterator');
         }
         iterator._ended = true;
-        // @ts-ignore AbstractIterator type is outdated
         await dataIterator.end();
-        // @ts-ignore AbstractIterator type is outdated
         await tranIterator.end();
       },
-      next: async () => {
+      next: async (): Promise<[Buffer, Buffer | undefined] | undefined> => {
         if (iterator._ended) {
           throw new Error('cannot call next() after end()');
         }
@@ -187,21 +248,10 @@ class DBTransaction {
           );
         }
         iterator._nexting = true;
-        const decryptKV = async ([key, data]: [
-          Buffer,
-          Buffer | undefined,
-        ]): Promise<[Buffer, Buffer | undefined]> => {
-          if (data != null) {
-            data = await this.db.deserializeDecrypt(data, true);
-          }
-          return [key, data];
-        };
         try {
-          // @ts-ignore AbstractIterator type is outdated
           const tranKV = (await tranIterator.next()) as
             | [Buffer, Buffer | undefined]
             | undefined;
-          // @ts-ignore AbstractIterator type is outdated
           const dataKV = (await dataIterator.next()) as
             | [Buffer, Buffer | undefined]
             | undefined;
@@ -212,12 +262,12 @@ class DBTransaction {
           // If tranIterator is not finished but dataIterator is finished
           // continue with tranIterator
           if (tranKV != null && dataKV == null) {
-            return decryptKV(tranKV);
+            return tranKV;
           }
           // If tranIterator is finished but dataIterator is not finished
           // continue with the dataIterator
           if (tranKV == null && dataKV != null) {
-            return decryptKV(dataKV);
+            return dataKV;
           }
           const [tranKey, tranData] = tranKV as [Buffer, Buffer | undefined];
           const [dataKey, dataData] = dataKV as [Buffer, Buffer | undefined];
@@ -225,21 +275,21 @@ class DBTransaction {
           if (keyCompare < 0) {
             if (order === 'asc') {
               dataIterator.seek(tranKey);
-              return decryptKV([tranKey, tranData]);
+              return [tranKey, tranData];
             } else if (order === 'desc') {
               tranIterator.seek(dataKey);
-              return decryptKV([dataKey, dataData]);
+              return [dataKey, dataData];
             }
           } else if (keyCompare > 0) {
             if (order === 'asc') {
               tranIterator.seek(dataKey);
-              return decryptKV([dataKey, dataData]);
+              return [dataKey, dataData];
             } else if (order === 'desc') {
               dataIterator.seek(tranKey);
-              return decryptKV([tranKey, tranData]);
+              return [tranKey, tranData];
             }
           } else {
-            return decryptKV([tranKey, tranData]);
+            return [tranKey, tranData];
           }
         } finally {
           iterator._nexting = false;
@@ -259,111 +309,59 @@ class DBTransaction {
     return iterator;
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async clear(domain: DBDomain = []): Promise<void> {
-    for await (const [k] of await this.iterator({ values: false }, domain)) {
-      await this.del(domain, k);
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async clear(levelPath: LevelPath = []): Promise<void> {
+    for await (const [k] of await this.iterator({ values: false }, levelPath)) {
+      await this.del([...levelPath, k] as unknown as KeyPath);
     }
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async count(domain: DBDomain = []): Promise<number> {
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async count(levelPath: LevelPath = []): Promise<number> {
     let count = 0;
-    for await (const _ of await this.iterator({ values: false }, domain)) {
+    for await (const _ of await this.iterator({ values: false }, levelPath)) {
       count++;
     }
     return count;
   }
 
-  public async get<T>(
-    domain: DBDomain,
-    key: string | Buffer,
+  /**
+   * Dump from transaction level
+   * It is intended for diagnostics
+   */
+  public async dump(
+    levelPath?: LevelPath,
     raw?: false,
-  ): Promise<T | undefined>;
-  public async get(
-    domain: DBDomain,
-    key: string | Buffer,
+  ): Promise<Array<[string, any]>>;
+  public async dump(
+    levelPath: LevelPath | undefined,
     raw: true,
-  ): Promise<Buffer | undefined>;
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async get<T>(
-    domain: DBDomain,
-    key: string | Buffer,
+  ): Promise<Array<[Buffer, Buffer]>>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async dump(
+    levelPath: LevelPath = [],
     raw: boolean = false,
-  ): Promise<T | undefined> {
-    const path = dbUtils.domainPath(domain, key);
-    let value: T | undefined;
-    try {
-      const data = await this.transactionDb.get(path);
-      value = await this.db.deserializeDecrypt<T>(data, raw as any);
-    } catch (e) {
-      if (e.notFound) {
-        value = await this.db.get<T>(domain, key, raw as any);
-        // Don't set it in the transaction DB
-        // Because this is not a repeatable-read "snapshot"
-      } else {
-        throw e;
-      }
-    }
-    return value;
+  ): Promise<Array<[string | Buffer, any]>> {
+    return await this.db.dump(
+      [...this.transactionPath, ...levelPath],
+      raw as any,
+    );
   }
 
-  public async put(
-    domain: DBDomain,
-    key: string | Buffer,
-    value: any,
-    raw?: false,
-  ): Promise<void>;
-  public async put(
-    domain: DBDomain,
-    key: string | Buffer,
-    value: Buffer,
-    raw: true,
-  ): Promise<void>;
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async put(
-    domain: DBDomain,
-    key: string | Buffer,
-    value: any,
-    raw: boolean = false,
-  ): Promise<void> {
-    const path = dbUtils.domainPath(domain, key);
-    const data = await this.db.serializeEncrypt(value, raw as any);
-    await this.transactionDb.put(path, data);
-    this._ops.push({
-      type: 'put',
-      domain,
-      key,
-      value,
-      raw,
-    });
-  }
-
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
-  public async del(domain: DBDomain, key: string | Buffer): Promise<void> {
-    const path = dbUtils.domainPath(domain, key);
-    await this.transactionDb.del(path);
-    this._ops.push({
-      type: 'del',
-      domain,
-      key,
-    });
-  }
-
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  @ready(new errors.ErrorDBTransactionDestroyed())
   public queueSuccess(f: () => any): void {
     this._callbacksSuccess.push(f);
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  @ready(new errors.ErrorDBTransactionDestroyed())
   public queueFailure(f: () => any): void {
     this._callbacksFailure.push(f);
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  @ready(new errors.ErrorDBTransactionDestroyed())
   public async commit(): Promise<void> {
     if (this._rollbacked) {
-      throw new dbErrors.ErrorDBTransactionRollbacked();
+      throw new errors.ErrorDBTransactionRollbacked();
     }
     if (this._committed) {
       return;
@@ -377,10 +375,10 @@ class DBTransaction {
     }
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  @ready(new errors.ErrorDBTransactionDestroyed())
   public async rollback(): Promise<void> {
     if (this._committed) {
-      throw new dbErrors.ErrorDBTransactionCommitted();
+      throw new errors.ErrorDBTransactionCommitted();
     }
     if (this._rollbacked) {
       return;
@@ -391,13 +389,13 @@ class DBTransaction {
     }
   }
 
-  @ready(new dbErrors.ErrorDBTransactionDestroyed())
+  @ready(new errors.ErrorDBTransactionDestroyed())
   public async finalize(): Promise<void> {
     if (this._rollbacked) {
-      throw new dbErrors.ErrorDBTransactionRollbacked();
+      throw new errors.ErrorDBTransactionRollbacked();
     }
     if (!this._committed) {
-      throw new dbErrors.ErrorDBTransactionNotCommited();
+      throw new errors.ErrorDBTransactionNotCommited();
     }
     for (const f of this._callbacksSuccess) {
       await f();
