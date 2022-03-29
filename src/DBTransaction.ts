@@ -3,7 +3,6 @@ import type DB from './DB';
 import type { KeyPath, LevelPath, DBIterator, DBOps } from './types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
-import * as utils from './utils';
 import * as errors from './errors';
 
 /**
@@ -112,9 +111,6 @@ class DBTransaction {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
-    if (utils.checkSepKeyPath(keyPath as KeyPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     let value = await this.db._get<T>(
       [...this.transactionPath, ...keyPath] as unknown as KeyPath,
       raw as any,
@@ -146,9 +142,6 @@ class DBTransaction {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
-    if (utils.checkSepKeyPath(keyPath as KeyPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     await this.db._put(
       [...this.transactionPath, ...keyPath] as unknown as KeyPath,
       value,
@@ -166,9 +159,6 @@ class DBTransaction {
   public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
-    }
-    if (utils.checkSepKeyPath(keyPath as KeyPath)) {
-      throw new errors.ErrorDBLevelSep();
     }
     await this.db._del([
       ...this.transactionPath,

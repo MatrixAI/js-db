@@ -8,7 +8,6 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
-import * as errors from '@/errors';
 import * as utils from '@/utils';
 import * as testUtils from './utils';
 
@@ -127,27 +126,27 @@ describe(DB.name, () => {
     expect(await db.get(['level1', Buffer.from('string')])).toBeUndefined();
     await db.stop();
   });
-  test('levels cannot contain separator buffer', async () => {
+  test('levels can contain separator buffer', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    await expect(
-      db.put(
-        [Buffer.concat([utils.sep, Buffer.from('level')]), 'key'],
-        'value',
-      ),
-    ).rejects.toThrow(errors.ErrorDBLevelSep);
-    await expect(
-      db.get([Buffer.concat([Buffer.from('level'), utils.sep]), 'key']),
-    ).rejects.toThrow(errors.ErrorDBLevelSep);
-    await expect(
-      db.del([
+    await db.put(
+      [Buffer.concat([utils.sep, Buffer.from('level')]), 'key'],
+      'value',
+    );
+    await db.get([Buffer.concat([Buffer.from('level'), utils.sep]), 'key']),
+      await db.del([
         Buffer.concat([utils.sep, Buffer.from('level'), utils.sep]),
         'key',
-      ]),
-    ).rejects.toThrow(errors.ErrorDBLevelSep);
-    expect(() => db.iterator(undefined, [utils.sep])).toThrow(
-      errors.ErrorDBLevelSep,
-    );
+      ]);
+    const records: Array<[Buffer, Buffer]> = [];
+    for await (const [k, v] of db.iterator(undefined, [
+      Buffer.concat([utils.sep, Buffer.from('level')]),
+    ])) {
+      records.push([k, v]);
+    }
+    expect(records).toStrictEqual([
+      [Buffer.from('key'), Buffer.from(JSON.stringify('value'))],
+    ]);
     await db.stop();
   });
   test('keys can contain separator buffer', async () => {
