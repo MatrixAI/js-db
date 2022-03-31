@@ -202,9 +202,6 @@ class DB {
       keyPath = [keyPath] as KeyPath;
     }
     keyPath = ['data', ...keyPath];
-    if (utils.checkSepKeyPath(keyPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     return this._get<T>(keyPath, raw as any);
   }
 
@@ -258,9 +255,6 @@ class DB {
       keyPath = [keyPath] as KeyPath;
     }
     keyPath = ['data', ...keyPath];
-    if (utils.checkSepKeyPath(keyPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     return this._put(keyPath, value, raw as any);
   }
 
@@ -291,9 +285,6 @@ class DB {
       keyPath = [keyPath] as KeyPath;
     }
     keyPath = ['data', ...keyPath];
-    if (utils.checkSepKeyPath(keyPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     return this._del(keyPath);
   }
 
@@ -316,9 +307,6 @@ class DB {
         op.keyPath = [op.keyPath] as KeyPath;
       }
       op.keyPath = ['data', ...op.keyPath];
-      if (utils.checkSepKeyPath(op.keyPath)) {
-        throw new errors.ErrorDBLevelSep();
-      }
       if (op.type === 'del') {
         opsP.push({
           type: op.type,
@@ -398,9 +386,6 @@ class DB {
     levelPath: LevelPath = [],
   ): DBIterator {
     levelPath = ['data', ...levelPath];
-    if (utils.checkSepLevelPath(levelPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     return this._iterator(this._db, options, levelPath);
   }
 
@@ -515,9 +500,6 @@ class DB {
   @ready(new errors.ErrorDBNotRunning())
   public async clear(levelPath: LevelPath = []): Promise<void> {
     levelPath = ['data', ...levelPath];
-    if (utils.checkSepLevelPath(levelPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     await this._clear(this._db, levelPath);
   }
 
@@ -557,9 +539,6 @@ class DB {
     levelPath: LevelPath = [],
     raw: boolean = false,
   ): Promise<Array<[string | Buffer, any]>> {
-    if (utils.checkSepLevelPath(levelPath)) {
-      throw new errors.ErrorDBLevelSep();
-    }
     const records: Array<[string | Buffer, any]> = [];
     for await (const [k, v] of this._iterator(this._db, undefined, levelPath)) {
       let key: string | Buffer, value: any;

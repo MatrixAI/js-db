@@ -72,15 +72,15 @@
 						<section class="tsd-index-section ">
 							<h3>Variables</h3>
 							<ul class="tsd-index-list">
+								<li class="tsd-kind-variable tsd-parent-kind-module"><a href="utils.html#esc" class="tsd-kind-icon">esc</a></li>
 								<li class="tsd-kind-variable tsd-parent-kind-module"><a href="utils.html#sep" class="tsd-kind-icon">sep</a></li>
 							</ul>
 						</section>
 						<section class="tsd-index-section ">
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#checkSepKeyPath" class="tsd-kind-icon">check<wbr>Sep<wbr>Key<wbr>Path</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#checkSepLevelPath" class="tsd-kind-icon">check<wbr>Sep<wbr>Level<wbr>Path</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter"><a href="utils.html#deserialize" class="tsd-kind-icon">deserialize</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#escapeLevel" class="tsd-kind-icon">escape<wbr>Level</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#fromArrayBuffer" class="tsd-kind-icon">from<wbr>Array<wbr>Buffer</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter"><a href="utils.html#isNonEmptyArray" class="tsd-kind-icon">is<wbr>Non<wbr>Empty<wbr>Array</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#keyPathToKey" class="tsd-kind-icon">key<wbr>Path<wbr>ToKey</a></li>
@@ -89,6 +89,7 @@
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#sepExists" class="tsd-kind-icon">sep<wbr>Exists</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter"><a href="utils.html#serialize" class="tsd-kind-icon">serialize</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#toArrayBuffer" class="tsd-kind-icon">to<wbr>Array<wbr>Buffer</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#unescapeLevel" class="tsd-kind-icon">unescape<wbr>Level</a></li>
 							</ul>
 						</section>
 					</div>
@@ -96,6 +97,22 @@
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Variables</h2>
+				<section class="tsd-panel tsd-member tsd-kind-variable tsd-parent-kind-module">
+					<a name="esc" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagConst">Const</span> esc</h3>
+					<div class="tsd-signature tsd-kind-icon">esc<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol"> = ...</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L15">src/utils.ts:15</a></li>
+						</ul>
+					</aside>
+					<div class="tsd-comment tsd-typography">
+						<div class="lead">
+							<p>Escape is a single <code>\</code> byte
+							This is used to escape the separator and literal <code>\</code></p>
+						</div>
+					</div>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-variable tsd-parent-kind-module">
 					<a name="sep" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagConst">Const</span> sep</h3>
@@ -116,63 +133,6 @@
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Functions</h2>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module">
-					<a name="checkSepKeyPath" class="tsd-anchor"></a>
-					<h3>check<wbr>Sep<wbr>Key<wbr>Path</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module">
-						<li class="tsd-signature tsd-kind-icon">check<wbr>Sep<wbr>Key<wbr>Path<span class="tsd-signature-symbol">(</span>keyPath<span class="tsd-signature-symbol">: </span><a href="types.html#KeyPath" class="tsd-signature-type" data-tsd-kind="Type alias">KeyPath</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L129">src/utils.ts:129</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Checks if the KeyPath contains the separator
-									This only checks the LevelPath part</p>
-								</div>
-							</div>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>keyPath: <a href="types.html#KeyPath" class="tsd-signature-type" data-tsd-kind="Type alias">KeyPath</a></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module">
-					<a name="checkSepLevelPath" class="tsd-anchor"></a>
-					<h3>check<wbr>Sep<wbr>Level<wbr>Path</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module">
-						<li class="tsd-signature tsd-kind-icon">check<wbr>Sep<wbr>Level<wbr>Path<span class="tsd-signature-symbol">(</span>levelPath<span class="tsd-signature-symbol">: </span><a href="types.html#LevelPath" class="tsd-signature-type" data-tsd-kind="Type alias">LevelPath</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L137">src/utils.ts:137</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Checks if LevelPath contains the separator</p>
-								</div>
-							</div>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>levelPath: <a href="types.html#LevelPath" class="tsd-signature-type" data-tsd-kind="Type alias">LevelPath</a></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
-						</li>
-					</ul>
-				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter">
 					<a name="deserialize" class="tsd-anchor"></a>
 					<h3>deserialize</h3>
@@ -183,7 +143,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L157">src/utils.ts:157</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L218">src/utils.ts:218</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
@@ -203,6 +163,34 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module">
+					<a name="escapeLevel" class="tsd-anchor"></a>
+					<h3>escape<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module">
+						<li class="tsd-signature tsd-kind-icon">escape<wbr>Level<span class="tsd-signature-symbol">(</span>buf<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L51">src/utils.ts:51</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Escapes the level part for escape and separator</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>buf: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Buffer</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module">
 					<a name="fromArrayBuffer" class="tsd-anchor"></a>
 					<h3>from<wbr>Array<wbr>Buffer</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module">
@@ -212,7 +200,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L178">src/utils.ts:178</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L239">src/utils.ts:239</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -246,7 +234,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L189">src/utils.ts:189</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L250">src/utils.ts:250</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -280,7 +268,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L18">src/utils.ts:18</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L24">src/utils.ts:24</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -312,7 +300,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L32">src/utils.ts:32</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L38">src/utils.ts:38</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -342,7 +330,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L56">src/utils.ts:56</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L103">src/utils.ts:103</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -352,11 +340,12 @@
 									Returned parts are always buffers</p>
 								</div>
 								<p>BNF grammar of key buffer:
-									path =&gt; levels:ls keyActual:k -&gt; [...ls, k] | keyActual
-									levels =&gt; level:l levels:ls finalKey -&gt; [l, ...ls] | &#39;&#39; -&gt; []
-									level =&gt; sep [^sep]+:l sep -&gt; l
-									sep =&gt; &#39;!&#39;
-								keyActual =&gt; .+</p>
+									path =&gt; levels:ls keyActual:k -&gt; [...ls, k] | keyActual:k -&gt; [k]
+									levels =&gt; level:l levels:ls -&gt; [l, ...ls] | &#39;&#39; -&gt; []
+									level =&gt; sep .+?:l (?&lt;!escape) sep (?&gt;.+) -&gt; l
+									sep =&gt; 0x00
+									escape =&gt; 0x5c
+								keyActual =&gt; .+:k -&gt; [k]</p>
 							</div>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
@@ -378,7 +367,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L145">src/utils.ts:145</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L206">src/utils.ts:206</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -407,7 +396,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L153">src/utils.ts:153</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L214">src/utils.ts:214</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
@@ -436,7 +425,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L171">src/utils.ts:171</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L232">src/utils.ts:232</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -451,6 +440,34 @@
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">ArrayBuffer</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module">
+					<a name="unescapeLevel" class="tsd-anchor"></a>
+					<h3>unescape<wbr>Level</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module">
+						<li class="tsd-signature tsd-kind-icon">unescape<wbr>Level<span class="tsd-signature-symbol">(</span>buf<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Buffer</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L69">src/utils.ts:69</a></li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Unescapes the level part of escape and separator</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>buf: <span class="tsd-signature-type">Buffer</span></h5>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Buffer</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -485,16 +502,16 @@
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
 					<li class=" tsd-kind-variable tsd-parent-kind-module">
+						<a href="utils.html#esc" class="tsd-kind-icon">esc</a>
+					</li>
+					<li class=" tsd-kind-variable tsd-parent-kind-module">
 						<a href="utils.html#sep" class="tsd-kind-icon">sep</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-module">
-						<a href="utils.html#checkSepKeyPath" class="tsd-kind-icon">check<wbr>Sep<wbr>Key<wbr>Path</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-module">
-						<a href="utils.html#checkSepLevelPath" class="tsd-kind-icon">check<wbr>Sep<wbr>Level<wbr>Path</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter">
 						<a href="utils.html#deserialize" class="tsd-kind-icon">deserialize</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="utils.html#escapeLevel" class="tsd-kind-icon">escape<wbr>Level</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-module">
 						<a href="utils.html#fromArrayBuffer" class="tsd-kind-icon">from<wbr>Array<wbr>Buffer</a>
@@ -519,6 +536,9 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-module">
 						<a href="utils.html#toArrayBuffer" class="tsd-kind-icon">to<wbr>Array<wbr>Buffer</a>
+					</li>
+					<li class=" tsd-kind-function tsd-parent-kind-module">
+						<a href="utils.html#unescapeLevel" class="tsd-kind-icon">unescape<wbr>Level</a>
 					</li>
 				</ul>
 			</nav>
