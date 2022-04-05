@@ -220,7 +220,7 @@ function deserialize<T>(value_: Buffer): T {
     return JSON.parse(value_.toString('utf-8'));
   } catch (e) {
     if (e instanceof SyntaxError) {
-      throw new errors.ErrorDBParseValue();
+      throw new errors.ErrorDBParseValue(e.message, { cause: e });
     }
     throw e;
   }

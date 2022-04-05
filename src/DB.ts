@@ -108,7 +108,7 @@ class DB {
           recursive: true,
         });
       } catch (e) {
-        throw new errors.ErrorDBDelete(e.message, undefined, e);
+        throw new errors.ErrorDBDelete(e.message, { cause: e });
       }
     }
     const db = await this.setupDb(this.dbPath);
@@ -131,12 +131,7 @@ class DB {
         recursive: true,
       });
     } catch (e) {
-      throw new errors.ErrorDBDelete(e.message, {
-        errno: e.errno,
-        syscall: e.syscall,
-        code: e.code,
-        path: e.path,
-      });
+      throw new errors.ErrorDBDelete(e.message, { cause: e });
     }
     this.logger.info(`Destroyed ${this.constructor.name}`);
   }
@@ -636,7 +631,7 @@ class DB {
       await this.fs.promises.mkdir(dbPath);
     } catch (e) {
       if (e.code !== 'EEXIST') {
-        throw new errors.ErrorDBCreate(e.message, undefined, e);
+        throw new errors.ErrorDBCreate(e.message, { cause: e });
       }
     }
     let db: LevelDB<string | Buffer, Buffer>;
@@ -660,7 +655,7 @@ class DB {
         },
       );
     } catch (e) {
-      throw new errors.ErrorDBCreate(e.message, undefined, e);
+      throw new errors.ErrorDBCreate(e.message, { cause: e });
     }
     return db;
   }

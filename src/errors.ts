@@ -1,42 +1,56 @@
-import type { POJO } from './types';
+import { AbstractError } from '@matrixai/errors';
 
-import { CustomError } from 'ts-custom-error';
-
-type ErrorChain = Error & { cause?: ErrorChain };
-
-class ErrorDB extends CustomError {
-  data: POJO;
-  cause?: ErrorChain;
-  constructor(message: string = '', data: POJO = {}, cause?: ErrorChain) {
-    super(message);
-    this.data = data;
-    this.cause = cause;
-  }
+class ErrorDB<T> extends AbstractError<T> {
+  static description = 'DB error';
 }
 
-class ErrorDBRunning extends ErrorDB {}
+class ErrorDBRunning<T> extends ErrorDB<T> {
+  static desription = 'DB is running';
+}
 
-class ErrorDBNotRunning extends ErrorDB {}
+class ErrorDBNotRunning<T> extends ErrorDB<T> {
+  static description = 'DB is not running';
+}
 
-class ErrorDBDestroyed extends ErrorDB {}
+class ErrorDBDestroyed<T> extends ErrorDB<T> {
+  static description = 'DB is destroyed';
+}
 
-class ErrorDBCreate extends ErrorDB {}
+class ErrorDBCreate<T> extends ErrorDB<T> {
+  static description = 'DB cannot be created';
+}
 
-class ErrorDBDelete extends ErrorDB {}
+class ErrorDBDelete<T> extends ErrorDB<T> {
+  static description = 'DB cannot be deleted';
+}
 
-class ErrorDBDecrypt extends ErrorDB {}
+class ErrorDBDecrypt<T> extends ErrorDB<T> {
+  static description = 'DB failed decryption';
+}
 
-class ErrorDBParseKey extends ErrorDB {}
+class ErrorDBParseKey<T> extends ErrorDB<T> {
+  static description = 'DB key parsing failed';
+}
 
-class ErrorDBParseValue extends ErrorDB {}
+class ErrorDBParseValue<T> extends ErrorDB<T> {
+  static description = 'DB value parsing failed';
+}
 
-class ErrorDBTransactionDestroyed extends ErrorDB {}
+class ErrorDBTransactionDestroyed<T> extends ErrorDB<T> {
+  static description = 'DBTransaction is destroyed';
+}
 
-class ErrorDBTransactionCommitted extends ErrorDB {}
+class ErrorDBTransactionCommitted<T> extends ErrorDB<T> {
+  static description = 'DBTransaction is committed';
+}
 
-class ErrorDBTransactionNotCommited extends ErrorDB {}
+class ErrorDBTransactionNotCommited<T> extends ErrorDB<T> {
+  static description = 'DBTransaction is not comitted';
+}
 
-class ErrorDBTransactionRollbacked extends ErrorDB {}
+class ErrorDBTransactionRollbacked<T> extends ErrorDB<T> {
+  static description = 'DBTransaction is rollbacked';
+}
 
 export {
   ErrorDB,
