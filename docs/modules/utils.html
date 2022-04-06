@@ -82,7 +82,6 @@
 								<li class="tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter"><a href="utils.html#deserialize" class="tsd-kind-icon">deserialize</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#escapeLevel" class="tsd-kind-icon">escape<wbr>Level</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#fromArrayBuffer" class="tsd-kind-icon">from<wbr>Array<wbr>Buffer</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter"><a href="utils.html#isNonEmptyArray" class="tsd-kind-icon">is<wbr>Non<wbr>Empty<wbr>Array</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#keyPathToKey" class="tsd-kind-icon">key<wbr>Path<wbr>ToKey</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#levelPathToKey" class="tsd-kind-icon">level<wbr>Path<wbr>ToKey</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-module"><a href="utils.html#parseKey" class="tsd-kind-icon">parse<wbr>Key</a></li>
@@ -143,7 +142,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L218">src/utils.ts:218</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L221">src/utils.ts:221</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
@@ -172,7 +171,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L51">src/utils.ts:51</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L54">src/utils.ts:54</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -200,7 +199,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L239">src/utils.ts:239</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L242">src/utils.ts:242</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -224,40 +223,6 @@
 						</li>
 					</ul>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter">
-					<a name="isNonEmptyArray" class="tsd-anchor"></a>
-					<h3>is<wbr>Non<wbr>Empty<wbr>Array</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">is<wbr>Non<wbr>Empty<wbr>Array&lt;T&gt;<span class="tsd-signature-symbol">(</span>arr<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">arr</span><span class="tsd-signature-symbol"> is </span><a href="types.html#NonEmptyArray" class="tsd-signature-type" data-tsd-kind="Type alias">NonEmptyArray</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L250">src/utils.ts:250</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Type guard for NonEmptyArray</p>
-								</div>
-							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T</h4>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>arr: <span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span></h5>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">arr</span><span class="tsd-signature-symbol"> is </span><a href="types.html#NonEmptyArray" class="tsd-signature-type" data-tsd-kind="Type alias">NonEmptyArray</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
-						</li>
-					</ul>
-				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-module">
 					<a name="keyPathToKey" class="tsd-anchor"></a>
 					<h3>key<wbr>Path<wbr>ToKey</h3>
@@ -275,7 +240,7 @@
 								<div class="lead">
 									<p>Converts KeyPath to key buffer
 										e.g. [&#39;A&#39;, &#39;B&#39;] =&gt; !A!B (where ! is the sep)
-										The key path must not be empty
+										An empty key path is converted to <code>[&#39;&#39;]</code>
 										Level parts must not contain the separator
 									Key actual part is allowed to contain the separator</p>
 								</div>
@@ -300,7 +265,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L38">src/utils.ts:38</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L41">src/utils.ts:41</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -330,7 +295,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L103">src/utils.ts:103</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L106">src/utils.ts:106</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -367,7 +332,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L206">src/utils.ts:206</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L209">src/utils.ts:209</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -396,7 +361,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L214">src/utils.ts:214</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L217">src/utils.ts:217</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
@@ -425,7 +390,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L232">src/utils.ts:232</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L235">src/utils.ts:235</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -453,7 +418,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L69">src/utils.ts:69</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/utils.ts#L72">src/utils.ts:72</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -515,9 +480,6 @@
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-module">
 						<a href="utils.html#fromArrayBuffer" class="tsd-kind-icon">from<wbr>Array<wbr>Buffer</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-module tsd-has-type-parameter">
-						<a href="utils.html#isNonEmptyArray" class="tsd-kind-icon">is<wbr>Non<wbr>Empty<wbr>Array</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-module">
 						<a href="utils.html#keyPathToKey" class="tsd-kind-icon">key<wbr>Path<wbr>ToKey</a>
