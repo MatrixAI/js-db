@@ -6,6 +6,7 @@ import nodeCrypto from 'crypto';
 import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
+import { withF } from '@matrixai/resources';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
 import * as utils from '@/utils';
@@ -147,6 +148,24 @@ describe(DB.name, () => {
     expect(records).toStrictEqual([
       [Buffer.from('key'), Buffer.from(JSON.stringify('value'))],
     ]);
+    await db.stop();
+  });
+  test('keys that are empty arrays are converted to empty string', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    await db.put([], 'value');
+    expect(await db.get([])).toBe('value');
+    await db.del([]);
+    expect(await db.get([])).toBeUndefined();
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.put([], 'value');
+      expect(await tran.get([])).toBe('value');
+      await tran.del([]);
+    });
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.put([], 'value');
+    });
+    expect(await db.get([])).toBe('value');
     await db.stop();
   });
   test('keys can contain separator buffer', async () => {

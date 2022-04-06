@@ -111,8 +111,11 @@ class DBTransaction {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
+    if (keyPath.length < 1) {
+      keyPath = [''];
+    }
     let value = await this.db._get<T>(
-      [...this.transactionPath, ...keyPath] as unknown as KeyPath,
+      [...this.transactionPath, ...keyPath],
       raw as any,
     );
     if (value === undefined) {
@@ -142,8 +145,11 @@ class DBTransaction {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
+    if (keyPath.length < 1) {
+      keyPath = [''];
+    }
     await this.db._put(
-      [...this.transactionPath, ...keyPath] as unknown as KeyPath,
+      [...this.transactionPath, ...keyPath],
       value,
       raw as any,
     );
@@ -160,10 +166,10 @@ class DBTransaction {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
-    await this.db._del([
-      ...this.transactionPath,
-      ...keyPath,
-    ] as unknown as KeyPath);
+    if (keyPath.length < 1) {
+      keyPath = [''];
+    }
+    await this.db._del([...this.transactionPath, ...keyPath]);
     this._ops.push({
       type: 'del',
       keyPath,
@@ -302,7 +308,7 @@ class DBTransaction {
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async clear(levelPath: LevelPath = []): Promise<void> {
     for await (const [k] of await this.iterator({ values: false }, levelPath)) {
-      await this.del([...levelPath, k] as unknown as KeyPath);
+      await this.del([...levelPath, k]);
     }
   }
 

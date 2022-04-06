@@ -196,6 +196,9 @@ class DB {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
+    if (keyPath.length < 1) {
+      keyPath = [''];
+    }
     keyPath = ['data', ...keyPath];
     return this._get<T>(keyPath, raw as any);
   }
@@ -249,6 +252,9 @@ class DB {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
+    if (keyPath.length < 1) {
+      keyPath = [''];
+    }
     keyPath = ['data', ...keyPath];
     return this._put(keyPath, value, raw as any);
   }
@@ -279,6 +285,9 @@ class DB {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
+    if (keyPath.length < 1) {
+      keyPath = [''];
+    }
     keyPath = ['data', ...keyPath];
     return this._del(keyPath);
   }
@@ -300,6 +309,9 @@ class DB {
     for (const op of ops) {
       if (!Array.isArray(op.keyPath)) {
         op.keyPath = [op.keyPath] as KeyPath;
+      }
+      if (op.keyPath.length < 1) {
+        op.keyPath = [''];
       }
       op.keyPath = ['data', ...op.keyPath];
       if (op.type === 'del') {
@@ -465,7 +477,7 @@ class DB {
     const next = iterator.next.bind(iterator);
     // @ts-ignore AbstractIterator type is outdated
     iterator.seek = (k: Buffer | string): void => {
-      seek(utils.keyPathToKey([...levelPath, k] as unknown as KeyPath));
+      seek(utils.keyPathToKey([...levelPath, k]));
     };
     // @ts-ignore AbstractIterator type is outdated
     iterator.next = async () => {
@@ -476,7 +488,7 @@ class DB {
         if (kv[0] != null) {
           // Truncate level path so the returned key is relative to the level path
           const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
-          kv[0] = utils.keyPathToKey(keyPath as unknown as KeyPath);
+          kv[0] = utils.keyPathToKey(keyPath);
         }
         // Handle values: false
         if (kv[1] != null) {
@@ -504,7 +516,7 @@ class DB {
    */
   public async _clear(db: LevelDB, levelPath: LevelPath = []): Promise<void> {
     for await (const [k] of this._iterator(db, { values: false }, levelPath)) {
-      await db.del(utils.keyPathToKey([...levelPath, k] as unknown as KeyPath));
+      await db.del(utils.keyPathToKey([...levelPath, k]));
     }
   }
 

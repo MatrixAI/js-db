@@ -1,4 +1,4 @@
-import type { NonEmptyArray, KeyPath, LevelPath } from './types';
+import type { KeyPath, LevelPath } from './types';
 import * as errors from './errors';
 
 /**
@@ -17,11 +17,14 @@ const esc = Buffer.from([92]);
 /**
  * Converts KeyPath to key buffer
  * e.g. ['A', 'B'] => !A!B (where ! is the sep)
- * The key path must not be empty
+ * An empty key path is converted to `['']`
  * Level parts must not contain the separator
  * Key actual part is allowed to contain the separator
  */
 function keyPathToKey(keyPath: KeyPath): Buffer {
+  if (keyPath.length < 1) {
+    keyPath = [''];
+  }
   const keyPart = keyPath.slice(-1)[0];
   const levelPath = keyPath.slice(0, -1);
   return Buffer.concat([
@@ -102,7 +105,7 @@ function unescapeLevel(buf: Buffer): Buffer {
  */
 function parseKey(key: Buffer): KeyPath {
   const [bufs] = parsePath(key);
-  if (!isNonEmptyArray(bufs)) {
+  if (bufs.length < 1) {
     throw new TypeError('Buffer is not a key');
   }
   for (let i = 0; i < bufs.length - 1; i++) {
@@ -244,13 +247,6 @@ function fromArrayBuffer(
   return Buffer.from(b, offset, length);
 }
 
-/**
- * Type guard for NonEmptyArray
- */
-function isNonEmptyArray<T>(arr: T[]): arr is NonEmptyArray<T> {
-  return arr.length > 0;
-}
-
 export {
   sep,
   esc,
@@ -260,7 +256,6 @@ export {
   levelPathToKey,
   parseKey,
   sepExists,
-  isNonEmptyArray,
   serialize,
   deserialize,
   toArrayBuffer,

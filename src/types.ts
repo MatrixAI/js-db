@@ -6,11 +6,6 @@ import type { WorkerManagerInterface } from '@matrixai/workers';
  */
 type POJO = { [key: string]: any };
 
-/**
- * Non-empty array
- */
-type NonEmptyArray<T> = [T, ...T[]];
-
 interface FileSystem {
   promises: {
     rm: typeof fs.promises.rm;
@@ -36,7 +31,7 @@ type DBWorkerManagerInterface = WorkerManagerInterface<Crypto>;
  * Path to a key
  * This must be an non-empty array
  */
-type KeyPath = Readonly<NonEmptyArray<string | Buffer>>;
+type KeyPath = Readonly<Array<string | Buffer>>;
 
 /**
  * Path to a DB level
@@ -79,7 +74,6 @@ type DBOps = Array<DBOp>;
 
 export type {
   POJO,
-  NonEmptyArray,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
