@@ -24,6 +24,10 @@ class ErrorDBDelete<T> extends ErrorDB<T> {
   static description = 'DB cannot be deleted';
 }
 
+class ErrorDBKey<T> extends ErrorDB<T> {
+  static description = 'DB key is incorrect';
+}
+
 class ErrorDBDecrypt<T> extends ErrorDB<T> {
   static description = 'DB failed decryption';
 }
@@ -59,6 +63,7 @@ export {
   ErrorDBDestroyed,
   ErrorDBCreate,
   ErrorDBDelete,
+  ErrorDBKey,
   ErrorDBDecrypt,
   ErrorDBParseKey,
   ErrorDBParseValue,
