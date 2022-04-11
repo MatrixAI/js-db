@@ -72,7 +72,7 @@ class DBTransaction {
   }
 
   public async destroy() {
-    await this.db._clear(this.db.db, this.transactionPath);
+    await this.db._clear(this.transactionPath);
   }
 
   get ops(): Readonly<DBOps> {
@@ -190,7 +190,6 @@ class DBTransaction {
     levelPath: LevelPath = [],
   ): DBIterator {
     const dataIterator = this.db._iterator(
-      this.db.db,
       {
         ...options,
         keys: true,
@@ -200,7 +199,6 @@ class DBTransaction {
       ['data', ...levelPath],
     );
     const tranIterator = this.db._iterator(
-      this.db.db,
       {
         ...options,
         keys: true,

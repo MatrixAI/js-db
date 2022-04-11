@@ -9,6 +9,7 @@ import { WorkerManager } from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
+import * as errors from '@/errors';
 import * as utils from '@/utils';
 import * as testUtils from './utils';
 
@@ -92,6 +93,32 @@ describe(DB.name, () => {
     await db.start();
     expect(await db.dump(['transactions'])).toStrictEqual([]);
     await db.dump();
+    await db.stop();
+  });
+  test('start performs canary check to validate key', async () => {
+    const dbPath = `${dataDir}/db`;
+    let db = await DB.createDB({ dbPath, crypto, logger });
+    await db.stop();
+    const crypto_ = {
+      ...crypto,
+      key: testUtils.generateKeySync(256),
+    };
+    await expect(
+      DB.createDB({ dbPath, crypto: crypto_, logger }),
+    ).rejects.toThrow(errors.ErrorDBKey);
+    // Succeeds with the proper key
+    db = await DB.createDB({ dbPath, crypto, logger });
+    // Deliberately corrupt the canary
+    await db._put(['canary'], 'bad ju ju');
+    await db.stop();
+    // Start will fail, the DB will still be stopped
+    await expect(db.start()).rejects.toThrow(errors.ErrorDBKey);
+    // DB is still corrupted at this point
+    await expect(DB.createDB({ dbPath, crypto, logger })).rejects.toThrow(
+      errors.ErrorDBKey,
+    );
+    // Must create fresh database
+    db = await DB.createDB({ dbPath, crypto, logger, fresh: true });
     await db.stop();
   });
   test('get and put and del', async () => {

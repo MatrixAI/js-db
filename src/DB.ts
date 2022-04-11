@@ -41,6 +41,7 @@ class DB {
     crypto?: {
       key: Buffer;
       ops: Crypto;
+      canary?: Buffer;
     };
     fs?: FileSystem;
     logger?: Logger;
@@ -112,8 +113,18 @@ class DB {
       }
     }
     const db = await this.setupDb(this.dbPath);
-    await this.setupRootLevels(db);
     this._db = db;
+    try {
+      // Only run these after this._db is assigned
+      await this.setupRootLevels();
+      if (this.crypto != null) {
+        await this.canaryCheck();
+      }
+    } catch (e) {
+      // LevelDB must be closed otherwise its lock will persist
+      await this._db.close();
+      throw e;
+    }
     this.logger.info(`Started ${this.constructor.name}`);
   }
 
@@ -393,7 +404,7 @@ class DB {
     levelPath: LevelPath = [],
   ): DBIterator {
     levelPath = ['data', ...levelPath];
-    return this._iterator(this._db, options, levelPath);
+    return this._iterator(options, levelPath);
   }
 
   /**
@@ -401,7 +412,6 @@ class DB {
    * @internal
    */
   public _iterator(
-    db: LevelDB,
     options: AbstractIteratorOptions & { keys: false; values: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
@@ -409,7 +419,6 @@ class DB {
    * @internal
    */
   public _iterator(
-    db: LevelDB,
     options: AbstractIteratorOptions & { keys: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
@@ -417,7 +426,6 @@ class DB {
    * @internal
    */
   public _iterator(
-    db: LevelDB,
     options: AbstractIteratorOptions & { values: false },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, undefined>;
@@ -425,12 +433,10 @@ class DB {
    * @internal
    */
   public _iterator(
-    db: LevelDB,
     options?: AbstractIteratorOptions,
     levelPath?: LevelPath,
   ): DBIterator<Buffer, Buffer>;
   public _iterator(
-    db: LevelDB,
     options?: AbstractIteratorOptions,
     levelPath: LevelPath = [],
   ): DBIterator {
@@ -472,7 +478,7 @@ class DB {
       levelKeyEnd[levelKeyEnd.length - 1] += 1;
       options.lt = levelKeyEnd;
     }
-    const iterator = db.iterator(options);
+    const iterator = this._db.iterator(options);
     const seek = iterator.seek.bind(iterator);
     const next = iterator.next.bind(iterator);
     // @ts-ignore AbstractIterator type is outdated
@@ -507,16 +513,16 @@ class DB {
   @ready(new errors.ErrorDBNotRunning())
   public async clear(levelPath: LevelPath = []): Promise<void> {
     levelPath = ['data', ...levelPath];
-    await this._clear(this._db, levelPath);
+    await this._clear(levelPath);
   }
 
   /**
    * Clear from root level
    * @internal
    */
-  public async _clear(db: LevelDB, levelPath: LevelPath = []): Promise<void> {
-    for await (const [k] of this._iterator(db, { values: false }, levelPath)) {
-      await db.del(utils.keyPathToKey([...levelPath, k]));
+  public async _clear(levelPath: LevelPath = []): Promise<void> {
+    for await (const [k] of this._iterator({ values: false }, levelPath)) {
+      await this._del([...levelPath, k]);
     }
   }
 
@@ -547,7 +553,7 @@ class DB {
     raw: boolean = false,
   ): Promise<Array<[string | Buffer, any]>> {
     const records: Array<[string | Buffer, any]> = [];
-    for await (const [k, v] of this._iterator(this._db, undefined, levelPath)) {
+    for await (const [k, v] of this._iterator(undefined, levelPath)) {
       let key: string | Buffer, value: any;
       if (raw) {
         key = k;
@@ -672,9 +678,27 @@ class DB {
     return db;
   }
 
-  protected async setupRootLevels(db: LevelDB): Promise<void> {
+  protected async setupRootLevels(): Promise<void> {
     // Clear any dirty state in transactions
-    await this._clear(db, ['transactions']);
+    await this._clear(['transactions']);
+  }
+
+  protected async canaryCheck(): Promise<void> {
+    try {
+      const deadbeef = await this._get(['canary']);
+      if (deadbeef == null) {
+        // If the stored value didn't exist, its a new db and so store and proceed
+        await this._put(['canary'], 'deadbeef');
+      } else if (deadbeef !== 'deadbeef') {
+        throw new errors.ErrorDBKey('Incorrect key or DB is corrupted');
+      }
+    } catch (e) {
+      if (e instanceof errors.ErrorDBDecrypt) {
+        throw new errors.ErrorDBKey('Incorrect key supplied', { cause: e });
+      } else {
+        throw e;
+      }
+    }
   }
 }
 
