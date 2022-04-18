@@ -43,12 +43,12 @@ describe(DBTransaction.name, () => {
     const [releaseTran2, tran2] = await acquireTran2();
     await tran2!.put('hello', 'world');
     expect(await db.dump(['transactions'])).toStrictEqual([
-      [`${utils.sep}0${utils.sep}hello`, 'world'],
-      [`${utils.sep}1${utils.sep}hello`, 'world'],
+      [`${utils.sep}0${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
+      [`${utils.sep}1${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
     ]);
     await releaseTran1();
     expect(await db.dump(['transactions'])).toStrictEqual([
-      [`${utils.sep}1${utils.sep}hello`, 'world'],
+      [`${utils.sep}1${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
     ]);
     await releaseTran2();
     expect(await db.dump(['transactions'])).toStrictEqual([]);
@@ -63,8 +63,8 @@ describe(DBTransaction.name, () => {
       expect(await tran.get('foo')).toBe('bar');
       expect(await tran.get('hello')).toBe('world');
       expect(await tran.dump()).toStrictEqual([
-        ['foo', 'bar'],
-        ['hello', 'world'],
+        [`${utils.sep}data${utils.sep}foo`, 'bar'],
+        [`${utils.sep}data${utils.sep}hello`, 'world'],
       ]);
       // Delete hello -> world
       await tran.del('hello');
@@ -209,6 +209,115 @@ describe(DBTransaction.name, () => {
     });
     // `tran2` write is lost because `tran1` committed last
     expect(await db.get('hello')).toBe('foo');
+  });
+  test('get after delete consistency', async () => {
+    await db.put('hello', 'world');
+    await withF([db.transaction()], async ([tran]) => {
+      expect(await tran.get('hello')).toBe('world');
+      await tran.put('hello', 'another');
+      expect(await tran.get('hello')).toBe('another');
+      await tran.del('hello');
+      expect(await tran.dump()).toStrictEqual([
+        [`${utils.sep}tombstone${utils.sep}hello`, true],
+      ]);
+      expect(await tran.get('hello')).toBeUndefined();
+      expect(await db.get('hello')).toBe('world');
+    });
+    expect(await db.get('hello')).toBeUndefined();
+  });
+  test('iterator get after delete consistency', async () => {
+    await db.put('hello', 'world');
+    let results: Array<[Buffer, Buffer]> = [];
+    await withF([db.transaction()], async ([tran]) => {
+      for await (const [k, v] of tran.iterator()) {
+        results.push([k, v]);
+      }
+      expect(results).toStrictEqual([
+        [Buffer.from('hello'), Buffer.from('"world"')],
+      ]);
+      results = [];
+      await tran.del('hello');
+      for await (const [k, v] of tran.iterator()) {
+        results.push([k, v]);
+      }
+      expect(results).toStrictEqual([]);
+      results = [];
+      await tran.put('hello', 'another');
+      for await (const [k, v] of tran.iterator()) {
+        results.push([k, v]);
+      }
+      expect(results).toStrictEqual([
+        [Buffer.from('hello'), Buffer.from('"another"')],
+      ]);
+    });
+  });
+  test('iterator get after delete consistency with multiple levels', async () => {
+    await db.put(['a', 'b'], 'first');
+    await db.put(['a', 'c'], 'second');
+    const results: Array<[string, string]> = [];
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.del(['a', 'b']);
+      for await (const [k, v] of tran.iterator(undefined, ['a'])) {
+        results.push([k.toString(), JSON.parse(v.toString())]);
+      }
+    });
+    expect(results).toStrictEqual([['c', 'second']]);
+  });
+  test('iterator with multiple entombed keys', async () => {
+    /*
+      | KEYS | DB    | SNAPSHOT | RESULT |
+      |------|-------|----------|--------|
+      | a    | a = a | X        |        |
+      | b    | b = b |          | b = b  |
+      | c    |       | c = 3    | c = 3  |
+      | d    | d = d |          | d = d  |
+      | e    | e = e | e = 5    | e = 5  |
+      | f    |       | X        |        |
+      | g    |       |          |        |
+      | h    | h = h | X        |        |
+      | i    |       |          |        |
+      | j    |       | j = 10   | j = 10 |
+      | k    | k = k | X        |        |
+
+      Where X means deleted during transaction
+    */
+    let results: Array<[string, string]> = [];
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    await db.put('d', 'd');
+    await db.put('e', 'e');
+    await db.put('h', 'h');
+    await db.put('k', 'k');
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.del('a');
+      await tran.put('c', '3');
+      await tran.put('e', '5');
+      await tran.del('f');
+      await tran.del('h');
+      await tran.put('j', '10');
+      await tran.del('k');
+      for await (const [k, v] of tran.iterator()) {
+        results.push([k.toString(), JSON.parse(v.toString())]);
+      }
+      expect(results).toStrictEqual([
+        ['b', 'b'],
+        ['c', '3'],
+        ['d', 'd'],
+        ['e', '5'],
+        ['j', '10'],
+      ]);
+      results = [];
+      for await (const [k, v] of tran.iterator({ reverse: true })) {
+        results.push([k.toString(), JSON.parse(v.toString())]);
+      }
+      expect(results).toStrictEqual([
+        ['j', '10'],
+        ['e', '5'],
+        ['d', 'd'],
+        ['c', '3'],
+        ['b', 'b'],
+      ]);
+    });
   });
   test('iterator with same largest key', async () => {
     /*

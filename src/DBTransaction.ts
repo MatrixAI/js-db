@@ -47,6 +47,8 @@ class DBTransaction {
 
   public readonly transactionId: number;
   public readonly transactionPath: LevelPath;
+  public readonly transactionDataPath: LevelPath;
+  public readonly transactionTombstonePath: LevelPath;
 
   protected db: DB;
   protected logger: Logger;
@@ -69,6 +71,10 @@ class DBTransaction {
     this.db = db;
     this.transactionId = transactionId;
     this.transactionPath = ['transactions', this.transactionId.toString()];
+    this.transactionDataPath = [...this.transactionPath, 'data'];
+    // If tombstone is undefined, it has not been deleted
+    // If tombstone is true, then it has been deleted
+    this.transactionTombstonePath = [...this.transactionPath, 'tombstone'];
   }
 
   public async destroy() {
@@ -115,11 +121,18 @@ class DBTransaction {
       keyPath = [''];
     }
     let value = await this.db._get<T>(
-      [...this.transactionPath, ...keyPath],
+      [...this.transactionDataPath, ...keyPath],
       raw as any,
     );
     if (value === undefined) {
-      value = await this.db.get<T>(keyPath, raw as any);
+      if (
+        (await this.db._get<boolean>([
+          ...this.transactionTombstonePath,
+          ...keyPath,
+        ])) !== true
+      ) {
+        value = await this.db.get<T>(keyPath, raw as any);
+      }
       // Don't set it in the transaction DB
       // Because this is not a repeatable-read "snapshot"
     }
@@ -149,10 +162,11 @@ class DBTransaction {
       keyPath = [''];
     }
     await this.db._put(
-      [...this.transactionPath, ...keyPath],
+      [...this.transactionDataPath, ...keyPath],
       value,
       raw as any,
     );
+    await this.db._del([...this.transactionTombstonePath, ...keyPath]);
     this._ops.push({
       type: 'put',
       keyPath,
@@ -169,7 +183,8 @@ class DBTransaction {
     if (keyPath.length < 1) {
       keyPath = [''];
     }
-    await this.db._del([...this.transactionPath, ...keyPath]);
+    await this.db._del([...this.transactionDataPath, ...keyPath]);
+    await this.db._put([...this.transactionTombstonePath, ...keyPath], true);
     this._ops.push({
       type: 'del',
       keyPath,
@@ -205,7 +220,7 @@ class DBTransaction {
         keyAsBuffer: true,
         valueAsBuffer: true,
       },
-      [...this.transactionPath, ...levelPath],
+      [...this.transactionDataPath, ...levelPath],
     );
     const order = options?.reverse ? 'desc' : 'asc';
     const iterator = {
@@ -243,47 +258,79 @@ class DBTransaction {
         }
         iterator._nexting = true;
         try {
-          const tranKV = (await tranIterator.next()) as
-            | [Buffer, Buffer | undefined]
-            | undefined;
-          const dataKV = (await dataIterator.next()) as
-            | [Buffer, Buffer | undefined]
-            | undefined;
-          // If both are finished, iterator is finished
-          if (tranKV == null && dataKV == null) {
-            return undefined;
-          }
-          // If tranIterator is not finished but dataIterator is finished
-          // continue with tranIterator
-          if (tranKV != null && dataKV == null) {
-            return tranKV;
-          }
-          // If tranIterator is finished but dataIterator is not finished
-          // continue with the dataIterator
-          if (tranKV == null && dataKV != null) {
-            return dataKV;
-          }
-          const [tranKey, tranData] = tranKV as [Buffer, Buffer | undefined];
-          const [dataKey, dataData] = dataKV as [Buffer, Buffer | undefined];
-          const keyCompare = Buffer.compare(tranKey, dataKey);
-          if (keyCompare < 0) {
-            if (order === 'asc') {
-              dataIterator.seek(tranKey);
-              return [tranKey, tranData];
-            } else if (order === 'desc') {
-              tranIterator.seek(dataKey);
-              return [dataKey, dataData];
+          while (true) {
+            const tranKV = (await tranIterator.next()) as
+              | [Buffer, Buffer | undefined]
+              | undefined;
+            const dataKV = (await dataIterator.next()) as
+              | [Buffer, Buffer | undefined]
+              | undefined;
+            // If both are finished, iterator is finished
+            if (tranKV == null && dataKV == null) {
+              return undefined;
             }
-          } else if (keyCompare > 0) {
-            if (order === 'asc') {
-              tranIterator.seek(dataKey);
-              return [dataKey, dataData];
-            } else if (order === 'desc') {
-              dataIterator.seek(tranKey);
+            // If tranIterator is not finished but dataIterator is finished
+            // continue with tranIterator
+            if (tranKV != null && dataKV == null) {
+              return tranKV;
+            }
+            // If tranIterator is finished but dataIterator is not finished
+            // continue with the dataIterator
+            if (tranKV == null && dataKV != null) {
+              // If the dataKey is entombed, skip iteration
+              if (
+                (await this.db._get<boolean>([
+                  ...this.transactionTombstonePath,
+                  ...levelPath,
+                  dataKV[0],
+                ])) === true
+              ) {
+                continue;
+              }
+              return dataKV;
+            }
+            const [tranKey, tranData] = tranKV as [Buffer, Buffer | undefined];
+            const [dataKey, dataData] = dataKV as [Buffer, Buffer | undefined];
+            const keyCompare = Buffer.compare(tranKey, dataKey);
+            if (keyCompare < 0) {
+              if (order === 'asc') {
+                dataIterator.seek(tranKey);
+                return [tranKey, tranData];
+              } else if (order === 'desc') {
+                tranIterator.seek(dataKey);
+                // If the dataKey is entombed, skip iteration
+                if (
+                  (await this.db._get<boolean>([
+                    ...this.transactionTombstonePath,
+                    ...levelPath,
+                    dataKey,
+                  ])) === true
+                ) {
+                  continue;
+                }
+                return [dataKey, dataData];
+              }
+            } else if (keyCompare > 0) {
+              if (order === 'asc') {
+                tranIterator.seek(dataKey);
+                // If the dataKey is entombed, skip iteration
+                if (
+                  (await this.db._get<boolean>([
+                    ...this.transactionTombstonePath,
+                    ...levelPath,
+                    dataKey,
+                  ])) === true
+                ) {
+                  continue;
+                }
+                return [dataKey, dataData];
+              } else if (order === 'desc') {
+                dataIterator.seek(tranKey);
+                return [tranKey, tranData];
+              }
+            } else {
               return [tranKey, tranData];
             }
-          } else {
-            return [tranKey, tranData];
           }
         } finally {
           iterator._nexting = false;
