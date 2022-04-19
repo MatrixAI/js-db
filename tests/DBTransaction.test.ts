@@ -86,7 +86,7 @@ describe(DBTransaction.name, () => {
     await db.put('2', '2');
     await db.put('3', '3');
     // Transactional clear, clears all values
-    await withF([db.transaction()], async ([tran]) => {
+    await db.withTransactionF(async (tran) => {
       await tran.clear();
     });
     expect(await db.dump(['data'])).toStrictEqual([]);
@@ -111,7 +111,7 @@ describe(DBTransaction.name, () => {
     await db.put('1', '1');
     await db.put(['level1', '2'], '2');
     await db.put(['level1', 'level2', '3'], '3');
-    await withF([db.transaction()], async ([tran]) => {
+    await db.withTransactionF(async (tran) => {
       expect(await tran.count(['level1'])).toBe(2);
     });
   });
@@ -140,14 +140,14 @@ describe(DBTransaction.name, () => {
   test('non-repeatable reads', async () => {
     await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get('hello')).toBeUndefined();
-      await withF([db.transaction()], async ([tran2]) => {
+      await db.withTransactionF(async (tran2) => {
         await tran2.put('hello', 'world');
       });
       // `tran2` is now committed
       expect(await tran1.get('hello')).toBe('world');
     });
     await db.clear();
-    await withF([db.transaction()], async ([tran1]) => {
+    await db.withTransactionF(async (tran1) => {
       expect(await tran1.get('hello')).toBeUndefined();
       await tran1.put('hello', 'foo');
       await withF([db.transaction()], async ([tran2]) => {
@@ -684,6 +684,25 @@ describe(DBTransaction.name, () => {
       await iterator.end();
     });
   });
+  test('iterator with async generator yield', async () => {
+    await db.put('a', 'a');
+    await db.put('b', 'b');
+    const g = db.withTransactionG(async function* (
+      tran: DBTransaction,
+    ): AsyncGenerator<[Buffer, Buffer]> {
+      for await (const [k, v] of tran.iterator()) {
+        yield [k, v];
+      }
+    });
+    const results: Array<[string, string]> = [];
+    for await (const [k, v] of g) {
+      results.push([k.toString(), JSON.parse(v.toString())]);
+    }
+    expect(results).toStrictEqual([
+      ['a', 'a'],
+      ['b', 'b'],
+    ]);
+  });
   test('queue success hooks', async () => {
     const results: Array<number> = [];
     const mockSuccess1 = jest.fn(() => {
@@ -730,7 +749,7 @@ describe(DBTransaction.name, () => {
     await db.put('2', 'b');
     const mockFailure = jest.fn();
     await expect(
-      withF([db.transaction()], async ([tran]) => {
+      db.withTransactionF(async (tran) => {
         await tran.put('1', '1');
         await tran.put('2', '2');
         tran.queueFailure(mockFailure);
