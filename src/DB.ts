@@ -16,6 +16,7 @@ import type {
 import level from 'level';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
+import { withF, withG } from '@matrixai/resources';
 import {
   CreateDestroyStartStop,
   ready,
@@ -185,6 +186,18 @@ class DB {
         tran,
       ];
     };
+  }
+
+  public async withTransactionF<T>(
+    f: (tran: DBTransaction) => Promise<T>,
+  ): Promise<T> {
+    return withF([this.transaction()], ([tran]) => f(tran));
+  }
+
+  public withTransactionG<T, TReturn, TNext>(
+    g: (tran: DBTransaction) => AsyncGenerator<T, TReturn, TNext>,
+  ): AsyncGenerator<T, TReturn, TNext> {
+    return withG([this.transaction()], ([tran]) => g(tran));
   }
 
   /**
