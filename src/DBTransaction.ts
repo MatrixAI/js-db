@@ -352,7 +352,7 @@ class DBTransaction {
 
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async clear(levelPath: LevelPath = []): Promise<void> {
-    for await (const [k] of await this.iterator({ values: false }, levelPath)) {
+    for await (const [k] of this.iterator({ values: false }, levelPath)) {
       await this.del([...levelPath, k]);
     }
   }
@@ -360,7 +360,7 @@ class DBTransaction {
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async count(levelPath: LevelPath = []): Promise<number> {
     let count = 0;
-    for await (const _ of await this.iterator({ values: false }, levelPath)) {
+    for await (const _ of this.iterator({ values: false }, levelPath)) {
       count++;
     }
     return count;
