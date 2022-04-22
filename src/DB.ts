@@ -172,12 +172,12 @@ class DB {
               try {
                 await tran.commit();
               } catch (e) {
-                await tran.rollback();
+                await tran.rollback(e);
                 throw e;
               }
               await tran.finalize();
             } else {
-              await tran.rollback();
+              await tran.rollback(e);
             }
           } finally {
             await tran.destroy();

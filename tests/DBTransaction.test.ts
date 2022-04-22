@@ -744,6 +744,68 @@ describe(DBTransaction.name, () => {
     expect(mockFailure2).toBeCalled();
     expect(results).toStrictEqual([1, 2]);
   });
+  test('queue finally hooks', async () => {
+    let results: Array<string> = [];
+    let mockSuccess = jest.fn(() => {
+      results.push('success');
+    });
+    let mockFailure = jest.fn((e?: Error) => {
+      expect(e).toBeUndefined();
+      results.push('failure');
+    });
+    let mockFinally1 = jest.fn((e?: Error) => {
+      expect(e).toBeUndefined();
+      results.push('finally1');
+    });
+    let mockFinally2 = jest.fn((e?: Error) => {
+      expect(e).toBeUndefined();
+      results.push('finally2');
+    });
+    await withF([db.transaction()], async ([tran]) => {
+      tran.queueSuccess(mockSuccess);
+      tran.queueFailure(mockFailure);
+      tran.queueFinally(mockFinally1);
+      tran.queueFinally(mockFinally2);
+    });
+    expect(mockSuccess).toBeCalled();
+    expect(mockFailure).not.toBeCalled();
+    expect(mockFinally1).toBeCalled();
+    expect(mockFinally2).toBeCalled();
+    expect(results).toStrictEqual(['success', 'finally1', 'finally2']);
+    mockSuccess = jest.fn(() => {
+      results.push('success');
+    });
+    mockFailure = jest.fn((e?: Error) => {
+      expect(e).toBeInstanceOf(Error);
+      expect(e!.message).toBe('Something bad happened');
+      results.push('failure');
+    });
+    mockFinally1 = jest.fn((e?: Error) => {
+      expect(e).toBeInstanceOf(Error);
+      expect(e!.message).toBe('Something bad happened');
+      results.push('finally1');
+    });
+    mockFinally2 = jest.fn((e?: Error) => {
+      expect(e).toBeInstanceOf(Error);
+      expect(e!.message).toBe('Something bad happened');
+      results.push('finally2');
+    });
+    results = [];
+    await expect(
+      withF([db.transaction()], async ([tran]) => {
+        tran.queueSuccess(mockSuccess);
+        tran.queueFailure(mockFailure);
+        tran.queueFinally(mockFinally1);
+        tran.queueFinally(mockFinally2);
+        throw new Error('Something bad happened');
+      }),
+    ).rejects.toThrow('Something bad happened');
+    expect(mockSuccess).not.toBeCalled();
+    expect(mockFailure).toBeCalled();
+    expect(mockFinally1).toBeCalled();
+    expect(mockFinally2).toBeCalled();
+    expect(results).toStrictEqual(['failure', 'finally1', 'finally2']);
+  });
   test('rollback on error', async () => {
     await db.put('1', 'a');
     await db.put('2', 'b');

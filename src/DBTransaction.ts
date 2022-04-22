@@ -54,7 +54,8 @@ class DBTransaction {
   protected logger: Logger;
   protected _ops: DBOps = [];
   protected _callbacksSuccess: Array<() => any> = [];
-  protected _callbacksFailure: Array<() => any> = [];
+  protected _callbacksFailure: Array<(e?: Error) => any> = [];
+  protected _callbacksFinally: Array<(e?: Error) => any> = [];
   protected _committed: boolean = false;
   protected _rollbacked: boolean = false;
 
@@ -395,8 +396,13 @@ class DBTransaction {
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
-  public queueFailure(f: () => any): void {
+  public queueFailure(f: (e?: Error) => any): void {
     this._callbacksFailure.push(f);
+  }
+
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public queueFinally(f: (e?: Error) => any): void {
+    this._callbacksFinally.push(f);
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -417,7 +423,7 @@ class DBTransaction {
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
-  public async rollback(): Promise<void> {
+  public async rollback(e?: Error): Promise<void> {
     if (this._committed) {
       throw new errors.ErrorDBTransactionCommitted();
     }
@@ -426,7 +432,10 @@ class DBTransaction {
     }
     this._rollbacked = true;
     for (const f of this._callbacksFailure) {
-      await f();
+      await f(e);
+    }
+    for (const f of this._callbacksFinally) {
+      await f(e);
     }
   }
 
@@ -439,6 +448,9 @@ class DBTransaction {
       throw new errors.ErrorDBTransactionNotCommited();
     }
     for (const f of this._callbacksSuccess) {
+      await f();
+    }
+    for (const f of this._callbacksFinally) {
       await f();
     }
   }
