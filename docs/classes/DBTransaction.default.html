@@ -96,6 +96,7 @@
 							<ul class="tsd-index-list">
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="DBTransaction.default.html#_initLock_" class="tsd-kind-icon">[init<wbr>Lock]</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="DBTransaction.default.html#_callbacksFailure" class="tsd-kind-icon">_callbacks<wbr>Failure</a></li>
+								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="DBTransaction.default.html#_callbacksFinally" class="tsd-kind-icon">_callbacks<wbr>Finally</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="DBTransaction.default.html#_callbacksSuccess" class="tsd-kind-icon">_callbacks<wbr>Success</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="DBTransaction.default.html#_committed" class="tsd-kind-icon">_committed</a></li>
 								<li class="tsd-kind-property tsd-parent-kind-class tsd-is-protected"><a href="DBTransaction.default.html#_ops" class="tsd-kind-icon">_ops</a></li>
@@ -134,6 +135,7 @@
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="DBTransaction.default.html#iterator" class="tsd-kind-icon">iterator</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="DBTransaction.default.html#put" class="tsd-kind-icon">put</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="DBTransaction.default.html#queueFailure" class="tsd-kind-icon">queue<wbr>Failure</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class"><a href="DBTransaction.default.html#queueFinally" class="tsd-kind-icon">queue<wbr>Finally</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="DBTransaction.default.html#queueSuccess" class="tsd-kind-icon">queue<wbr>Success</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class"><a href="DBTransaction.default.html#rollback" class="tsd-kind-icon">rollback</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-static"><a href="DBTransaction.default.html#createTransaction" class="tsd-kind-icon">create<wbr>Transaction</a></li>
@@ -155,7 +157,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from CreateDestroy.constructor</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L61">src/DBTransaction.ts:61</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L62">src/DBTransaction.ts:62</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -196,10 +198,20 @@
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected">
 					<a name="_callbacksFailure" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> _callbacks<wbr>Failure</h3>
-					<div class="tsd-signature tsd-kind-icon">_callbacks<wbr>Failure<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> = []</span></div>
+					<div class="tsd-signature tsd-kind-icon">_callbacks<wbr>Failure<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> = []</span></div>
 					<aside class="tsd-sources">
 						<ul>
 							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L57">src/DBTransaction.ts:57</a></li>
+						</ul>
+					</aside>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-protected">
+					<a name="_callbacksFinally" class="tsd-anchor"></a>
+					<h3><span class="tsd-flag ts-flagProtected">Protected</span> _callbacks<wbr>Finally</h3>
+					<div class="tsd-signature tsd-kind-icon">_callbacks<wbr>Finally<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> = []</span></div>
+					<aside class="tsd-sources">
+						<ul>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L58">src/DBTransaction.ts:58</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -219,7 +231,7 @@
 					<div class="tsd-signature tsd-kind-icon">_committed<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> = false</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L58">src/DBTransaction.ts:58</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L59">src/DBTransaction.ts:59</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -239,7 +251,7 @@
 					<div class="tsd-signature tsd-kind-icon">_rollbacked<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> = false</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L59">src/DBTransaction.ts:59</a></li>
+							<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L60">src/DBTransaction.ts:60</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -350,7 +362,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L92">src/DBTransaction.ts:92</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L93">src/DBTransaction.ts:93</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span></h4>
@@ -367,7 +379,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L88">src/DBTransaction.ts:88</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L89">src/DBTransaction.ts:89</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span></h4>
@@ -384,7 +396,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L96">src/DBTransaction.ts:96</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L97">src/DBTransaction.ts:97</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
@@ -401,7 +413,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L84">src/DBTransaction.ts:84</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L85">src/DBTransaction.ts:85</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">readonly </span><a href="../modules/types.html#DBOp" class="tsd-signature-type" data-tsd-kind="Type alias">DBOp</a><span class="tsd-signature-symbol">[]</span></h4>
@@ -418,7 +430,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L100">src/DBTransaction.ts:100</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L101">src/DBTransaction.ts:101</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
@@ -438,7 +450,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L354">src/DBTransaction.ts:354</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L355">src/DBTransaction.ts:355</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -461,7 +473,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L403">src/DBTransaction.ts:403</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L409">src/DBTransaction.ts:409</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -478,7 +490,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L361">src/DBTransaction.ts:361</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L362">src/DBTransaction.ts:362</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -501,7 +513,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L179">src/DBTransaction.ts:179</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L180">src/DBTransaction.ts:180</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -525,7 +537,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from CreateDestroy.destroy</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L80">src/DBTransaction.ts:80</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L81">src/DBTransaction.ts:81</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -543,7 +555,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L373">src/DBTransaction.ts:373</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L374">src/DBTransaction.ts:374</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -566,7 +578,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L377">src/DBTransaction.ts:377</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L378">src/DBTransaction.ts:378</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -592,7 +604,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L434">src/DBTransaction.ts:434</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L443">src/DBTransaction.ts:443</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -610,7 +622,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L104">src/DBTransaction.ts:104</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L105">src/DBTransaction.ts:105</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
@@ -633,7 +645,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L108">src/DBTransaction.ts:108</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L109">src/DBTransaction.ts:109</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -660,7 +672,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L194">src/DBTransaction.ts:194</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L195">src/DBTransaction.ts:195</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -677,7 +689,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L198">src/DBTransaction.ts:198</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L199">src/DBTransaction.ts:199</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -704,7 +716,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L142">src/DBTransaction.ts:142</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L143">src/DBTransaction.ts:143</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -724,7 +736,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L147">src/DBTransaction.ts:147</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L148">src/DBTransaction.ts:148</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -747,26 +759,73 @@
 					<a name="queueFailure" class="tsd-anchor"></a>
 					<h3>queue<wbr>Failure</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">queue<wbr>Failure<span class="tsd-signature-symbol">(</span>f<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">queue<wbr>Failure<span class="tsd-signature-symbol">(</span>f<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L398">src/DBTransaction.ts:398</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L399">src/DBTransaction.ts:399</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>f: <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span></h5>
+									<h5>f: <span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span></h5>
 									<ul class="tsd-parameters">
 										<li class="tsd-parameter-signature">
 											<ul class="tsd-signatures tsd-kind-type-literal">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
 											</ul>
 											<ul class="tsd-descriptions">
 												<li class="tsd-description">
+													<h4 class="tsd-parameters-title">Parameters</h4>
+													<ul class="tsd-parameters">
+														<li>
+															<h5><span class="tsd-flag ts-flagOptional">Optional</span> e: <span class="tsd-signature-type">Error</span></h5>
+														</li>
+													</ul>
+													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+												</li>
+											</ul>
+										</li>
+									</ul>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class">
+					<a name="queueFinally" class="tsd-anchor"></a>
+					<h3>queue<wbr>Finally</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
+						<li class="tsd-signature tsd-kind-icon">queue<wbr>Finally<span class="tsd-signature-symbol">(</span>f<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<ul>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L404">src/DBTransaction.ts:404</a></li>
+								</ul>
+							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5>f: <span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span></h5>
+									<ul class="tsd-parameters">
+										<li class="tsd-parameter-signature">
+											<ul class="tsd-signatures tsd-kind-type-literal">
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
+											</ul>
+											<ul class="tsd-descriptions">
+												<li class="tsd-description">
+													<h4 class="tsd-parameters-title">Parameters</h4>
+													<ul class="tsd-parameters">
+														<li>
+															<h5><span class="tsd-flag ts-flagOptional">Optional</span> e: <span class="tsd-signature-type">Error</span></h5>
+														</li>
+													</ul>
 													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
 												</li>
 											</ul>
@@ -788,7 +847,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L393">src/DBTransaction.ts:393</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L394">src/DBTransaction.ts:394</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -817,15 +876,21 @@
 					<a name="rollback" class="tsd-anchor"></a>
 					<h3>rollback</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">rollback<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">rollback<span class="tsd-signature-symbol">(</span>e<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">Error</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L420">src/DBTransaction.ts:420</a></li>
+									<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DBTransaction.ts#L426">src/DBTransaction.ts:426</a></li>
 								</ul>
 							</aside>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> e: <span class="tsd-signature-type">Error</span></h5>
+								</li>
+							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
@@ -907,6 +972,9 @@
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-protected">
 								<a href="DBTransaction.default.html#_callbacksFailure" class="tsd-kind-icon">_callbacks<wbr>Failure</a>
+							</li>
+							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-protected">
+								<a href="DBTransaction.default.html#_callbacksFinally" class="tsd-kind-icon">_callbacks<wbr>Finally</a>
 							</li>
 							<li class=" tsd-kind-property tsd-parent-kind-class tsd-is-protected">
 								<a href="DBTransaction.default.html#_callbacksSuccess" class="tsd-kind-icon">_callbacks<wbr>Success</a>
@@ -991,6 +1059,9 @@
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="DBTransaction.default.html#queueFailure" class="tsd-kind-icon">queue<wbr>Failure</a>
+							</li>
+							<li class=" tsd-kind-method tsd-parent-kind-class">
+								<a href="DBTransaction.default.html#queueFinally" class="tsd-kind-icon">queue<wbr>Finally</a>
 							</li>
 							<li class=" tsd-kind-method tsd-parent-kind-class">
 								<a href="DBTransaction.default.html#queueSuccess" class="tsd-kind-icon">queue<wbr>Success</a>
