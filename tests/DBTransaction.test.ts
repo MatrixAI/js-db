@@ -652,7 +652,7 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      const iterator = await tran.iterator();
+      const iterator = tran.iterator();
       iterator.seek('a');
       expect(await iterator.next()).toStrictEqual([
         Buffer.from('a'),

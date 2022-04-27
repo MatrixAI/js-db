@@ -4,7 +4,16 @@ const ivSize = 16;
 const authTagSize = 16;
 
 async function getRandomBytes(size: number): Promise<Buffer> {
-  return Buffer.from(await random.getBytes(size), 'binary');
+  const p = new Promise<string>((resolve, reject) => {
+    random.getBytes(size, (e, bytes) => {
+      if (e != null) {
+        reject(e);
+      } else {
+        resolve(bytes);
+      }
+    });
+  });
+  return Buffer.from(await p, 'binary');
 }
 
 function getRandomBytesSync(size: number): Buffer {
