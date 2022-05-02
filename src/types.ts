@@ -43,7 +43,7 @@ type LevelPath = Readonly<Array<string | Buffer>>;
  * Custom type for our iterator
  * This takes over from the outdated AbstractIterator used in abstract-leveldown
  */
-type DBIterator<K = Buffer | undefined, V = Buffer | undefined> = {
+type DBIterator<K, V> = {
   seek: (k: Buffer | string) => void;
   next: () => Promise<[K, V] | undefined>;
   end: () => Promise<void>;

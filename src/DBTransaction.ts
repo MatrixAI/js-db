@@ -3,6 +3,8 @@ import type DB from './DB';
 import type { KeyPath, LevelPath, DBIterator, DBOps } from './types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { Lock } from '@matrixai/async-locks';
+import * as utils from './utils';
 import * as errors from './errors';
 
 /**
@@ -38,11 +40,14 @@ class DBTransaction {
     transactionId: number;
     logger?: Logger;
   }): Promise<DBTransaction> {
-    return new this({
+    logger.debug(`Creating ${this.name} ${transactionId}`);
+    const tran = new this({
       db,
       transactionId,
       logger,
     });
+    logger.debug(`Created ${this.name} ${transactionId}`);
+    return tran;
   }
 
   public readonly transactionId: number;
@@ -52,6 +57,17 @@ class DBTransaction {
 
   protected db: DB;
   protected logger: Logger;
+  /**
+   * LevelDB snapshots can only be accessed via an iterator
+   * This maintains a consistent read-only snapshot of the DB
+   * when `DBTransaction` is constructed
+   */
+  protected snapshot: DBIterator<Buffer, Buffer>;
+  /**
+   * Reading from the snapshot iterator needs to be an atomic operation
+   * involving a synchronus seek and asynchronous next
+   */
+  protected snapshotLock = new Lock();
   protected _ops: DBOps = [];
   protected _callbacksSuccess: Array<() => any> = [];
   protected _callbacksFailure: Array<(e?: Error) => any> = [];
@@ -70,16 +86,25 @@ class DBTransaction {
   }) {
     this.logger = logger;
     this.db = db;
+    this.snapshot = db._iterator(undefined, ['data']);
     this.transactionId = transactionId;
     this.transactionPath = ['transactions', this.transactionId.toString()];
+    // Data path contains the COW overlay
     this.transactionDataPath = [...this.transactionPath, 'data'];
-    // If tombstone is undefined, it has not been deleted
-    // If tombstone is true, then it has been deleted
+    // Tombstone path tracks whether key has been deleted
+    // If `undefined`, it has not been deleted
+    // If `true`, then it has been deleted
+    // When deleted, the COW overlay entry must also be deleted
     this.transactionTombstonePath = [...this.transactionPath, 'tombstone'];
   }
 
   public async destroy() {
-    await this.db._clear(this.transactionPath);
+    this.logger.debug(`Destroying ${this.constructor.name} ${this.transactionId}`);
+    await Promise.all([
+      this.snapshot.end(),
+      this.db._clear(this.transactionPath),
+    ]);
+    this.logger.debug(`Destroyed ${this.constructor.name} ${this.transactionId}`);
   }
 
   get ops(): Readonly<DBOps> {
@@ -114,7 +139,7 @@ class DBTransaction {
   public async get<T>(
     keyPath: KeyPath | string | Buffer,
     raw: boolean = false,
-  ): Promise<T | undefined> {
+  ): Promise<T | Buffer | undefined> {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
@@ -132,10 +157,8 @@ class DBTransaction {
           ...keyPath,
         ])) !== true
       ) {
-        value = await this.db.get<T>(keyPath, raw as any);
+        value = await this.getSnapshot<T>(keyPath, raw as any);
       }
-      // Don't set it in the transaction DB
-      // Because this is not a repeatable-read "snapshot"
     }
     return value;
   }
@@ -193,18 +216,46 @@ class DBTransaction {
   }
 
   public iterator(
-    options: AbstractIteratorOptions & { values: false },
+    options: AbstractIteratorOptions & { values: false; keyAsBuffer?: true },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, undefined>;
   public iterator(
-    options?: AbstractIteratorOptions,
+    options: AbstractIteratorOptions & { values: false; keyAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<string, undefined>;
+  public iterator(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: true;
+      valueAsBuffer?: true;
+    },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, Buffer>;
-  @ready(new errors.ErrorDBTransactionDestroyed())
   public iterator(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer: false;
+      valueAsBuffer?: true;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<string, Buffer>;
+  public iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: true;
+      valueAsBuffer: false;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, V>;
+  public iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer: false;
+      valueAsBuffer: false;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<string, V>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public iterator<V>(
     options?: AbstractIteratorOptions,
     levelPath: LevelPath = [],
-  ): DBIterator {
+  ): DBIterator<Buffer | string, Buffer | V | undefined> {
     const dataIterator = this.db._iterator(
       {
         ...options,
@@ -224,6 +275,20 @@ class DBTransaction {
       [...this.transactionDataPath, ...levelPath],
     );
     const order = options?.reverse ? 'desc' : 'asc';
+    const processKV = <V>([k, v]: [Buffer, Buffer | undefined]): [
+      Buffer | string,
+      Buffer | V | undefined,
+    ] => {
+      let k_: Buffer | string = k,
+        v_: Buffer | V | undefined = v;
+      if (options?.keyAsBuffer === false) {
+        k_ = k.toString('binary');
+      }
+      if (v != null && options?.valueAsBuffer === false) {
+        v_ = utils.deserialize<V>(v);
+      }
+      return [k_, v_];
+    };
     const iterator = {
       _ended: false,
       _nexting: false,
@@ -248,7 +313,9 @@ class DBTransaction {
         await dataIterator.end();
         await tranIterator.end();
       },
-      next: async (): Promise<[Buffer, Buffer | undefined] | undefined> => {
+      next: async (): Promise<
+        [Buffer | string, Buffer | V | undefined] | undefined
+      > => {
         if (iterator._ended) {
           throw new Error('cannot call next() after end()');
         }
@@ -273,7 +340,7 @@ class DBTransaction {
             // If tranIterator is not finished but dataIterator is finished
             // continue with tranIterator
             if (tranKV != null && dataKV == null) {
-              return tranKV;
+              return processKV(tranKV);
             }
             // If tranIterator is finished but dataIterator is not finished
             // continue with the dataIterator
@@ -288,7 +355,7 @@ class DBTransaction {
               ) {
                 continue;
               }
-              return dataKV;
+              return processKV(dataKV);
             }
             const [tranKey, tranData] = tranKV as [Buffer, Buffer | undefined];
             const [dataKey, dataData] = dataKV as [Buffer, Buffer | undefined];
@@ -296,7 +363,7 @@ class DBTransaction {
             if (keyCompare < 0) {
               if (order === 'asc') {
                 dataIterator.seek(tranKey);
-                return [tranKey, tranData];
+                return processKV([tranKey, tranData]);
               } else if (order === 'desc') {
                 tranIterator.seek(dataKey);
                 // If the dataKey is entombed, skip iteration
@@ -309,7 +376,7 @@ class DBTransaction {
                 ) {
                   continue;
                 }
-                return [dataKey, dataData];
+                return processKV([dataKey, dataData]);
               }
             } else if (keyCompare > 0) {
               if (order === 'asc') {
@@ -324,13 +391,13 @@ class DBTransaction {
                 ) {
                   continue;
                 }
-                return [dataKey, dataData];
+                return processKV([dataKey, dataData]);
               } else if (order === 'desc') {
                 dataIterator.seek(tranKey);
-                return [tranKey, tranData];
+                return processKV([tranKey, tranData]);
               }
             } else {
-              return [tranKey, tranData];
+              return processKV([tranKey, tranData]);
             }
           }
         } finally {
@@ -368,13 +435,14 @@ class DBTransaction {
   }
 
   /**
-   * Dump from transaction level
+   * Dump from transaction level path
+   * This will only show entries for the current transaction
    * It is intended for diagnostics
    */
-  public async dump(
+  public async dump<V>(
     levelPath?: LevelPath,
     raw?: false,
-  ): Promise<Array<[string, any]>>;
+  ): Promise<Array<[string, V]>>;
   public async dump(
     levelPath: LevelPath | undefined,
     raw: true,
@@ -413,6 +481,7 @@ class DBTransaction {
     if (this._committed) {
       return;
     }
+    this.logger.debug(`Committing ${this.constructor.name} ${this.transactionId}`);
     this._committed = true;
     try {
       await this.db.batch(this._ops);
@@ -420,6 +489,7 @@ class DBTransaction {
       this._committed = false;
       throw e;
     }
+    this.logger.debug(`Committed ${this.constructor.name} ${this.transactionId}`);
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -430,6 +500,7 @@ class DBTransaction {
     if (this._rollbacked) {
       return;
     }
+    this.logger.debug(`Rollbacking ${this.constructor.name} ${this.transactionId}`);
     this._rollbacked = true;
     for (const f of this._callbacksFailure) {
       await f(e);
@@ -437,6 +508,7 @@ class DBTransaction {
     for (const f of this._callbacksFinally) {
       await f(e);
     }
+    this.logger.debug(`Rollbacked ${this.constructor.name} ${this.transactionId}`);
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -445,14 +517,47 @@ class DBTransaction {
       throw new errors.ErrorDBTransactionRollbacked();
     }
     if (!this._committed) {
-      throw new errors.ErrorDBTransactionNotCommited();
+      throw new errors.ErrorDBTransactionNotCommitted();
     }
+    this.logger.debug(`Finalize ${this.constructor.name} ${this.transactionId}`);
     for (const f of this._callbacksSuccess) {
       await f();
     }
     for (const f of this._callbacksFinally) {
       await f();
     }
+    this.logger.debug(`Finalized ${this.constructor.name} ${this.transactionId}`);
+  }
+
+  /**
+   * Get value from the snapshot iterator
+   * This is an atomic operation
+   * It will seek to the key path and await the next entry
+   * If the entry's key equals the desired key, the entry is returned
+   */
+  protected async getSnapshot<T>(keyPath: KeyPath, raw?: false): Promise<T | undefined>;
+  protected async getSnapshot(keyPath: KeyPath, raw: true): Promise<Buffer | undefined>;
+  protected async getSnapshot<T>(
+    keyPath: KeyPath,
+    raw: boolean = false,
+  ): Promise<T | Buffer | undefined> {
+    return await this.snapshotLock.withF(async () => {
+      const key = utils.keyPathToKey(keyPath);
+      this.snapshot.seek(utils.keyPathToKey(keyPath));
+      const snapKV = await this.snapshot.next();
+      if (snapKV == null) {
+        return undefined;
+      }
+      const [snapKey, snapData] = snapKV;
+      if (!key.equals(snapKey)) {
+        return undefined;
+      }
+      if (raw) {
+        return snapData;
+      } else {
+        return utils.deserialize<T>(snapData);
+      }
+    });
   }
 }
 

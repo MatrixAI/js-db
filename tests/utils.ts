@@ -107,6 +107,10 @@ function bytes2BigInt(bytes: Uint8Array): bigint {
   return BigInt('0x' + hex);
 }
 
+async function sleep(ms: number) {
+  return await new Promise((r) => setTimeout(r, ms));
+}
+
 export {
   getRandomBytes,
   getRandomBytesSync,
@@ -117,4 +121,5 @@ export {
   dec2Hex,
   bytes2Hex,
   bytes2BigInt,
+  sleep,
 };

@@ -42,7 +42,6 @@ class DB {
     crypto?: {
       key: Buffer;
       ops: Crypto;
-      canary?: Buffer;
     };
     fs?: FileSystem;
     logger?: Logger;
@@ -160,11 +159,16 @@ class DB {
   public transaction(): ResourceAcquire<DBTransaction> {
     return async () => {
       const transactionId = this.transactionCounter++;
-      const tran = await DBTransaction.createTransaction({
+      const tran = new DBTransaction({
         db: this,
         transactionId,
         logger: this.logger,
       });
+      // const tran = await DBTransaction.createTransaction({
+      //   db: this,
+      //   transactionId,
+      //   logger: this.logger,
+      // });
       return [
         async (e?: Error) => {
           try {
@@ -216,7 +220,7 @@ class DB {
   public async get<T>(
     keyPath: KeyPath | string | Buffer,
     raw: boolean = false,
-  ): Promise<T | undefined> {
+  ): Promise<T | Buffer | undefined> {
     if (!Array.isArray(keyPath)) {
       keyPath = [keyPath] as KeyPath;
     }
@@ -400,22 +404,57 @@ class DB {
     levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
   public iterator(
-    options: AbstractIteratorOptions & { keys: false },
-    levelPath?: LevelPath,
-  ): DBIterator<undefined, Buffer>;
-  public iterator(
-    options: AbstractIteratorOptions & { values: false },
+    options: AbstractIteratorOptions & { values: false; keyAsBuffer?: true },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, undefined>;
   public iterator(
-    options?: AbstractIteratorOptions,
+    options: AbstractIteratorOptions & { values: false; keyAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<string, undefined>;
+  public iterator(
+    options: AbstractIteratorOptions & { keys: false; valueAsBuffer?: true },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, Buffer>;
+  public iterator<V>(
+    options: AbstractIteratorOptions & { keys: false; valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, V>;
+  public iterator(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: true;
+      valueAsBuffer?: true;
+    },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, Buffer>;
-  @ready(new errors.ErrorDBNotRunning())
   public iterator(
-    options?: AbstractIteratorOptions,
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer: false;
+      valueAsBuffer?: true;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<string, Buffer>;
+  public iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: true;
+      valueAsBuffer: false;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, V>;
+  public iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer: false;
+      valueAsBuffer: false;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<string, V>;
+  @ready(new errors.ErrorDBNotRunning())
+  public iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: any;
+      valueAsBuffer?: any;
+    },
     levelPath: LevelPath = [],
-  ): DBIterator {
+  ): DBIterator<Buffer | string | undefined, Buffer | V | undefined> {
     levelPath = ['data', ...levelPath];
     return this._iterator(options, levelPath);
   }
@@ -432,29 +471,76 @@ class DB {
    * @internal
    */
   public _iterator(
-    options: AbstractIteratorOptions & { keys: false },
-    levelPath?: LevelPath,
-  ): DBIterator<undefined, Buffer>;
-  /**
-   * @internal
-   */
-  public _iterator(
-    options: AbstractIteratorOptions & { values: false },
+    options: AbstractIteratorOptions & { values: false; keyAsBuffer?: true },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, undefined>;
   /**
    * @internal
    */
   public _iterator(
-    options?: AbstractIteratorOptions,
+    options: AbstractIteratorOptions & { values: false; keyAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<string, undefined>;
+  /**
+   * @internal
+   */
+  public _iterator(
+    options: AbstractIteratorOptions & { keys: false; valueAsBuffer?: true },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, Buffer>;
+  /**
+   * @internal
+   */
+  public _iterator<V>(
+    options: AbstractIteratorOptions & { keys: false; valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, V>;
+  /**
+   * @internal
+   */
+  public _iterator(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: true;
+      valueAsBuffer?: true;
+    },
     levelPath?: LevelPath,
   ): DBIterator<Buffer, Buffer>;
+  /**
+   * @internal
+   */
+  public _iterator(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer: false;
+      valueAsBuffer?: true;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<string, Buffer>;
+  /**
+   * @internal
+   */
+  public _iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer?: true;
+      valueAsBuffer: false;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<Buffer, V>;
+  /**
+   * @internal
+   */
+  public _iterator<V>(
+    options?: AbstractIteratorOptions & {
+      keyAsBuffer: false;
+      valueAsBuffer: false;
+    },
+    levelPath?: LevelPath,
+  ): DBIterator<string, V>;
   public _iterator(
     options?: AbstractIteratorOptions,
     levelPath: LevelPath = [],
-  ): DBIterator {
-    options = options ?? {};
+  ): DBIterator<any, any> {
     const levelKeyStart = utils.levelPathToKey(levelPath);
+    options = options ?? {};
     if (options.gt != null) {
       options.gt = Buffer.concat([
         levelKeyStart,
@@ -508,15 +594,22 @@ class DB {
           // Truncate level path so the returned key is relative to the level path
           const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
           kv[0] = utils.keyPathToKey(keyPath);
+          if (options?.keyAsBuffer === false) {
+            kv[0] = kv[0].toString('utf-8');
+          }
         }
         // Handle values: false
         if (kv[1] != null) {
-          kv[1] = await this.deserializeDecrypt(kv[1], true);
+          if (options?.valueAsBuffer === false) {
+            kv[1] = await this.deserializeDecrypt(kv[1], false);
+          } else {
+            kv[1] = await this.deserializeDecrypt(kv[1], true);
+          }
         }
       }
       return kv;
     };
-    return iterator as unknown as DBIterator;
+    return iterator as unknown as DBIterator<any, any>;
   }
 
   /**
@@ -549,13 +642,14 @@ class DB {
   }
 
   /**
-   * Dump from root level
+   * Dump from root level path
+   * This will show entries from all levels
    * It is intended for diagnostics
    */
-  public async dump(
+  public async dump<V>(
     levelPath?: LevelPath,
     raw?: false,
-  ): Promise<Array<[string, any]>>;
+  ): Promise<Array<[string, V]>>;
   public async dump(
     levelPath: LevelPath | undefined,
     raw: true,
@@ -566,16 +660,14 @@ class DB {
     raw: boolean = false,
   ): Promise<Array<[string | Buffer, any]>> {
     const records: Array<[string | Buffer, any]> = [];
-    for await (const [k, v] of this._iterator(undefined, levelPath)) {
-      let key: string | Buffer, value: any;
-      if (raw) {
-        key = k;
-        value = v;
-      } else {
-        key = k.toString('utf-8');
-        value = utils.deserialize(v);
-      }
-      records.push([key, value]);
+    for await (const [k, v] of this._iterator(
+      {
+        keyAsBuffer: raw as any,
+        valueAsBuffer: raw as any,
+      },
+      levelPath,
+    )) {
+      records.push([k, v]);
     }
     return records;
   }
