@@ -35,7 +35,7 @@ npm run lintfix
 npm run bench
 ```
 
-View benchmarks here: https://github.com/MatrixAI/js-db/blob/master/benches/results/WorkerManager.chart.html with https://raw.githack.com/
+View benchmarks here: https://github.com/MatrixAI/js-db/blob/master/benches/results with https://raw.githack.com/
 
 ### Docs Generation
 

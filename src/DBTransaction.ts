@@ -1,8 +1,14 @@
-import type { AbstractIteratorOptions } from 'abstract-leveldown';
 import type DB from './DB';
-import type { KeyPath, LevelPath, DBIterator, DBOps } from './types';
+import type {
+  KeyPath,
+  LevelPath,
+  DBIterator,
+  DBOps,
+  DBIteratorOptions,
+} from './types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import * as utils from './utils';
 import * as errors from './errors';
 
 /**
@@ -38,11 +44,14 @@ class DBTransaction {
     transactionId: number;
     logger?: Logger;
   }): Promise<DBTransaction> {
-    return new this({
+    logger.debug(`Creating ${this.name} ${transactionId}`);
+    const tran = new this({
       db,
       transactionId,
       logger,
     });
+    logger.debug(`Created ${this.name} ${transactionId}`);
+    return tran;
   }
 
   public readonly transactionId: number;
@@ -72,14 +81,23 @@ class DBTransaction {
     this.db = db;
     this.transactionId = transactionId;
     this.transactionPath = ['transactions', this.transactionId.toString()];
+    // Data path contains the COW overlay
     this.transactionDataPath = [...this.transactionPath, 'data'];
-    // If tombstone is undefined, it has not been deleted
-    // If tombstone is true, then it has been deleted
+    // Tombstone path tracks whether key has been deleted
+    // If `undefined`, it has not been deleted
+    // If `true`, then it has been deleted
+    // When deleted, the COW overlay entry must also be deleted
     this.transactionTombstonePath = [...this.transactionPath, 'tombstone'];
   }
 
   public async destroy() {
-    await this.db._clear(this.transactionPath);
+    this.logger.debug(
+      `Destroying ${this.constructor.name} ${this.transactionId}`,
+    );
+    await this.db._clear(this.transactionPath),
+      this.logger.debug(
+        `Destroyed ${this.constructor.name} ${this.transactionId}`,
+      );
   }
 
   get ops(): Readonly<DBOps> {
@@ -114,13 +132,8 @@ class DBTransaction {
   public async get<T>(
     keyPath: KeyPath | string | Buffer,
     raw: boolean = false,
-  ): Promise<T | undefined> {
-    if (!Array.isArray(keyPath)) {
-      keyPath = [keyPath] as KeyPath;
-    }
-    if (keyPath.length < 1) {
-      keyPath = [''];
-    }
+  ): Promise<T | Buffer | undefined> {
+    keyPath = utils.toKeyPath(keyPath);
     let value = await this.db._get<T>(
       [...this.transactionDataPath, ...keyPath],
       raw as any,
@@ -156,12 +169,7 @@ class DBTransaction {
     value: any,
     raw: boolean = false,
   ): Promise<void> {
-    if (!Array.isArray(keyPath)) {
-      keyPath = [keyPath] as KeyPath;
-    }
-    if (keyPath.length < 1) {
-      keyPath = [''];
-    }
+    keyPath = utils.toKeyPath(keyPath);
     await this.db._put(
       [...this.transactionDataPath, ...keyPath],
       value,
@@ -178,12 +186,7 @@ class DBTransaction {
 
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
-    if (!Array.isArray(keyPath)) {
-      keyPath = [keyPath] as KeyPath;
-    }
-    if (keyPath.length < 1) {
-      keyPath = [''];
-    }
+    keyPath = utils.toKeyPath(keyPath);
     await this.db._del([...this.transactionDataPath, ...keyPath]);
     await this.db._put([...this.transactionTombstonePath, ...keyPath], true);
     this._ops.push({
@@ -193,24 +196,27 @@ class DBTransaction {
   }
 
   public iterator(
-    options: AbstractIteratorOptions & { values: false },
+    options: DBIteratorOptions & { values: false },
     levelPath?: LevelPath,
-  ): DBIterator<Buffer, undefined>;
+  ): DBIterator<KeyPath, undefined>;
   public iterator(
-    options?: AbstractIteratorOptions,
+    options?: DBIteratorOptions & { valueAsBuffer?: true },
     levelPath?: LevelPath,
-  ): DBIterator<Buffer, Buffer>;
+  ): DBIterator<KeyPath, Buffer>;
+  public iterator<V>(
+    options?: DBIteratorOptions & { valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<KeyPath, V>;
   @ready(new errors.ErrorDBTransactionDestroyed())
-  public iterator(
-    options?: AbstractIteratorOptions,
+  public iterator<V>(
+    options?: DBIteratorOptions,
     levelPath: LevelPath = [],
-  ): DBIterator {
+  ): DBIterator<KeyPath, Buffer | V | undefined> {
     const dataIterator = this.db._iterator(
       {
         ...options,
         keys: true,
         keyAsBuffer: true,
-        valueAsBuffer: true,
       },
       ['data', ...levelPath],
     );
@@ -219,28 +225,32 @@ class DBTransaction {
         ...options,
         keys: true,
         keyAsBuffer: true,
-        valueAsBuffer: true,
       },
       [...this.transactionDataPath, ...levelPath],
     );
     const order = options?.reverse ? 'desc' : 'asc';
+    const processKV = (
+      kv: [KeyPath, Buffer | V | undefined],
+    ): [KeyPath, Buffer | V | undefined] => {
+      if (options?.keyAsBuffer === false) {
+        kv[0] = kv[0].map((k) => k.toString('utf-8'));
+      }
+      return kv;
+    };
     const iterator = {
       _ended: false,
       _nexting: false,
-      seek: (k: Buffer | string): void => {
+      seek: (keyPath: KeyPath | Buffer | string): void => {
         if (iterator._ended) {
           throw new Error('cannot call seek() after end()');
         }
         if (iterator._nexting) {
           throw new Error('cannot call seek() before next() has completed');
         }
-        if (typeof k === 'string') {
-          k = Buffer.from(k, 'utf-8');
-        }
-        dataIterator.seek(k);
-        tranIterator.seek(k);
+        dataIterator.seek(keyPath);
+        tranIterator.seek(keyPath);
       },
-      end: async (): Promise<void> => {
+      end: async () => {
         if (iterator._ended) {
           throw new Error('end() already called on iterator');
         }
@@ -248,7 +258,7 @@ class DBTransaction {
         await dataIterator.end();
         await tranIterator.end();
       },
-      next: async (): Promise<[Buffer, Buffer | undefined] | undefined> => {
+      next: async () => {
         if (iterator._ended) {
           throw new Error('cannot call next() after end()');
         }
@@ -261,10 +271,10 @@ class DBTransaction {
         try {
           while (true) {
             const tranKV = (await tranIterator.next()) as
-              | [Buffer, Buffer | undefined]
+              | [KeyPath, Buffer | undefined]
               | undefined;
             const dataKV = (await dataIterator.next()) as
-              | [Buffer, Buffer | undefined]
+              | [KeyPath, Buffer | undefined]
               | undefined;
             // If both are finished, iterator is finished
             if (tranKV == null && dataKV == null) {
@@ -273,64 +283,73 @@ class DBTransaction {
             // If tranIterator is not finished but dataIterator is finished
             // continue with tranIterator
             if (tranKV != null && dataKV == null) {
-              return tranKV;
+              return processKV(tranKV);
             }
             // If tranIterator is finished but dataIterator is not finished
             // continue with the dataIterator
             if (tranKV == null && dataKV != null) {
               // If the dataKey is entombed, skip iteration
               if (
-                (await this.db._get<boolean>([
-                  ...this.transactionTombstonePath,
-                  ...levelPath,
-                  dataKV[0],
-                ])) === true
+                (await this.db._get<boolean>(
+                  this.transactionTombstonePath.concat(levelPath, dataKV[0]),
+                )) === true
               ) {
                 continue;
               }
-              return dataKV;
+              return processKV(dataKV);
             }
-            const [tranKey, tranData] = tranKV as [Buffer, Buffer | undefined];
-            const [dataKey, dataData] = dataKV as [Buffer, Buffer | undefined];
-            const keyCompare = Buffer.compare(tranKey, dataKey);
+            const [tranKeyPath, tranData] = tranKV as [
+              KeyPath,
+              Buffer | V | undefined,
+            ];
+            const [dataKeyPath, dataData] = dataKV as [
+              KeyPath,
+              Buffer | V | undefined,
+            ];
+            const keyCompare = Buffer.compare(
+              utils.keyPathToKey(tranKeyPath),
+              utils.keyPathToKey(dataKeyPath),
+            );
             if (keyCompare < 0) {
               if (order === 'asc') {
-                dataIterator.seek(tranKey);
-                return [tranKey, tranData];
+                dataIterator.seek(tranKeyPath);
+                return processKV([tranKeyPath, tranData]);
               } else if (order === 'desc') {
-                tranIterator.seek(dataKey);
+                tranIterator.seek(dataKeyPath);
                 // If the dataKey is entombed, skip iteration
                 if (
-                  (await this.db._get<boolean>([
-                    ...this.transactionTombstonePath,
-                    ...levelPath,
-                    dataKey,
-                  ])) === true
+                  (await this.db._get<boolean>(
+                    this.transactionTombstonePath.concat(
+                      levelPath,
+                      dataKeyPath,
+                    ),
+                  )) === true
                 ) {
                   continue;
                 }
-                return [dataKey, dataData];
+                return processKV([dataKeyPath, dataData]);
               }
             } else if (keyCompare > 0) {
               if (order === 'asc') {
-                tranIterator.seek(dataKey);
+                tranIterator.seek(dataKeyPath);
                 // If the dataKey is entombed, skip iteration
                 if (
-                  (await this.db._get<boolean>([
-                    ...this.transactionTombstonePath,
-                    ...levelPath,
-                    dataKey,
-                  ])) === true
+                  (await this.db._get<boolean>(
+                    this.transactionTombstonePath.concat(
+                      levelPath,
+                      dataKeyPath,
+                    ),
+                  )) === true
                 ) {
                   continue;
                 }
-                return [dataKey, dataData];
+                return processKV([dataKeyPath, dataData]);
               } else if (order === 'desc') {
-                dataIterator.seek(tranKey);
-                return [tranKey, tranData];
+                dataIterator.seek(tranKeyPath);
+                return processKV([tranKeyPath, tranData]);
               }
             } else {
-              return [tranKey, tranData];
+              return processKV([tranKeyPath, tranData]);
             }
           }
         } finally {
@@ -339,7 +358,7 @@ class DBTransaction {
       },
       [Symbol.asyncIterator]: async function* () {
         try {
-          let kv;
+          let kv: [KeyPath, any] | undefined;
           while ((kv = await iterator.next()) !== undefined) {
             yield kv;
           }
@@ -353,8 +372,8 @@ class DBTransaction {
 
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async clear(levelPath: LevelPath = []): Promise<void> {
-    for await (const [k] of this.iterator({ values: false }, levelPath)) {
-      await this.del([...levelPath, k]);
+    for await (const [keyPath] of this.iterator({ values: false }, levelPath)) {
+      await this.del(levelPath.concat(keyPath));
     }
   }
 
@@ -368,13 +387,14 @@ class DBTransaction {
   }
 
   /**
-   * Dump from transaction level
+   * Dump from transaction level path
+   * This will only show entries for the current transaction
    * It is intended for diagnostics
    */
-  public async dump(
+  public async dump<V>(
     levelPath?: LevelPath,
     raw?: false,
-  ): Promise<Array<[string, any]>>;
+  ): Promise<Array<[string, V]>>;
   public async dump(
     levelPath: LevelPath | undefined,
     raw: true,
@@ -385,8 +405,9 @@ class DBTransaction {
     raw: boolean = false,
   ): Promise<Array<[string | Buffer, any]>> {
     return await this.db.dump(
-      [...this.transactionPath, ...levelPath],
+      this.transactionPath.concat(levelPath),
       raw as any,
+      true,
     );
   }
 
@@ -413,6 +434,9 @@ class DBTransaction {
     if (this._committed) {
       return;
     }
+    this.logger.debug(
+      `Committing ${this.constructor.name} ${this.transactionId}`,
+    );
     this._committed = true;
     try {
       await this.db.batch(this._ops);
@@ -420,6 +444,9 @@ class DBTransaction {
       this._committed = false;
       throw e;
     }
+    this.logger.debug(
+      `Committed ${this.constructor.name} ${this.transactionId}`,
+    );
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -430,6 +457,9 @@ class DBTransaction {
     if (this._rollbacked) {
       return;
     }
+    this.logger.debug(
+      `Rollbacking ${this.constructor.name} ${this.transactionId}`,
+    );
     this._rollbacked = true;
     for (const f of this._callbacksFailure) {
       await f(e);
@@ -437,6 +467,9 @@ class DBTransaction {
     for (const f of this._callbacksFinally) {
       await f(e);
     }
+    this.logger.debug(
+      `Rollbacked ${this.constructor.name} ${this.transactionId}`,
+    );
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -445,14 +478,20 @@ class DBTransaction {
       throw new errors.ErrorDBTransactionRollbacked();
     }
     if (!this._committed) {
-      throw new errors.ErrorDBTransactionNotCommited();
+      throw new errors.ErrorDBTransactionNotCommitted();
     }
+    this.logger.debug(
+      `Finalize ${this.constructor.name} ${this.transactionId}`,
+    );
     for (const f of this._callbacksSuccess) {
       await f();
     }
     for (const f of this._callbacksFinally) {
       await f();
     }
+    this.logger.debug(
+      `Finalized ${this.constructor.name} ${this.transactionId}`,
+    );
   }
 }
 

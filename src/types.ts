@@ -1,3 +1,4 @@
+import type { AbstractBatch } from 'abstract-leveldown';
 import type fs from 'fs';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 
@@ -40,15 +41,37 @@ type KeyPath = Readonly<Array<string | Buffer>>;
 type LevelPath = Readonly<Array<string | Buffer>>;
 
 /**
- * Custom type for our iterator
- * This takes over from the outdated AbstractIterator used in abstract-leveldown
+ * Iterator options
+ * The `keyAsBuffer` property controls
+ * whether DBIterator returns KeyPath as buffers or as strings
+ * It should be considered to default to true
+ * The `valueAsBuffer` property controls value type
+ * It should be considered to default to true
  */
-type DBIterator<K = Buffer | undefined, V = Buffer | undefined> = {
-  seek: (k: Buffer | string) => void;
-  next: () => Promise<[K, V] | undefined>;
+type DBIteratorOptions = {
+  gt?: KeyPath | Buffer | string;
+  gte?: KeyPath | Buffer | string;
+  lt?: KeyPath | Buffer | string;
+  lte?: KeyPath | Buffer | string;
+  limit?: number;
+  keys?: boolean;
+  values?: boolean;
+  keyAsBuffer?: boolean;
+  valueAsBuffer?: boolean;
+  reverse?: boolean;
+};
+
+/**
+ * Iterator
+ */
+type DBIterator<K extends KeyPath | undefined, V> = {
+  seek: (k: KeyPath | string | Buffer) => void;
   end: () => Promise<void>;
+  next: () => Promise<[K, V] | undefined>;
   [Symbol.asyncIterator]: () => AsyncGenerator<[K, V]>;
 };
+
+type DBBatch = AbstractBatch;
 
 type DBOp_ =
   | {
@@ -79,7 +102,9 @@ export type {
   DBWorkerManagerInterface,
   KeyPath,
   LevelPath,
+  DBIteratorOptions,
   DBIterator,
+  DBBatch,
   DBOp,
   DBOps,
 };

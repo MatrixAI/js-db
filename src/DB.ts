@@ -1,7 +1,3 @@
-import type {
-  AbstractBatch,
-  AbstractIteratorOptions,
-} from 'abstract-leveldown';
 import type { LevelDB } from 'level';
 import type { ResourceAcquire } from '@matrixai/resources';
 import type {
@@ -10,7 +6,9 @@ import type {
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
+  DBIteratorOptions,
   DBIterator,
+  DBBatch,
   DBOps,
 } from './types';
 import level from 'level';
@@ -42,7 +40,6 @@ class DB {
     crypto?: {
       key: Buffer;
       ops: Crypto;
-      canary?: Buffer;
     };
     fs?: FileSystem;
     logger?: Logger;
@@ -216,13 +213,8 @@ class DB {
   public async get<T>(
     keyPath: KeyPath | string | Buffer,
     raw: boolean = false,
-  ): Promise<T | undefined> {
-    if (!Array.isArray(keyPath)) {
-      keyPath = [keyPath] as KeyPath;
-    }
-    if (keyPath.length < 1) {
-      keyPath = [''];
-    }
+  ): Promise<T | Buffer | undefined> {
+    keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
     return this._get<T>(keyPath, raw as any);
   }
@@ -273,12 +265,7 @@ class DB {
     value: any,
     raw: boolean = false,
   ): Promise<void> {
-    if (!Array.isArray(keyPath)) {
-      keyPath = [keyPath] as KeyPath;
-    }
-    if (keyPath.length < 1) {
-      keyPath = [''];
-    }
+    keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
     return this._put(keyPath, value, raw as any);
   }
@@ -306,12 +293,7 @@ class DB {
    */
   @ready(new errors.ErrorDBNotRunning())
   public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
-    if (!Array.isArray(keyPath)) {
-      keyPath = [keyPath] as KeyPath;
-    }
-    if (keyPath.length < 1) {
-      keyPath = [''];
-    }
+    keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
     return this._del(keyPath);
   }
@@ -329,14 +311,9 @@ class DB {
    */
   @ready(new errors.ErrorDBNotRunning())
   public async batch(ops: Readonly<DBOps>): Promise<void> {
-    const opsP: Array<Promise<AbstractBatch> | AbstractBatch> = [];
+    const opsP: Array<Promise<DBBatch> | DBBatch> = [];
     for (const op of ops) {
-      if (!Array.isArray(op.keyPath)) {
-        op.keyPath = [op.keyPath] as KeyPath;
-      }
-      if (op.keyPath.length < 1) {
-        op.keyPath = [''];
-      }
+      op.keyPath = utils.toKeyPath(op.keyPath);
       op.keyPath = ['data', ...op.keyPath];
       if (op.type === 'del') {
         opsP.push({
@@ -364,7 +341,7 @@ class DB {
    * @internal
    */
   public async _batch(ops: Readonly<DBOps>): Promise<void> {
-    const opsP: Array<Promise<AbstractBatch> | AbstractBatch> = [];
+    const opsP: Array<Promise<DBBatch> | DBBatch> = [];
     for (const op of ops) {
       if (!Array.isArray(op.keyPath)) {
         op.keyPath = [op.keyPath] as KeyPath;
@@ -396,26 +373,34 @@ class DB {
    * You must have at least one of them being true or undefined
    */
   public iterator(
-    options: AbstractIteratorOptions & { keys: false; values: false },
+    options: DBIteratorOptions & { keys: false; values: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
+  public iterator<V>(
+    options: DBIteratorOptions & { keys: false; valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, V>;
   public iterator(
-    options: AbstractIteratorOptions & { keys: false },
+    options: DBIteratorOptions & { keys: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
   public iterator(
-    options: AbstractIteratorOptions & { values: false },
+    options: DBIteratorOptions & { values: false },
     levelPath?: LevelPath,
-  ): DBIterator<Buffer, undefined>;
+  ): DBIterator<KeyPath, undefined>;
+  public iterator<V>(
+    options: DBIteratorOptions & { valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<KeyPath, V>;
   public iterator(
-    options?: AbstractIteratorOptions,
+    options?: DBIteratorOptions,
     levelPath?: LevelPath,
-  ): DBIterator<Buffer, Buffer>;
+  ): DBIterator<KeyPath, Buffer>;
   @ready(new errors.ErrorDBNotRunning())
   public iterator(
-    options?: AbstractIteratorOptions,
+    options?: DBIteratorOptions & { keyAsBuffer?: any; valueAsBuffer?: any },
     levelPath: LevelPath = [],
-  ): DBIterator {
+  ): DBIterator<any, any> {
     levelPath = ['data', ...levelPath];
     return this._iterator(options, levelPath);
   }
@@ -425,98 +410,133 @@ class DB {
    * @internal
    */
   public _iterator(
-    options: AbstractIteratorOptions & { keys: false; values: false },
+    options: DBIteratorOptions & { keys: false; values: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
   /**
    * @internal
    */
+  public _iterator<V>(
+    options: DBIteratorOptions & { keys: false; valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<undefined, V>;
+  /**
+   * @internal
+   */
   public _iterator(
-    options: AbstractIteratorOptions & { keys: false },
+    options: DBIteratorOptions & { keys: false },
     levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
   /**
    * @internal
    */
   public _iterator(
-    options: AbstractIteratorOptions & { values: false },
+    options: DBIteratorOptions & { values: false },
     levelPath?: LevelPath,
-  ): DBIterator<Buffer, undefined>;
+  ): DBIterator<KeyPath, undefined>;
+  /**
+   * @internal
+   */
+  public _iterator<V>(
+    options?: DBIteratorOptions & { valueAsBuffer: false },
+    levelPath?: LevelPath,
+  ): DBIterator<KeyPath, V>;
   /**
    * @internal
    */
   public _iterator(
-    options?: AbstractIteratorOptions,
+    options?: DBIteratorOptions,
     levelPath?: LevelPath,
-  ): DBIterator<Buffer, Buffer>;
-  public _iterator(
-    options?: AbstractIteratorOptions,
+  ): DBIterator<KeyPath, Buffer>;
+  public _iterator<V>(
+    options?: DBIteratorOptions,
     levelPath: LevelPath = [],
-  ): DBIterator {
-    options = options ?? {};
-    const levelKeyStart = utils.levelPathToKey(levelPath);
-    if (options.gt != null) {
-      options.gt = Buffer.concat([
-        levelKeyStart,
-        typeof options.gt === 'string' ? Buffer.from(options.gt) : options.gt,
-      ]);
+  ): DBIterator<KeyPath | undefined, Buffer | V | undefined> {
+    const options_ = {
+      ...(options ?? {}),
+      // Internally we always use the buffer
+      keyAsBuffer: true,
+      valueAsBuffer: true,
+    };
+    if (options_.gt != null) {
+      options_.gt = utils.keyPathToKey(
+        levelPath.concat(utils.toKeyPath(options_.gt)),
+      );
     }
-    if (options.gte != null) {
-      options.gte = Buffer.concat([
-        levelKeyStart,
-        typeof options.gte === 'string'
-          ? Buffer.from(options.gte)
-          : options.gte,
-      ]);
+    if (options_.gte != null) {
+      options_.gte = utils.keyPathToKey(
+        levelPath.concat(utils.toKeyPath(options_.gte)),
+      );
     }
-    if (options.gt == null && options.gte == null) {
-      options.gt = levelKeyStart;
+    if (options_.gt == null && options_.gte == null) {
+      options_.gte = utils.levelPathToKey(levelPath);
     }
-    if (options?.lt != null) {
-      options.lt = Buffer.concat([
-        levelKeyStart,
-        typeof options.lt === 'string' ? Buffer.from(options.lt) : options.lt,
-      ]);
+    if (options_.lt != null) {
+      options_.lt = utils.keyPathToKey(
+        levelPath.concat(utils.toKeyPath(options_.lt)),
+      );
     }
-    if (options?.lte != null) {
-      options.lte = Buffer.concat([
-        levelKeyStart,
-        typeof options.lte === 'string'
-          ? Buffer.from(options.lte)
-          : options.lte,
-      ]);
+    if (options_.lte != null) {
+      options_.lte = utils.keyPathToKey(
+        levelPath.concat(utils.toKeyPath(options_.lte)),
+      );
     }
-    if (options.lt == null && options.lte == null) {
+    if (options_.lt == null && options_.lte == null) {
+      const levelKeyStart = utils.levelPathToKey(levelPath);
       const levelKeyEnd = Buffer.from(levelKeyStart);
       levelKeyEnd[levelKeyEnd.length - 1] += 1;
-      options.lt = levelKeyEnd;
+      options_.lt = levelKeyEnd;
     }
-    const iterator = this._db.iterator(options);
-    const seek = iterator.seek.bind(iterator);
-    const next = iterator.next.bind(iterator);
-    // @ts-ignore AbstractIterator type is outdated
-    iterator.seek = (k: Buffer | string): void => {
-      seek(utils.keyPathToKey([...levelPath, k]));
-    };
-    // @ts-ignore AbstractIterator type is outdated
-    iterator.next = async () => {
-      const kv = await next();
-      // If kv is undefined, we have reached the end of iteration
-      if (kv != null) {
+    const iterator_ = this._db.iterator(options_);
+    const iterator = {
+      seek: (keyPath: KeyPath | Buffer | string): void => {
+        iterator_.seek(
+          utils.keyPathToKey(levelPath.concat(utils.toKeyPath(keyPath))),
+        );
+      },
+      end: async () => {
+        // @ts-ignore AbstractIterator type is outdated
+        // eslint-disable-next-line @typescript-eslint/await-thenable
+        await iterator_.end();
+      },
+      next: async () => {
+        // @ts-ignore AbstractIterator type is outdated
+        // eslint-disable-next-line @typescript-eslint/await-thenable
+        const kv = (await iterator_.next()) as any;
+        // If kv is undefined, we have reached the end of iteration
+        if (kv == null) return kv;
         // Handle keys: false
         if (kv[0] != null) {
           // Truncate level path so the returned key is relative to the level path
           const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
-          kv[0] = utils.keyPathToKey(keyPath);
+          if (options?.keyAsBuffer === false) {
+            kv[0] = keyPath.map((k) => k.toString('utf-8'));
+          } else {
+            kv[0] = keyPath;
+          }
         }
         // Handle values: false
         if (kv[1] != null) {
-          kv[1] = await this.deserializeDecrypt(kv[1], true);
+          if (options?.valueAsBuffer === false) {
+            kv[1] = await this.deserializeDecrypt<V>(kv[1], false);
+          } else {
+            kv[1] = await this.deserializeDecrypt(kv[1], true);
+          }
         }
-      }
-      return kv;
+        return kv;
+      },
+      [Symbol.asyncIterator]: async function* () {
+        try {
+          let kv: [KeyPath | undefined, any] | undefined;
+          while ((kv = await iterator.next()) !== undefined) {
+            yield kv;
+          }
+        } finally {
+          if (!iterator_._ended) await iterator.end();
+        }
+      },
     };
-    return iterator as unknown as DBIterator;
+    return iterator;
   }
 
   /**
@@ -534,8 +554,11 @@ class DB {
    * @internal
    */
   public async _clear(levelPath: LevelPath = []): Promise<void> {
-    for await (const [k] of this._iterator({ values: false }, levelPath)) {
-      await this._del([...levelPath, k]);
+    for await (const [keyPath] of this._iterator(
+      { values: false },
+      levelPath,
+    )) {
+      await this._del(levelPath.concat(keyPath));
     }
   }
 
@@ -549,33 +572,44 @@ class DB {
   }
 
   /**
-   * Dump from root level
+   * Dump from DB
+   * This will show entries from all levels
    * It is intended for diagnostics
+   * Use `console.dir` instead of `console.log` to debug the result
+   * Set `root` to `true` if you want to dump from root levels
    */
-  public async dump(
+  public async dump<V>(
     levelPath?: LevelPath,
     raw?: false,
-  ): Promise<Array<[string, any]>>;
+    root?: boolean,
+  ): Promise<Array<[string, V]>>;
   public async dump(
     levelPath: LevelPath | undefined,
     raw: true,
+    root?: boolean,
   ): Promise<Array<[Buffer, Buffer]>>;
   @ready(new errors.ErrorDBNotRunning())
   public async dump(
     levelPath: LevelPath = [],
     raw: boolean = false,
+    root: boolean = false,
   ): Promise<Array<[string | Buffer, any]>> {
+    if (!root) {
+      levelPath = ['data', ...levelPath];
+    }
     const records: Array<[string | Buffer, any]> = [];
-    for await (const [k, v] of this._iterator(undefined, levelPath)) {
-      let key: string | Buffer, value: any;
-      if (raw) {
-        key = k;
-        value = v;
-      } else {
-        key = k.toString('utf-8');
-        value = utils.deserialize(v);
+    for await (const [keyPath, v] of this._iterator(
+      {
+        keyAsBuffer: true,
+        valueAsBuffer: raw as any,
+      },
+      levelPath,
+    )) {
+      let k: Buffer | string = utils.keyPathToKey(keyPath);
+      if (!raw) {
+        k = k.toString('utf-8');
       }
-      records.push([key, value]);
+      records.push([k, v]);
     }
     return records;
   }

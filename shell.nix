@@ -1,10 +1,9 @@
 { pkgs ? import ./pkgs.nix {} }:
 
 with pkgs;
-pkgs.mkShell {
+mkShell {
   nativeBuildInputs = [
     nodejs
-    nodePackages.node2nix
   ];
   shellHook = ''
     echo 'Entering js-db'
@@ -21,7 +20,7 @@ pkgs.mkShell {
     # Enables npm link
     export npm_config_prefix=~/.npm
 
-    npm install
+    npm install --ignore-scripts
 
     set +v
   '';
