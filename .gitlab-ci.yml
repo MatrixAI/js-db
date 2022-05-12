@@ -14,8 +14,7 @@ lint:
   interruptible: true
   script:
     - >
-        nix-shell -I nixpkgs=./pkgs.nix --packages nodejs --run '
-        npm install;
+        nix-shell --run '
         npm run lint;
         '
 
@@ -24,7 +23,6 @@ test:
   interruptible: true
   script:
     - >
-        nix-shell -I nixpkgs=./pkgs.nix --packages nodejs --run '
-        npm install;
+        nix-shell --run '
         npm run test;
         '

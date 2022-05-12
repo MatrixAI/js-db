@@ -13,12 +13,15 @@ pkgs.mkShell {
     set +o allexport
     set -v
 
-    # Enables npm link to work
+    mkdir --parents "$(pwd)/tmp"
+
+    # Built executables and NPM executables
+    export PATH="$(pwd)/dist/bin:$(npm bin):$PATH"
+
+    # Enables npm link
     export npm_config_prefix=~/.npm
 
-    export PATH="$(pwd)/dist/bin:$(npm bin):$PATH"
     npm install
-    mkdir --parents "$(pwd)/tmp"
 
     set +v
   '';
