@@ -28,7 +28,9 @@ function keyPathToKey(keyPath: KeyPath): Buffer {
   const levelPath = keyPath.slice(0, -1);
   return Buffer.concat([
     levelPathToKey(levelPath),
-    escapePart(typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart),
+    escapePart(
+      typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart,
+    ),
   ]);
 }
 
@@ -48,7 +50,7 @@ function levelPathToKey(levelPath: LevelPath): Buffer {
 }
 
 /**
- * Escapes the level part for escape and separator
+ * Escapes level and key parts for escape and separator
  */
 function escapePart(buf: Buffer): Buffer {
   const bytes: Array<number> = [];
@@ -66,9 +68,9 @@ function escapePart(buf: Buffer): Buffer {
 }
 
 /**
- * Unescapes the level part of escape and separator
+ * Unescapes level and key parts of escape and separator
  */
-function unescapeLevel(buf: Buffer): Buffer {
+function unescapePart(buf: Buffer): Buffer {
   const bytes: Array<number> = [];
   for (let i = 0; i < buf.byteLength; i++) {
     const b = buf[i];
@@ -107,8 +109,8 @@ function parseKey(key: Buffer): KeyPath {
   if (bufs.length < 1) {
     throw new TypeError('Buffer is not a key');
   }
-  for (let i = 0; i < bufs.length - 1; i++) {
-    bufs[i] = unescapeLevel(bufs[i]);
+  for (let i = 0; i < bufs.length; i++) {
+    bufs[i] = unescapePart(bufs[i]);
   }
   return bufs;
 }
@@ -250,7 +252,7 @@ export {
   sep,
   esc,
   escapePart,
-  unescapeLevel,
+  unescapePart,
   keyPathToKey,
   levelPathToKey,
   parseKey,
