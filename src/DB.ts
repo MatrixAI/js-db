@@ -321,6 +321,7 @@ class DB {
    * @internal
    */
   public async _del(keyPath: KeyPath): Promise<void> {
+    console.log('DEL', keyPath);
     return this._db.del(utils.keyPathToKey(keyPath));
   }
 
@@ -458,15 +459,15 @@ class DB {
     if (options.gt != null) {
       options.gt = Buffer.concat([
         levelKeyStart,
-        typeof options.gt === 'string' ? Buffer.from(options.gt) : options.gt,
+        utils.escapePart(typeof options.gt === 'string' ? Buffer.from(options.gt) : options.gt),
       ]);
     }
     if (options.gte != null) {
       options.gte = Buffer.concat([
         levelKeyStart,
-        typeof options.gte === 'string'
+        utils.escapePart(typeof options.gte === 'string'
           ? Buffer.from(options.gte)
-          : options.gte,
+          : options.gte),
       ]);
     }
     if (options.gt == null && options.gte == null) {
@@ -475,15 +476,15 @@ class DB {
     if (options?.lt != null) {
       options.lt = Buffer.concat([
         levelKeyStart,
-        typeof options.lt === 'string' ? Buffer.from(options.lt) : options.lt,
+        utils.escapePart(typeof options.lt === 'string' ? Buffer.from(options.lt) : options.lt),
       ]);
     }
     if (options?.lte != null) {
       options.lte = Buffer.concat([
         levelKeyStart,
-        typeof options.lte === 'string'
+        utils.escapePart(typeof options.lte === 'string'
           ? Buffer.from(options.lte)
-          : options.lte,
+          : options.lte),
       ]);
     }
     if (options.lt == null && options.lte == null) {
@@ -503,11 +504,15 @@ class DB {
       const kv = await next();
       // If kv is undefined, we have reached the end of iteration
       if (kv != null) {
+
+        console.log('K', kv[0]);
         // Handle keys: false
         if (kv[0] != null) {
           // Truncate level path so the returned key is relative to the level path
           const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
+          console.log('KEYPATH REMAINING', keyPath);
           kv[0] = utils.keyPathToKey(keyPath);
+          console.log('KEYPATH NEW', kv[0]);
         }
         // Handle values: false
         if (kv[1] != null) {
@@ -535,7 +540,7 @@ class DB {
    */
   public async _clear(levelPath: LevelPath = []): Promise<void> {
     for await (const [k] of this._iterator({ values: false }, levelPath)) {
-      await this._del([...levelPath, k]);
+      await this._del([...levelPath, ...utils.parseKey(k)]);
     }
   }
 
