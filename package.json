@@ -34,6 +34,7 @@
     "@types/jest": "^27.0.2",
     "@types/level": "^6.0.0",
     "@types/node": "^16.11.7",
+    "@types/node-forge": "^0.10.4",
     "@typescript-eslint/eslint-plugin": "^5.23.0",
     "@typescript-eslint/parser": "^5.23.0",
     "benny": "^3.6.15",
