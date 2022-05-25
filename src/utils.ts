@@ -18,8 +18,7 @@ const esc = Buffer.from([92]);
  * Converts KeyPath to key buffer
  * e.g. ['A', 'B'] => !A!B (where ! is the sep)
  * An empty key path is converted to `['']`
- * Level parts must not contain the separator
- * Key actual part is allowed to contain the separator
+ * Level and key parts must not contain the separator
  */
 function keyPathToKey(keyPath: KeyPath): Buffer {
   if (keyPath.length < 1) {
@@ -29,7 +28,7 @@ function keyPathToKey(keyPath: KeyPath): Buffer {
   const levelPath = keyPath.slice(0, -1);
   return Buffer.concat([
     levelPathToKey(levelPath),
-    typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart,
+    escapePart(typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart),
   ]);
 }
 
@@ -42,7 +41,7 @@ function levelPathToKey(levelPath: LevelPath): Buffer {
   return Buffer.concat(
     levelPath.map((p) => {
       p = typeof p === 'string' ? Buffer.from(p, 'utf-8') : p;
-      p = escapeLevel(p);
+      p = escapePart(p);
       return Buffer.concat([sep, p, sep]);
     }),
   );
@@ -51,7 +50,7 @@ function levelPathToKey(levelPath: LevelPath): Buffer {
 /**
  * Escapes the level part for escape and separator
  */
-function escapeLevel(buf: Buffer): Buffer {
+function escapePart(buf: Buffer): Buffer {
   const bytes: Array<number> = [];
   for (let i = 0; i < buf.byteLength; i++) {
     const b = buf[i];
@@ -250,7 +249,7 @@ function fromArrayBuffer(
 export {
   sep,
   esc,
-  escapeLevel,
+  escapePart,
   unescapeLevel,
   keyPathToKey,
   levelPathToKey,
