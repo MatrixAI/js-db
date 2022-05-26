@@ -15,10 +15,23 @@ const sep = Buffer.from([0]);
 const esc = Buffer.from([92]);
 
 /**
+ * Used to convert possible KeyPath into legal KeyPath
+ */
+function toKeyPath(keyPath: KeyPath | string | Buffer): KeyPath {
+  if (!Array.isArray(keyPath)) {
+    keyPath = [keyPath] as KeyPath;
+  }
+  if (keyPath.length < 1) {
+    keyPath = [''];
+  }
+  return keyPath;
+}
+
+/**
  * Converts KeyPath to key buffer
  * e.g. ['A', 'B'] => !A!B (where ! is the sep)
  * An empty key path is converted to `['']`
- * Level parts must not contain the separator
+ * Level parts is allowed to contain the separator
  * Key actual part is allowed to contain the separator
  */
 function keyPathToKey(keyPath: KeyPath): Buffer {
@@ -29,7 +42,9 @@ function keyPathToKey(keyPath: KeyPath): Buffer {
   const levelPath = keyPath.slice(0, -1);
   return Buffer.concat([
     levelPathToKey(levelPath),
-    typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart,
+    escapePart(
+      typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart,
+    ),
   ]);
 }
 
@@ -42,16 +57,16 @@ function levelPathToKey(levelPath: LevelPath): Buffer {
   return Buffer.concat(
     levelPath.map((p) => {
       p = typeof p === 'string' ? Buffer.from(p, 'utf-8') : p;
-      p = escapeLevel(p);
+      p = escapePart(p);
       return Buffer.concat([sep, p, sep]);
     }),
   );
 }
 
 /**
- * Escapes the level part for escape and separator
+ * Escapes the level and key parts for escape and separator
  */
-function escapeLevel(buf: Buffer): Buffer {
+function escapePart(buf: Buffer): Buffer {
   const bytes: Array<number> = [];
   for (let i = 0; i < buf.byteLength; i++) {
     const b = buf[i];
@@ -67,9 +82,9 @@ function escapeLevel(buf: Buffer): Buffer {
 }
 
 /**
- * Unescapes the level part of escape and separator
+ * Unescapes the level and key part of escape and separator
  */
-function unescapeLevel(buf: Buffer): Buffer {
+function unescapePart(buf: Buffer): Buffer {
   const bytes: Array<number> = [];
   for (let i = 0; i < buf.byteLength; i++) {
     const b = buf[i];
@@ -98,18 +113,18 @@ function unescapeLevel(buf: Buffer): Buffer {
  * BNF grammar of key buffer:
  *   path => levels:ls keyActual:k -> [...ls, k] | keyActual:k -> [k]
  *   levels => level:l levels:ls -> [l, ...ls] | '' -> []
- *   level => sep .+?:l (?<!escape) sep (?>.+) -> l
+ *   level => sep .*?:l (?<!escape) sep (?>.*) -> l
  *   sep => 0x00
  *   escape => 0x5c
- *   keyActual => .+:k -> [k]
+ *   keyActual => .*:k -> [k]
  */
 function parseKey(key: Buffer): KeyPath {
   const [bufs] = parsePath(key);
   if (bufs.length < 1) {
     throw new TypeError('Buffer is not a key');
   }
-  for (let i = 0; i < bufs.length - 1; i++) {
-    bufs[i] = unescapeLevel(bufs[i]);
+  for (let i = 0; i < bufs.length; i++) {
+    bufs[i] = unescapePart(bufs[i]);
   }
   return bufs;
 }
@@ -184,21 +199,12 @@ function parseLevel(input: Buffer): [Array<Buffer>, Buffer] {
   if (sepEnd == null) {
     throw new errors.ErrorDBParseKey('Missing separator end');
   }
-  if (levelBytes.length < 1) {
-    throw new errors.ErrorDBParseKey('Level cannot be empty');
-  }
   const level = Buffer.from(levelBytes);
   const remaining = input.subarray(sepEnd + 1);
-  if (remaining.byteLength < 1) {
-    throw new errors.ErrorDBParseKey('Level cannot be followed by empty');
-  }
   return [[level], remaining];
 }
 
 function parseKeyActual(input: Buffer): [Array<Buffer>, Buffer] {
-  if (input.byteLength < 1) {
-    throw new errors.ErrorDBParseKey('Key cannot be empty');
-  }
   return [[input], input.subarray(input.byteLength)];
 }
 
@@ -250,10 +256,11 @@ function fromArrayBuffer(
 export {
   sep,
   esc,
-  escapeLevel,
-  unescapeLevel,
+  toKeyPath,
   keyPathToKey,
   levelPathToKey,
+  escapePart,
+  unescapePart,
   parseKey,
   sepExists,
   serialize,

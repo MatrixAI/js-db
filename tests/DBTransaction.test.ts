@@ -42,16 +42,16 @@ describe(DBTransaction.name, () => {
     const acquireTran2 = db.transaction();
     const [releaseTran2, tran2] = await acquireTran2();
     await tran2!.put('hello', 'world');
-    expect(await db.dump(['transactions'])).toStrictEqual([
+    expect(await db.dump(['transactions'], false, true)).toStrictEqual([
       [`${utils.sep}0${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
       [`${utils.sep}1${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
     ]);
     await releaseTran1();
-    expect(await db.dump(['transactions'])).toStrictEqual([
+    expect(await db.dump(['transactions'], false, true)).toStrictEqual([
       [`${utils.sep}1${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
     ]);
     await releaseTran2();
-    expect(await db.dump(['transactions'])).toStrictEqual([]);
+    expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
   });
   test('get, put and del', async () => {
     const p = withF([db.transaction()], async ([tran]) => {
@@ -69,17 +69,19 @@ describe(DBTransaction.name, () => {
       // Delete hello -> world
       await tran.del('hello');
       // Transaction state should be used
-      expect(Object.entries(await db.dump(['transactions'])).length > 0).toBe(
-        true,
-      );
+      expect(
+        Object.entries(await db.dump(['transactions'], false, true)).length > 0,
+      ).toBe(true);
     });
     // While the transaction is executed, there is no data
-    expect(await db.dump(['data'])).toStrictEqual([]);
+    expect(await db.dump(['data'], false, true)).toStrictEqual([]);
     await p;
     // Now the state should be applied to the DB
-    expect(await db.dump(['data'])).toStrictEqual([['foo', 'bar']]);
+    expect(await db.dump(['data'], false, true)).toStrictEqual([
+      ['foo', 'bar'],
+    ]);
     // Transaction state is cleared
-    expect(await db.dump(['transactions'])).toStrictEqual([]);
+    expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
   });
   test('transactional clear', async () => {
     await db.put('1', '1');
@@ -89,7 +91,7 @@ describe(DBTransaction.name, () => {
     await db.withTransactionF(async (tran) => {
       await tran.clear();
     });
-    expect(await db.dump(['data'])).toStrictEqual([]);
+    expect(await db.dump(['data'], false, true)).toStrictEqual([]);
     // Noop
     await db.clear();
     await db.put('1', '1');
@@ -98,7 +100,7 @@ describe(DBTransaction.name, () => {
     await withF([db.transaction()], async ([tran]) => {
       await tran.clear(['level1']);
     });
-    expect(await db.dump(['data'])).toStrictEqual([['1', '1']]);
+    expect(await db.dump(['data'], false, true)).toStrictEqual([['1', '1']]);
   });
   test('transactional count', async () => {
     await db.put('1', '1');
@@ -229,7 +231,8 @@ describe(DBTransaction.name, () => {
     await db.put('hello', 'world');
     let results: Array<[Buffer, Buffer]> = [];
     await withF([db.transaction()], async ([tran]) => {
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k, v]);
       }
       expect(results).toStrictEqual([
@@ -237,13 +240,15 @@ describe(DBTransaction.name, () => {
       ]);
       results = [];
       await tran.del('hello');
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k, v]);
       }
       expect(results).toStrictEqual([]);
       results = [];
       await tran.put('hello', 'another');
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k, v]);
       }
       expect(results).toStrictEqual([
@@ -257,7 +262,8 @@ describe(DBTransaction.name, () => {
     const results: Array<[string, string]> = [];
     await withF([db.transaction()], async ([tran]) => {
       await tran.del(['a', 'b']);
-      for await (const [k, v] of tran.iterator(undefined, ['a'])) {
+      for await (const [kP, v] of tran.iterator(undefined, ['a'])) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -296,7 +302,8 @@ describe(DBTransaction.name, () => {
       await tran.del('h');
       await tran.put('j', '10');
       await tran.del('k');
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
       expect(results).toStrictEqual([
@@ -307,7 +314,8 @@ describe(DBTransaction.name, () => {
         ['j', '10'],
       ]);
       results = [];
-      for await (const [k, v] of tran.iterator({ reverse: true })) {
+      for await (const [kP, v] of tran.iterator({ reverse: true })) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
       expect(results).toStrictEqual([
@@ -349,7 +357,8 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -395,7 +404,8 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [k, v] of tran.iterator({ reverse: true })) {
+      for await (const [kP, v] of tran.iterator({ reverse: true })) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -440,7 +450,8 @@ describe(DBTransaction.name, () => {
       await tran.put('e', '5');
       await tran.put('f', '6');
       await tran.put('j', '10');
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -482,7 +493,8 @@ describe(DBTransaction.name, () => {
       await tran.put('e', '5');
       await tran.put('f', '6');
       await tran.put('j', '10');
-      for await (const [k, v] of tran.iterator({ reverse: true })) {
+      for await (const [kP, v] of tran.iterator({ reverse: true })) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -523,7 +535,8 @@ describe(DBTransaction.name, () => {
       await tran.put('c', '3');
       await tran.put('e', '5');
       await tran.put('f', '6');
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -561,7 +574,8 @@ describe(DBTransaction.name, () => {
       await tran.put('c', '3');
       await tran.put('e', '5');
       await tran.put('f', '6');
-      for await (const [k, v] of tran.iterator({ reverse: true })) {
+      for await (const [kP, v] of tran.iterator({ reverse: true })) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), JSON.parse(v.toString())]);
       }
     });
@@ -607,7 +621,8 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [k, v] of tran.iterator({ values: false })) {
+      for await (const [kP, v] of tran.iterator({ values: false })) {
+        const k = utils.keyPathToKey(kP);
         results.push([k.toString(), v]);
       }
     });
@@ -655,30 +670,30 @@ describe(DBTransaction.name, () => {
       const iterator = tran.iterator();
       iterator.seek('a');
       expect(await iterator.next()).toStrictEqual([
-        Buffer.from('a'),
+        [Buffer.from('a')],
         Buffer.from('"1"'),
       ]);
       iterator.seek('a');
       expect(await iterator.next()).toStrictEqual([
-        Buffer.from('a'),
+        [Buffer.from('a')],
         Buffer.from('"1"'),
       ]);
       expect(await iterator.next()).toStrictEqual([
-        Buffer.from('b'),
+        [Buffer.from('b')],
         Buffer.from('"b"'),
       ]);
       iterator.seek('g');
       expect(await iterator.next()).toStrictEqual([
-        Buffer.from('h'),
+        [Buffer.from('h')],
         Buffer.from('"h"'),
       ]);
       iterator.seek('h');
       expect(await iterator.next()).toStrictEqual([
-        Buffer.from('h'),
+        [Buffer.from('h')],
         Buffer.from('"h"'),
       ]);
       expect(await iterator.next()).toStrictEqual([
-        Buffer.from('j'),
+        [Buffer.from('j')],
         Buffer.from('"10"'),
       ]);
       await iterator.end();
@@ -690,7 +705,8 @@ describe(DBTransaction.name, () => {
     const g = db.withTransactionG(async function* (
       tran: DBTransaction,
     ): AsyncGenerator<[Buffer, Buffer]> {
-      for await (const [k, v] of tran.iterator()) {
+      for await (const [kP, v] of tran.iterator()) {
+        const k = utils.keyPathToKey(kP);
         yield [k, v];
       }
     });

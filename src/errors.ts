@@ -48,7 +48,7 @@ class ErrorDBTransactionCommitted<T> extends ErrorDB<T> {
   static description = 'DBTransaction is committed';
 }
 
-class ErrorDBTransactionNotCommited<T> extends ErrorDB<T> {
+class ErrorDBTransactionNotCommitted<T> extends ErrorDB<T> {
   static description = 'DBTransaction is not comitted';
 }
 
@@ -69,6 +69,6 @@ export {
   ErrorDBParseValue,
   ErrorDBTransactionDestroyed,
   ErrorDBTransactionCommitted,
-  ErrorDBTransactionNotCommited,
+  ErrorDBTransactionNotCommitted,
   ErrorDBTransactionRollbacked,
 };
