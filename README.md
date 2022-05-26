@@ -1,6 +1,7 @@
 # js-db
 
-[![pipeline status](https://gitlab.com/MatrixAI/open-source/js-db/badges/master/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-db/commits/master)
+staging: [![pipeline status](https://gitlab.com/MatrixAI/open-source/js-db/badges/staging/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-db/commits/staging)
+master: [![pipeline status](https://gitlab.com/MatrixAI/open-source/js-db/badges/master/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-db/commits/master)
 
 DB is library managing key value state for MatrixAI's JavaScript/TypeScript applications.
 
