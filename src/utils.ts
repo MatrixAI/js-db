@@ -9,10 +9,71 @@ import * as errors from './errors';
 const sep = Buffer.from([0]);
 
 /**
- * Escape is a single `\` byte
- * This is used to escape the separator and literal `\`
+ * Lexicographically ordered base 128 alphabet
  */
-const esc = Buffer.from([92]);
+const alphabet = Buffer.from(
+  Array.from({ length: 128 }, (_, i) => {
+    return i + 1;
+  }),
+);
+
+/**
+ * Encode level or key part using base 128 encoding
+ */
+function encodePart(part: Buffer): Buffer {
+  // Start encoding
+  const mask = (1 << 7) - 1;
+  const out: Array<number> = [];
+  let bits = 0; // Number of bits currently in the buffer
+  let buffer = 0; // Bits waiting to be written out, MSB first
+  for (let i = 0; i < part.length; ++i) {
+    // Slurp data into the buffer
+    buffer = (buffer << 8) | part[i];
+    bits += 8;
+    // Write out as much as we can
+    while (bits > 7) {
+      bits -= 7;
+      out.push(alphabet[mask & (buffer >> bits)]);
+    }
+  }
+  // Partial character
+  if (bits) {
+    out.push(alphabet[mask & (buffer << (7 - bits))]);
+  }
+  return Buffer.from(out);
+}
+
+/**
+ * Decode level or key part from base 128
+ */
+function decodePart(data: Buffer): Buffer {
+  const codes: Record<number, number> = {};
+  for (let i = 0; i < alphabet.length; ++i) {
+    codes[alphabet[i]] = i;
+  }
+  // Allocate the output
+  const out = new Uint8Array(((data.length * 7) / 8) | 0);
+  // Parse the data
+  let bits = 0; // Number of bits currently in the buffer
+  let buffer = 0; // Bits waiting to be written out, MSB first
+  let written = 0; // Next byte to write
+  for (let i = 0; i < data.length; ++i) {
+    // Read one character from the input
+    const value = codes[data[i]];
+    if (value === undefined) {
+      throw new SyntaxError(`Non-Base128 character`);
+    }
+    // Append the bits to the buffer
+    buffer = (buffer << 7) | value;
+    bits += 7;
+    // Write out some bits if the buffer has a byte's worth
+    if (bits >= 8) {
+      bits -= 8;
+      out[written++] = 0xff & (buffer >> bits);
+    }
+  }
+  return Buffer.from(out);
+}
 
 /**
  * Used to convert possible KeyPath into legal KeyPath
@@ -42,7 +103,7 @@ function keyPathToKey(keyPath: KeyPath): Buffer {
   const levelPath = keyPath.slice(0, -1);
   return Buffer.concat([
     levelPathToKey(levelPath),
-    escapePart(
+    encodePart(
       typeof keyPart === 'string' ? Buffer.from(keyPart, 'utf-8') : keyPart,
     ),
   ]);
@@ -51,58 +112,16 @@ function keyPathToKey(keyPath: KeyPath): Buffer {
 /**
  * Converts LevelPath to key buffer
  * e.g. ['A', 'B'] => !A!!B! (where ! is the sep)
- * Level parts must not contain the separator
+ * Level parts are allowed to contain the separator before encoding
  */
 function levelPathToKey(levelPath: LevelPath): Buffer {
   return Buffer.concat(
     levelPath.map((p) => {
       p = typeof p === 'string' ? Buffer.from(p, 'utf-8') : p;
-      p = escapePart(p);
+      p = encodePart(p);
       return Buffer.concat([sep, p, sep]);
     }),
   );
-}
-
-/**
- * Escapes the level and key parts for escape and separator
- */
-function escapePart(buf: Buffer): Buffer {
-  const bytes: Array<number> = [];
-  for (let i = 0; i < buf.byteLength; i++) {
-    const b = buf[i];
-    if (b === esc[0]) {
-      bytes.push(esc[0], b);
-    } else if (b === sep[0]) {
-      bytes.push(esc[0], b);
-    } else {
-      bytes.push(b);
-    }
-  }
-  return Buffer.from(bytes);
-}
-
-/**
- * Unescapes the level and key part of escape and separator
- */
-function unescapePart(buf: Buffer): Buffer {
-  const bytes: Array<number> = [];
-  for (let i = 0; i < buf.byteLength; i++) {
-    const b = buf[i];
-    if (b === esc[0]) {
-      const n = buf[i + 1];
-      if (n === esc[0]) {
-        bytes.push(n);
-      } else if (n === sep[0]) {
-        bytes.push(n);
-      } else {
-        throw new SyntaxError('Invalid escape sequence');
-      }
-      i++;
-    } else {
-      bytes.push(b);
-    }
-  }
-  return Buffer.from(bytes);
 }
 
 /**
@@ -115,7 +134,6 @@ function unescapePart(buf: Buffer): Buffer {
  *   levels => level:l levels:ls -> [l, ...ls] | '' -> []
  *   level => sep .*?:l (?<!escape) sep (?>.*) -> l
  *   sep => 0x00
- *   escape => 0x5c
  *   keyActual => .*:k -> [k]
  */
 function parseKey(key: Buffer): KeyPath {
@@ -124,7 +142,7 @@ function parseKey(key: Buffer): KeyPath {
     throw new TypeError('Buffer is not a key');
   }
   for (let i = 0; i < bufs.length; i++) {
-    bufs[i] = unescapePart(bufs[i]);
+    bufs[i] = decodePart(bufs[i]);
   }
   return bufs;
 }
@@ -182,16 +200,6 @@ function parseLevel(input: Buffer): [Array<Buffer>, Buffer] {
       // therefore the `sepEnd` must be offset by the same length
       sepEnd = i + (sepStart + 1);
       break;
-    } else if (b === esc[0]) {
-      const n = buf[i + 1];
-      // Even if undefined
-      if (n !== esc[0] && n !== sep[0]) {
-        throw new errors.ErrorDBParseKey('Invalid escape sequence');
-      }
-      // Push the n
-      levelBytes.push(b, n);
-      // Skip the n
-      i++;
     } else {
       levelBytes.push(b);
     }
@@ -255,12 +263,11 @@ function fromArrayBuffer(
 
 export {
   sep,
-  esc,
+  encodePart,
+  decodePart,
   toKeyPath,
   keyPathToKey,
   levelPathToKey,
-  escapePart,
-  unescapePart,
   parseKey,
   sepExists,
   serialize,

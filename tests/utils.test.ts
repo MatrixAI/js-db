@@ -47,37 +47,6 @@ describe('utils', () => {
       ]),
       '',
     ],
-    // Escape can be used in key part
-    [utils.esc],
-    [Buffer.concat([utils.esc, Buffer.from('foobar')])],
-    [Buffer.concat([Buffer.from('foobar'), utils.esc])],
-    [Buffer.concat([utils.esc, Buffer.from('foobar'), utils.esc])],
-    [
-      Buffer.concat([
-        utils.esc,
-        Buffer.from('foobar'),
-        utils.esc,
-        Buffer.from('foobar'),
-      ]),
-    ],
-    [
-      Buffer.concat([
-        Buffer.from('foobar'),
-        utils.esc,
-        Buffer.from('foobar'),
-        utils.esc,
-      ]),
-    ],
-    [
-      '',
-      Buffer.concat([
-        Buffer.from('foobar'),
-        utils.esc,
-        Buffer.from('foobar'),
-        utils.esc,
-      ]),
-      '',
-    ],
     // Separator can be used in level parts
     [Buffer.concat([utils.sep, Buffer.from('foobar')]), 'key'],
     [Buffer.concat([Buffer.from('foobar'), utils.sep]), 'key'],
@@ -111,10 +80,6 @@ describe('utils', () => {
       'key',
       '',
     ],
-    // Escape can be used in level parts
-    [Buffer.concat([utils.sep, utils.esc, utils.sep]), 'key'],
-    [Buffer.concat([utils.esc, utils.esc, utils.esc]), 'key'],
-    ['', Buffer.concat([utils.esc, utils.esc, utils.esc]), 'key', ''],
   ];
   test.each(keyPaths.map((kP) => [kP]))(
     'parse key paths %s',

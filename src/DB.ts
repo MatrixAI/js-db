@@ -582,34 +582,30 @@ class DB {
     levelPath?: LevelPath,
     raw?: false,
     root?: boolean,
-  ): Promise<Array<[string, V]>>;
+  ): Promise<Array<[KeyPath, V]>>;
   public async dump(
     levelPath: LevelPath | undefined,
     raw: true,
     root?: boolean,
-  ): Promise<Array<[Buffer, Buffer]>>;
+  ): Promise<Array<[KeyPath, Buffer]>>;
   @ready(new errors.ErrorDBNotRunning())
   public async dump(
     levelPath: LevelPath = [],
     raw: boolean = false,
     root: boolean = false,
-  ): Promise<Array<[string | Buffer, any]>> {
+  ): Promise<Array<[KeyPath, any]>> {
     if (!root) {
       levelPath = ['data', ...levelPath];
     }
-    const records: Array<[string | Buffer, any]> = [];
+    const records: Array<[KeyPath, any]> = [];
     for await (const [keyPath, v] of this._iterator(
       {
-        keyAsBuffer: true,
-        valueAsBuffer: raw as any,
+        keyAsBuffer: raw,
+        valueAsBuffer: raw,
       },
       levelPath,
     )) {
-      let k: Buffer | string = utils.keyPathToKey(keyPath);
-      if (!raw) {
-        k = k.toString('utf-8');
-      }
-      records.push([k, v]);
+      records.push([keyPath, v]);
     }
     return records;
   }

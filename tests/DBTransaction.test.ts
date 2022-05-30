@@ -1,3 +1,4 @@
+import type { KeyPath } from '@';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
@@ -5,7 +6,6 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { withF } from '@matrixai/resources';
 import DB from '@/DB';
 import DBTransaction from '@/DBTransaction';
-import * as utils from '@/utils';
 import * as testUtils from './utils';
 
 describe(DBTransaction.name, () => {
@@ -23,7 +23,7 @@ describe(DBTransaction.name, () => {
   let db: DB;
   beforeEach(async () => {
     dataDir = await fs.promises.mkdtemp(
-      path.join(os.tmpdir(), 'encryptedfs-test-'),
+      path.join(os.tmpdir(), 'db-tran-test-'),
     );
     const dbPath = `${dataDir}/db`;
     db = await DB.createDB({ dbPath, crypto, logger });
@@ -43,12 +43,12 @@ describe(DBTransaction.name, () => {
     const [releaseTran2, tran2] = await acquireTran2();
     await tran2!.put('hello', 'world');
     expect(await db.dump(['transactions'], false, true)).toStrictEqual([
-      [`${utils.sep}0${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
-      [`${utils.sep}1${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
+      [['0', 'data', 'hello'], 'world'],
+      [['1', 'data', 'hello'], 'world'],
     ]);
     await releaseTran1();
     expect(await db.dump(['transactions'], false, true)).toStrictEqual([
-      [`${utils.sep}1${utils.sep}${utils.sep}data${utils.sep}hello`, 'world'],
+      [['1', 'data', 'hello'], 'world'],
     ]);
     await releaseTran2();
     expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
@@ -63,8 +63,8 @@ describe(DBTransaction.name, () => {
       expect(await tran.get('foo')).toBe('bar');
       expect(await tran.get('hello')).toBe('world');
       expect(await tran.dump()).toStrictEqual([
-        [`${utils.sep}data${utils.sep}foo`, 'bar'],
-        [`${utils.sep}data${utils.sep}hello`, 'world'],
+        [['data', 'foo'], 'bar'],
+        [['data', 'hello'], 'world'],
       ]);
       // Delete hello -> world
       await tran.del('hello');
@@ -78,7 +78,7 @@ describe(DBTransaction.name, () => {
     await p;
     // Now the state should be applied to the DB
     expect(await db.dump(['data'], false, true)).toStrictEqual([
-      ['foo', 'bar'],
+      [['foo'], 'bar'],
     ]);
     // Transaction state is cleared
     expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
@@ -100,7 +100,7 @@ describe(DBTransaction.name, () => {
     await withF([db.transaction()], async ([tran]) => {
       await tran.clear(['level1']);
     });
-    expect(await db.dump(['data'], false, true)).toStrictEqual([['1', '1']]);
+    expect(await db.dump(['data'], false, true)).toStrictEqual([[['1'], '1']]);
   });
   test('transactional count', async () => {
     await db.put('1', '1');
@@ -169,8 +169,11 @@ describe(DBTransaction.name, () => {
     let rows: Array<[string, string]>;
     await withF([db.transaction()], async ([tran1]) => {
       rows = [];
-      for await (const [k, v] of tran1.iterator()) {
-        rows.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [k, v] of tran1.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        rows.push([k.toString(), v]);
       }
       expect(rows).toStrictEqual([
         ['1', '1'],
@@ -181,8 +184,11 @@ describe(DBTransaction.name, () => {
         await tran2.del('1');
         await tran2.put('4', '4');
         rows = [];
-        for await (const [k, v] of tran1.iterator()) {
-          rows.push([k.toString(), JSON.parse(v.toString())]);
+        for await (const [k, v] of tran1.iterator<string>({
+          keyAsBuffer: false,
+          valueAsBuffer: false,
+        })) {
+          rows.push([k.toString(), v]);
         }
         expect(rows).toStrictEqual([
           ['1', '1'],
@@ -191,8 +197,11 @@ describe(DBTransaction.name, () => {
         ]);
       });
       rows = [];
-      for await (const [k, v] of tran1.iterator()) {
-        rows.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [k, v] of tran1.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        rows.push([k.toString(), v]);
       }
       expect(rows).toStrictEqual([
         ['2', '2'],
@@ -219,9 +228,7 @@ describe(DBTransaction.name, () => {
       await tran.put('hello', 'another');
       expect(await tran.get('hello')).toBe('another');
       await tran.del('hello');
-      expect(await tran.dump()).toStrictEqual([
-        [`${utils.sep}tombstone${utils.sep}hello`, true],
-      ]);
+      expect(await tran.dump()).toStrictEqual([[['tombstone', 'hello'], true]]);
       expect(await tran.get('hello')).toBeUndefined();
       expect(await db.get('hello')).toBe('world');
     });
@@ -229,30 +236,27 @@ describe(DBTransaction.name, () => {
   });
   test('iterator get after delete consistency', async () => {
     await db.put('hello', 'world');
-    let results: Array<[Buffer, Buffer]> = [];
+    let results: Array<[KeyPath, Buffer]> = [];
     await withF([db.transaction()], async ([tran]) => {
       for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k, v]);
+        results.push([kP, v]);
       }
       expect(results).toStrictEqual([
-        [Buffer.from('hello'), Buffer.from('"world"')],
+        [[Buffer.from('hello')], Buffer.from('"world"')],
       ]);
       results = [];
       await tran.del('hello');
       for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k, v]);
+        results.push([kP, v]);
       }
       expect(results).toStrictEqual([]);
       results = [];
       await tran.put('hello', 'another');
       for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k, v]);
+        results.push([kP, v]);
       }
       expect(results).toStrictEqual([
-        [Buffer.from('hello'), Buffer.from('"another"')],
+        [[Buffer.from('hello')], Buffer.from('"another"')],
       ]);
     });
   });
@@ -262,9 +266,11 @@ describe(DBTransaction.name, () => {
     const results: Array<[string, string]> = [];
     await withF([db.transaction()], async ([tran]) => {
       await tran.del(['a', 'b']);
-      for await (const [kP, v] of tran.iterator(undefined, ['a'])) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>(
+        { keyAsBuffer: false, valueAsBuffer: false },
+        ['a'],
+      )) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual([['c', 'second']]);
@@ -302,9 +308,11 @@ describe(DBTransaction.name, () => {
       await tran.del('h');
       await tran.put('j', '10');
       await tran.del('k');
-      for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        results.push([kP[0] as string, v]);
       }
       expect(results).toStrictEqual([
         ['b', 'b'],
@@ -314,9 +322,12 @@ describe(DBTransaction.name, () => {
         ['j', '10'],
       ]);
       results = [];
-      for await (const [kP, v] of tran.iterator({ reverse: true })) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+        reverse: true,
+      })) {
+        results.push([kP[0] as string, v]);
       }
       expect(results).toStrictEqual([
         ['j', '10'],
@@ -357,9 +368,11 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual([
@@ -404,9 +417,12 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [kP, v] of tran.iterator({ reverse: true })) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+        reverse: true,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual(
@@ -450,9 +466,11 @@ describe(DBTransaction.name, () => {
       await tran.put('e', '5');
       await tran.put('f', '6');
       await tran.put('j', '10');
-      for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual([
@@ -493,9 +511,12 @@ describe(DBTransaction.name, () => {
       await tran.put('e', '5');
       await tran.put('f', '6');
       await tran.put('j', '10');
-      for await (const [kP, v] of tran.iterator({ reverse: true })) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+        reverse: true,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual(
@@ -535,9 +556,11 @@ describe(DBTransaction.name, () => {
       await tran.put('c', '3');
       await tran.put('e', '5');
       await tran.put('f', '6');
-      for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual([
@@ -574,9 +597,12 @@ describe(DBTransaction.name, () => {
       await tran.put('c', '3');
       await tran.put('e', '5');
       await tran.put('f', '6');
-      for await (const [kP, v] of tran.iterator({ reverse: true })) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), JSON.parse(v.toString())]);
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+        reverse: true,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual(
@@ -621,9 +647,11 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [kP, v] of tran.iterator({ values: false })) {
-        const k = utils.keyPathToKey(kP);
-        results.push([k.toString(), v]);
+      for await (const [kP, v] of tran.iterator({
+        keyAsBuffer: false,
+        values: false,
+      })) {
+        results.push([kP[0] as string, v]);
       }
     });
     expect(results).toStrictEqual([
@@ -704,15 +732,17 @@ describe(DBTransaction.name, () => {
     await db.put('b', 'b');
     const g = db.withTransactionG(async function* (
       tran: DBTransaction,
-    ): AsyncGenerator<[Buffer, Buffer]> {
-      for await (const [kP, v] of tran.iterator()) {
-        const k = utils.keyPathToKey(kP);
-        yield [k, v];
+    ): AsyncGenerator<[string, string]> {
+      for await (const [kP, v] of tran.iterator<string>({
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
+        yield [kP[0] as string, v];
       }
     });
     const results: Array<[string, string]> = [];
     for await (const [k, v] of g) {
-      results.push([k.toString(), JSON.parse(v.toString())]);
+      results.push([k, v]);
     }
     expect(results).toStrictEqual([
       ['a', 'a'],
