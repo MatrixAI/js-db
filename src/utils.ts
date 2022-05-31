@@ -3,24 +3,33 @@ import * as errors from './errors';
 
 /**
  * Separator is a single null byte
- * During iteration acquiring a sublevel requires iterating
- * between 0x00 and 0x01
+ * This special symbol must not appear in the encoded parts
  */
-const sep = Buffer.from([0]);
+const sep = Buffer.from([0x00]);
+
+/**
+ * Empty parts will be encoded as a single 0x01 byte
+ */
+const empty = Buffer.from([0x01]);
 
 /**
  * Lexicographically ordered base 128 alphabet
+ * The alphabet starts at 0x02 (skipping 0x00 and 0x01)
  */
 const alphabet = Buffer.from(
   Array.from({ length: 128 }, (_, i) => {
-    return i + 1;
+    return i + 2;
   }),
 );
 
 /**
  * Encode level or key part using base 128 encoding
+ * Empty parts are encoded with the special empty symbol
  */
 function encodePart(part: Buffer): Buffer {
+  if (part.byteLength === 0) {
+    return empty;
+  }
   // Start encoding
   const mask = (1 << 7) - 1;
   const out: Array<number> = [];
@@ -45,8 +54,12 @@ function encodePart(part: Buffer): Buffer {
 
 /**
  * Decode level or key part from base 128
+ * The special empty symbol is decoded as an empty buffer
  */
 function decodePart(data: Buffer): Buffer {
+  if (data.equals(empty)) {
+    return Buffer.allocUnsafe(0);
+  }
   const codes: Record<number, number> = {};
   for (let i = 0; i < alphabet.length; ++i) {
     codes[alphabet[i]] = i;
@@ -132,7 +145,7 @@ function levelPathToKey(levelPath: LevelPath): Buffer {
  * BNF grammar of key buffer:
  *   path => levels:ls keyActual:k -> [...ls, k] | keyActual:k -> [k]
  *   levels => level:l levels:ls -> [l, ...ls] | '' -> []
- *   level => sep .*?:l (?<!escape) sep (?>.*) -> l
+ *   level => sep .*?:l sep -> l
  *   sep => 0x00
  *   keyActual => .*:k -> [k]
  */

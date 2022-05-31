@@ -3,6 +3,13 @@ import { random, cipher, util as forgeUtil } from 'node-forge';
 const ivSize = 16;
 const authTagSize = 16;
 
+function arrayShuffle(array: Array<unknown>): void {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
 /**
  * Get a random integer between min and max
  * Returned value greater or equal to min and less than max
@@ -68,7 +75,7 @@ async function decrypt(
   cipherText: ArrayBuffer,
 ): Promise<ArrayBuffer | undefined> {
   const cipherTextBuf = Buffer.from(cipherText);
-  if (cipherTextBuf.byteLength <= 32) {
+  if (cipherTextBuf.byteLength < 32) {
     return;
   }
   const iv = cipherTextBuf.subarray(0, ivSize);
@@ -122,6 +129,7 @@ async function sleep(ms: number) {
 }
 
 export {
+  arrayShuffle,
   getRandomInt,
   getRandomBytes,
   getRandomBytesSync,
