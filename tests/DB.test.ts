@@ -328,7 +328,7 @@ describe(DB.name, () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
     const keys: Array<Buffer> = Array.from({ length: 100 }, () =>
-      nodeCrypto.randomBytes(Math.ceil(Math.random() * 100)),
+      nodeCrypto.randomBytes(testUtils.getRandomInt(0, 101)),
     );
     for (const k of keys) {
       await db.put(k, 'value');
@@ -393,8 +393,10 @@ describe(DB.name, () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
     const keys: Array<Array<Buffer>> = Array.from({ length: 100 }, () =>
-      Array.from({ length: Math.ceil(Math.random() * 10) }, () =>
-        nodeCrypto.randomBytes(Math.ceil(Math.random() * 10)),
+      Array.from({ length: testUtils.getRandomInt(0, 11) }, () =>
+        nodeCrypto.randomBytes(
+          testUtils.getRandomInt(0, 11)
+        ),
       ),
     );
     for (const k of keys) {
