@@ -3,6 +3,16 @@ import { random, cipher, util as forgeUtil } from 'node-forge';
 const ivSize = 16;
 const authTagSize = 16;
 
+/**
+ * Get a random integer between min and max
+ * Returned value greater or equal to min and less than max
+ */
+function getRandomInt(min: number, max: number): number {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min) + min); // The maximum is exclusive and the minimum is inclusive
+}
+
 async function getRandomBytes(size: number): Promise<Buffer> {
   const p = new Promise<string>((resolve, reject) => {
     random.getBytes(size, (e, bytes) => {
@@ -108,6 +118,7 @@ function bytes2BigInt(bytes: Uint8Array): bigint {
 }
 
 export {
+  getRandomInt,
   getRandomBytes,
   getRandomBytesSync,
   generateKey,
