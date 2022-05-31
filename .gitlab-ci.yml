@@ -209,6 +209,26 @@ build:prerelease:
         nix-shell --run '
         npm publish --tag prerelease --access public;
         '
+    - >
+      for d in prebuilds/*; do
+        tar \
+          --create \
+          --verbose \
+          --file="prebuilds/$(basename $d).tar" \
+          --directory=prebuilds \
+          "$(basename $d)";
+      done
+    - >
+        nix-shell -I nixpkgs=./pkgs.nix --packages gitAndTools.gh --run '
+        gh release \
+          create "$CI_COMMIT_TAG" \
+          prebuilds/*.tar \
+          --title "${CI_COMMIT_TAG}-$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+          --notes "" \
+          --prerelease \
+          --target staging \
+          --repo "$GH_PROJECT_PATH";
+        '
   after_script:
     - rm -f ./.npmrc
   rules:
@@ -271,6 +291,25 @@ release:distribution:
     - >
         nix-shell --run '
         npm publish --access public;
+        '
+    - >
+      for d in prebuilds/*; do
+        tar \
+          --create \
+          --verbose \
+          --file="prebuilds/$(basename $d).tar" \
+          --directory=prebuilds \
+          "$(basename $d)";
+      done
+    - >
+        nix-shell -I nixpkgs=./pkgs.nix --packages gitAndTools.gh --run '
+        gh release \
+          create "$CI_COMMIT_TAG" \
+          prebuilds/*.tar \
+          --title "${CI_COMMIT_TAG}-$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+          --notes "" \
+          --target master \
+          --repo "$GH_PROJECT_PATH";
         '
   after_script:
     - rm -f ./.npmrc

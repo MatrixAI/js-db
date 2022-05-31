@@ -4,7 +4,11 @@ with pkgs;
 mkShell {
   nativeBuildInputs = [
     nodejs
+    nodejs.python
   ];
+  # Don't set rpath for native addons
+  NIX_DONT_SET_RPATH = true;
+  NIX_NO_SELF_RPATH = true;
   shellHook = ''
     echo 'Entering js-db'
     set -o allexport
@@ -19,6 +23,12 @@ mkShell {
 
     # Enables npm link
     export npm_config_prefix=~/.npm
+
+    # Path to headers used by node-gyp for native addons
+    export npm_config_nodedir="${nodejs}"
+
+    # Verbose logging of the Nix compiler wrappers
+    export NIX_DEBUG=1
 
     npm install --ignore-scripts
 

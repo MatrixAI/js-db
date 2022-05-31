@@ -5,6 +5,13 @@ master: [![pipeline status](https://gitlab.com/MatrixAI/open-source/js-db/badges
 
 DB is library managing key value state for MatrixAI's JavaScript/TypeScript applications.
 
+This forks classic-level's C++ binding code around LevelDB 1.20. Differences from classic-level:
+
+* Uses TypeScript from ground-up
+* Supports Snapshot-Isolation based transactions via `DBTransaction`
+* API supports "key paths" which can be used to manipulate "levels" of nested keys
+* Value encryption (key-encryption is not supported yet) - requires additional work with block-encryption
+
 ## Installation
 
 ```sh
