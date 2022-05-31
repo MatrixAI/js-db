@@ -394,9 +394,7 @@ describe(DB.name, () => {
     const db = await DB.createDB({ dbPath, crypto, logger });
     const keys: Array<Array<Buffer>> = Array.from({ length: 100 }, () =>
       Array.from({ length: testUtils.getRandomInt(0, 11) }, () =>
-        nodeCrypto.randomBytes(
-          testUtils.getRandomInt(0, 11)
-        ),
+        nodeCrypto.randomBytes(testUtils.getRandomInt(0, 11)),
       ),
     );
     for (const k of keys) {
