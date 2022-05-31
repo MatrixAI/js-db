@@ -482,8 +482,7 @@ class DB {
       );
     }
     if (options_.lt == null && options_.lte == null) {
-      const levelKeyStart = utils.levelPathToKey(levelPath);
-      const levelKeyEnd = Buffer.from(levelKeyStart);
+      const levelKeyEnd = utils.levelPathToKey(levelPath);
       levelKeyEnd[levelKeyEnd.length - 1] += 1;
       options_.lt = levelKeyEnd;
     }

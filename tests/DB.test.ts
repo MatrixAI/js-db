@@ -1,14 +1,17 @@
+import type { LevelDB } from 'level';
 import type { KeyPath } from '@/types';
 import type { DBWorkerModule } from './workers/dbWorkerModule';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
-import nodeCrypto from 'crypto';
+import nodeCrypto from 'node:crypto';
+import nodeUtil from 'node:util';
 import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
 import { spawn, Worker } from 'threads';
+import level from 'level';
 import DB from '@/DB';
 import * as errors from '@/errors';
 import * as utils from '@/utils';
@@ -132,6 +135,30 @@ describe(DB.name, () => {
     expect(await db.get(['level1', 'a'])).toBe('value1');
     await db.del(['level1', 'a']);
     expect(await db.get(['level1', 'a'])).toBeUndefined();
+    await db.stop();
+  });
+  test('get and put on empty buffer and empty string', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    await db.put('string', '');
+    expect(await db.get('string')).toStrictEqual('');
+    await db.put('buffer', Buffer.from([]), true);
+    expect(await db.get('buffer', true)).toStrictEqual(Buffer.from([]));
+    await db.stop();
+  });
+  test('get and put fuzzing', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    const keyPaths: Array<KeyPath> = Array.from({ length: 1000 }, () =>
+      Array.from({ length: testUtils.getRandomInt(0, 11) }, () =>
+        nodeCrypto.randomBytes(testUtils.getRandomInt(0, 11)),
+      ),
+    );
+    for (const kP of keyPaths) {
+      const value = Buffer.concat(kP as Array<Buffer>);
+      await db.put(kP, value, true);
+      expect(await db.get(kP, true)).toStrictEqual(value);
+    }
     await db.stop();
   });
   test('get and put and del on string and buffer keys', async () => {
@@ -304,45 +331,103 @@ describe(DB.name, () => {
     expect(await db.get(['level1', 'level2', 'a'])).toBeUndefined();
     await db.stop();
   });
+  test('internal db lexicographic iteration order', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await new Promise<LevelDB<string | Buffer, Buffer>>(
+      (resolve, reject) => {
+        const db = level(
+          dbPath,
+          {
+            keyEncoding: 'binary',
+            valueEncoding: 'binary',
+          },
+          (e) => {
+            if (e) {
+              reject(e);
+            } else {
+              resolve(db);
+            }
+          },
+        );
+      },
+    );
+    await db.put(Buffer.from([0x01]), Buffer.alloc(0));
+    await db.put(Buffer.from([0x00, 0x00, 0x00]), Buffer.alloc(0));
+    await db.put(Buffer.from([0x00, 0x00]), Buffer.alloc(0));
+    // The empty key is not supported in leveldb
+    // However in this DB, empty keys are always put under root level of `data`
+    // therefore empty keys are supported
+    // await db_.put(Buffer.from([]), Buffer.alloc(0));
+    const keys: Array<Buffer> = [];
+    // @ts-ignore Outdated types
+    for await (const [k] of db.iterator()) {
+      keys.push(k);
+    }
+    expect(keys).toStrictEqual([
+      // Therefore `aa` is earlier than `aaa`
+      Buffer.from([0x00, 0x00]),
+      Buffer.from([0x00, 0x00, 0x00]),
+      // Therefore `aa` is earlier than `z`
+      Buffer.from([0x01]),
+    ]);
+    await db.close();
+  });
   test('lexicographic iteration order', async () => {
-    // Leveldb stores keys in lexicographic order
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    // Sorted order [ 'AQ', 'L', 'Q', 'fP' ]
-    const keys = ['Q', 'fP', 'AQ', 'L'];
-    for (const k of keys) {
-      await db.put(k, 'value');
+    await db.put(Buffer.from([0x01]), Buffer.alloc(0));
+    await db.put(Buffer.from([0x00, 0x00, 0x00]), Buffer.alloc(0));
+    await db.put(Buffer.from([0x00, 0x00]), Buffer.alloc(0));
+    await db.put(Buffer.from([]), Buffer.alloc(0));
+    const keyPaths: Array<KeyPath> = [];
+    for await (const [kP] of db.iterator({ values: false })) {
+      keyPaths.push(kP);
     }
-    const keysIterated: Array<string> = [];
-    for await (const [kP] of db.iterator({
-      keyAsBuffer: false,
-      values: false,
-    })) {
-      keysIterated.push(kP[0] as string);
-    }
-    expect(keys).not.toEqual(keysIterated);
-    expect(keys.sort()).toEqual(keysIterated);
+    expect(keyPaths).toStrictEqual([
+      // Therefore empty buffer sorts first
+      [Buffer.from([])],
+      // Therefore `aa` is earlier than `aaa`
+      [Buffer.from([0x00, 0x00])],
+      [Buffer.from([0x00, 0x00, 0x00])],
+      // Therefore `aa` is earlier than `z`
+      [Buffer.from([0x01])],
+    ]);
+    // Check that this matches Buffer.compare order
+    const keyPaths_ = [...keyPaths];
+    keyPaths_.sort((kP1: Array<Buffer>, kP2: Array<Buffer>) => {
+      // Only concatenate the key paths
+      const k1 = Buffer.concat(kP1);
+      const k2 = Buffer.concat(kP2);
+      return Buffer.compare(k1, k2);
+    });
+    expect(keyPaths_).toStrictEqual(keyPaths);
     await db.stop();
   });
-  test('lexicographic buffer iteration order', async () => {
+  test('lexicographic iteration order fuzzing', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const keys: Array<Buffer> = Array.from({ length: 100 }, () =>
+    const keys: Array<Buffer> = Array.from({ length: 1000 }, () =>
       nodeCrypto.randomBytes(testUtils.getRandomInt(0, 101)),
     );
     for (const k of keys) {
       await db.put(k, 'value');
     }
-    const keysIterated: Array<Buffer> = [];
+    const keyPaths: Array<KeyPath> = [];
     for await (const [kP] of db.iterator({ values: false })) {
-      keysIterated.push(kP[0] as Buffer);
+      keyPaths.push(kP);
     }
-    expect(keys).not.toStrictEqual(keysIterated);
-    keys.sort(Buffer.compare);
-    expect(keys).toStrictEqual(keysIterated);
+    // Check that this matches Buffer.compare order
+    const keyPaths_ = [...keyPaths];
+    keyPaths_.sort((kP1: Array<Buffer>, kP2: Array<Buffer>) => {
+      // Only concatenate the key paths
+      const k1 = Buffer.concat(kP1);
+      const k2 = Buffer.concat(kP2);
+      return Buffer.compare(k1, k2);
+    });
+    expect(keyPaths_).toStrictEqual(keyPaths);
     await db.stop();
   });
-  test('lexicographic integer iteration', async () => {
+  test('lexicographic integer iteration order', async () => {
     // Using the lexicographic-integer encoding
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
@@ -360,86 +445,153 @@ describe(DB.name, () => {
     expect(keys.sort((a, b) => a - b)).toEqual(keysIterated);
     await db.stop();
   });
-  test('sublevel lexicographic iteration', async () => {
+  test('lexicographic level iteration order', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const keys1 = ['Q', 'fP', 'AQ', 'L'];
-    for (const k of keys1) {
-      await db.put(['level1', k], 'value1');
+    // With levels and empty keys, the sorting is more complicated
+    await db.put([Buffer.from([0x01])], Buffer.alloc(0));
+    await db.put(
+      [Buffer.from([0x00, 0x00]), Buffer.from([0x00, 0x00])],
+      Buffer.alloc(0),
+    );
+    await db.put(
+      [Buffer.from([0x00, 0x00, 0x00]), Buffer.from([0x00])],
+      Buffer.alloc(0),
+    );
+    await db.put(
+      [Buffer.from([0x00, 0x00]), Buffer.from([0x01])],
+      Buffer.alloc(0),
+    );
+    await db.put(
+      [Buffer.from([0x00, 0x00, 0x00]), Buffer.from([0x01])],
+      Buffer.alloc(0),
+    );
+    await db.put([Buffer.from([0x01]), Buffer.from([0x00])], Buffer.alloc(0));
+    await db.put([Buffer.from([0x00]), Buffer.from([0x00])], Buffer.alloc(0));
+    await db.put([Buffer.from([0x00, 0x00])], Buffer.alloc(0));
+    await db.put([Buffer.from([0x00, 0x00]), ''], Buffer.alloc(0));
+    await db.put([Buffer.from([0xff]), ''], Buffer.alloc(0));
+    await db.put([Buffer.from([0x00]), ''], Buffer.alloc(0));
+    await db.put([Buffer.from([])], Buffer.alloc(0));
+    await db.put([Buffer.from([]), Buffer.from([])], Buffer.alloc(0));
+    await db.put([Buffer.from([0x00])], Buffer.alloc(0));
+    await db.put(
+      [Buffer.from([0x00, 0x00]), Buffer.from([0xff]), Buffer.from([])],
+      Buffer.alloc(0),
+    );
+    await db.put(
+      [Buffer.from([0x00, 0x00]), Buffer.from([]), Buffer.from([])],
+      Buffer.alloc(0),
+    );
+    const keyPaths: Array<KeyPath> = [];
+    for await (const [kP] of db.iterator({ values: false })) {
+      keyPaths.push(kP);
     }
-    const keysIterated1: Array<string> = [];
-    for await (const [kP] of db.iterator(
-      { keyAsBuffer: false, values: false },
-      ['level1'],
-    )) {
-      keysIterated1.push(kP[0] as string);
-    }
-    expect(keys1).not.toEqual(keysIterated1);
-    expect(keys1.sort()).toEqual(keysIterated1);
-    const keys2 = [100, 3, 4, 42];
-    for (const k of keys2) {
-      await db.put(['level2', Buffer.from(lexi.pack(k))], 'value2');
-    }
-    const keysIterated2: Array<number> = [];
-    for await (const [kP] of db.iterator({ values: false }, ['level2'])) {
-      keysIterated2.push(lexi.unpack([...kP[0]]));
-    }
-    expect(keys2).not.toEqual(keysIterated2);
-    // Numeric sort
-    expect(keys2.sort((a, b) => a - b)).toEqual(keysIterated2);
+    /**
+     * Suppose that:
+     *
+     * * `[]` is a key path of degree 0
+     * * `['a']` is a key path of degree 0
+     * * `['a', 'b']` is a key path of degree 1
+     *
+     * The sorting process goes through 3 steps in-order:
+     *
+     * 1. Level parts at each degree are sorted lexicographically
+     * 2. Key parts with the same level path are sorted lexicographically
+     * 3. Key parts with degree n are sorted in front of key parts with degree n -1
+     */
+    expect(keyPaths).toStrictEqual([
+      /* Begin degree 1 */
+      [Buffer.from([]), Buffer.from([])],
+      [Buffer.from([0x00]), Buffer.from([])],
+      [Buffer.from([0x00]), Buffer.from([0x00])],
+      /* Begin degree 2 */
+      [Buffer.from([0x00, 0x00]), Buffer.from([]), Buffer.from([])],
+      [Buffer.from([0x00, 0x00]), Buffer.from([0xff]), Buffer.from([])],
+      /* End degree 2 */
+      [Buffer.from([0x00, 0x00]), Buffer.from([])],
+      [Buffer.from([0x00, 0x00]), Buffer.from([0x00, 0x00])],
+      [Buffer.from([0x00, 0x00]), Buffer.from([0x01])],
+      [Buffer.from([0x00, 0x00, 0x00]), Buffer.from([0x00])],
+      [Buffer.from([0x00, 0x00, 0x00]), Buffer.from([0x01])],
+      [Buffer.from([0x01]), Buffer.from([0x00])],
+      [Buffer.from([0xff]), Buffer.from([])],
+      /* End degree 1*/
+      /* Begin degree 0 */
+      [Buffer.from([])],
+      [Buffer.from([0x00])],
+      [Buffer.from([0x00, 0x00])],
+      [Buffer.from([0x01])],
+      /* End degree 0 */
+    ]);
     await db.stop();
   });
-  test('sublevel lexicographic buffer iteration', async () => {
+  test('lexicographic level iteration order fuzzing', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const keys: Array<Array<Buffer>> = Array.from({ length: 100 }, () =>
+    const keyPathsInput: Array<KeyPath> = Array.from({ length: 5000 }, () =>
       Array.from({ length: testUtils.getRandomInt(0, 11) }, () =>
         nodeCrypto.randomBytes(testUtils.getRandomInt(0, 11)),
       ),
     );
-    for (const k of keys) {
-      await db.put(k, 'value');
+    for (const kP of keyPathsInput) {
+      await db.put(kP, 'value');
     }
-    const keysIterated: Array<Array<Buffer>> = [];
+    const keyPathsOutput: Array<KeyPath> = [];
     for await (const [kP] of db.iterator({ values: false })) {
-      keysIterated.push(kP as Array<Buffer>);
+      keyPathsOutput.push(kP);
     }
-    // Combine key parts so that keys can be compared
-    const joinedKeysIterated: Array<Buffer> = [];
-    for (let kI of keysIterated) {
-      if (kI.length < 1) {
-        kI = [Buffer.from([])];
+    // Copy the DB sorted key paths
+    const keyPathsOutput_ = [...keyPathsOutput];
+    // Shuffle the DB sorted key paths
+    testUtils.arrayShuffle(keyPathsOutput_);
+    keyPathsOutput_.sort((kP1: Array<Buffer>, kP2: Array<Buffer>) => {
+      const lP1 = kP1.slice(0, kP1.length - 1);
+      const lP2 = kP2.slice(0, kP2.length - 1);
+      // Level parts at each degree are sorted lexicographically
+      for (let i = 0; i < Math.min(lP1.length, lP2.length); i++) {
+        const comp = Buffer.compare(lP1[i], lP2[i]);
+        if (comp !== 0) return comp;
+        // Continue to the next level part
       }
-      const keyPart = kI.slice(-1)[0];
-      const levelPath = kI.slice(0, -1);
-      joinedKeysIterated.push(
-        Buffer.concat([
-          Buffer.concat(
-            levelPath.map((p) => Buffer.concat([utils.sep, p, utils.sep])),
-          ),
-          keyPart,
-        ]),
-      );
-    }
-    const joinedKeys: Array<Buffer> = [];
-    for (let k of keys) {
-      if (k.length < 1) {
-        k = [Buffer.from([])];
+      // Key parts with the same level path are sorted lexicographically
+      if (
+        lP1.length === lP2.length &&
+        Buffer.concat(lP1).equals(Buffer.concat(lP2))
+      ) {
+        return Buffer.compare(kP1[kP1.length - 1], kP2[kP2.length - 1]);
       }
-      const keyPart = k.slice(-1)[0];
-      const levelPath = k.slice(0, -1);
-      joinedKeys.push(
-        Buffer.concat([
-          Buffer.concat(
-            levelPath.map((p) => Buffer.concat([utils.sep, p, utils.sep])),
-          ),
-          keyPart,
-        ]),
-      );
+      // Key parts with degree n are sorted in front of key parts with degree n -1
+      if (kP1.length > kP2.length) {
+        return -1;
+      } else if (kP2.length > kP1.length) {
+        return 1;
+      } else {
+        // This cannot happen
+        throw new Error();
+      }
+    });
+    for (let i = 0; i < keyPathsOutput_.length; i++) {
+      try {
+        expect(keyPathsOutput_[i]).toStrictEqual(keyPathsOutput[i]);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(
+          'mismatch: %s vs %s',
+          nodeUtil.inspect({
+            sort: keyPathsOutput_[i],
+            sortBefore: keyPathsOutput_.slice(Math.max(0, i - 5), i),
+            sortAfter: keyPathsOutput_.slice(i + 1, i + 1 + 5),
+          }),
+          nodeUtil.inspect({
+            db: keyPathsOutput[i],
+            dbBefore: keyPathsOutput.slice(Math.max(0, i - 5), i),
+            dbAfter: keyPathsOutput.slice(i + 1, i + 1 + 5),
+          }),
+        );
+        throw e;
+      }
     }
-    expect(joinedKeys).not.toStrictEqual(joinedKeysIterated);
-    joinedKeys.sort(Buffer.compare);
-    expect(joinedKeys).toStrictEqual(joinedKeysIterated);
     await db.stop();
   });
   test('iterating sublevels', async () => {
