@@ -394,16 +394,16 @@ class DBTransaction {
   public async dump<V>(
     levelPath?: LevelPath,
     raw?: false,
-  ): Promise<Array<[string, V]>>;
+  ): Promise<Array<[KeyPath, V]>>;
   public async dump(
     levelPath: LevelPath | undefined,
     raw: true,
-  ): Promise<Array<[Buffer, Buffer]>>;
+  ): Promise<Array<[KeyPath, Buffer]>>;
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async dump(
     levelPath: LevelPath = [],
     raw: boolean = false,
-  ): Promise<Array<[string | Buffer, any]>> {
+  ): Promise<Array<[KeyPath, any]>> {
     return await this.db.dump(
       this.transactionPath.concat(levelPath),
       raw as any,
