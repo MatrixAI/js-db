@@ -81,25 +81,26 @@ void IteratorNextWorker::DoFinally(napi_env env) {
   BaseWorker::DoFinally(env);
 }
 
-IteratorClearWorker::IteratorClearWorker(
-    napi_env env, Database* database, napi_value callback, const bool reverse,
-    const int limit, std::string* lt, std::string* lte, std::string* gt,
-    std::string* gte, const bool sync, const Snapshot* snapshot)
+IteratorClearWorker::IteratorClearWorker(napi_env env, Database* database,
+                                         napi_value callback, const int limit,
+                                         std::string* lt, std::string* lte,
+                                         std::string* gt, std::string* gte,
+                                         const bool sync,
+                                         const Snapshot* snapshot)
     : PriorityWorker(env, database, callback, "rocksdb.iterator.clear") {
-  iterator_ = new BaseIterator(database, reverse, lt, lte, gt, gte, limit,
-                               false, snapshot);
+  iterator_ = new BaseIterator(database, false, lt, lte, gt, gte, limit, false,
+                               snapshot);
   writeOptions_ = new rocksdb::WriteOptions();
   writeOptions_->sync = sync;
 }
 
 IteratorClearWorker::IteratorClearWorker(napi_env env, Transaction* transaction,
-                                         napi_value callback,
-                                         const bool reverse, const int limit,
+                                         napi_value callback, const int limit,
                                          std::string* lt, std::string* lte,
                                          std::string* gt, std::string* gte,
                                          const TransactionSnapshot* snapshot)
     : PriorityWorker(env, transaction, callback, "rocksdb.iterator.clear") {
-  iterator_ = new BaseIterator(transaction, reverse, lt, lte, gt, gte, limit,
+  iterator_ = new BaseIterator(transaction, false, lt, lte, gt, gte, limit,
                                false, snapshot);
   writeOptions_ = nullptr;
 }
@@ -148,4 +149,67 @@ void IteratorClearWorker::DoExecute() {
     }
   }
   iterator_->Close();
+}
+
+IteratorCountWorker::IteratorCountWorker(napi_env env, Database* database,
+                                         napi_value callback, const int limit,
+                                         std::string* lt, std::string* lte,
+                                         std::string* gt, std::string* gte,
+                                         const Snapshot* snapshot)
+    : PriorityWorker(env, database, callback, "rocksdb.iterator.count") {
+  iterator_ = new BaseIterator(database, false, lt, lte, gt, gte, limit, false,
+                               snapshot);
+}
+
+IteratorCountWorker::IteratorCountWorker(napi_env env, Transaction* transaction,
+                                         napi_value callback, const int limit,
+                                         std::string* lt, std::string* lte,
+                                         std::string* gt, std::string* gte,
+                                         const TransactionSnapshot* snapshot)
+    : PriorityWorker(env, transaction, callback, "rocksdb.iterator.close") {
+  iterator_ = new BaseIterator(transaction, false, lt, lte, gt, gte, limit,
+                               false, snapshot);
+}
+
+IteratorCountWorker::~IteratorCountWorker() { delete iterator_; }
+
+void IteratorCountWorker::DoExecute() {
+  assert(database_ != nullptr || transaction_ != nullptr);
+  iterator_->SeekToRange();
+  uint32_t hwm = 16 * 1024;
+  if (database_ != nullptr) {
+    while (true) {
+      size_t bytesRead = 0;
+      while (bytesRead <= hwm && iterator_->Valid() && iterator_->Increment()) {
+        rocksdb::Slice key = iterator_->CurrentKey();
+        count_++;
+        bytesRead += key.size();
+        iterator_->Next();
+      }
+      if (!SetStatus(iterator_->Status()) || bytesRead == 0) {
+        break;
+      }
+    }
+  } else if (transaction_ != nullptr) {
+    while (true) {
+      size_t bytesRead = 0;
+      while (bytesRead <= hwm && iterator_->Valid() && iterator_->Increment()) {
+        rocksdb::Slice key = iterator_->CurrentKey();
+        count_++;
+        bytesRead += key.size();
+        iterator_->Next();
+      }
+      if (!SetStatus(iterator_->Status()) || bytesRead == 0) {
+        break;
+      }
+    }
+  }
+  iterator_->Close();
+}
+
+void IteratorCountWorker::HandleOKCallback(napi_env env, napi_value callback) {
+  napi_value argv[2];
+  napi_get_null(env, &argv[0]);
+  napi_create_uint32(env, count_, &argv[1]);
+  CallFunction(env, callback, 2, argv);
 }

@@ -4,27 +4,24 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import nodeCrypto from 'crypto';
-import nodeUtil from 'util';
-import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
-import rocksdbP from '@/rocksdb/rocksdbP';
 import * as errors from '@/errors';
 import * as utils from '@/utils';
-import * as testUtils from './utils';
+import * as testsUtils from './utils';
 
 describe(DB.name, () => {
   const logger = new Logger(`${DB.name} Test`, LogLevel.WARN, [
     new StreamHandler(),
   ]);
   const crypto = {
-    key: testUtils.generateKeySync(256),
+    key: testsUtils.generateKeySync(256),
     ops: {
-      encrypt: testUtils.encrypt,
-      decrypt: testUtils.decrypt,
+      encrypt: testsUtils.encrypt,
+      decrypt: testsUtils.decrypt,
     },
   };
   let dataDir: string;
@@ -82,33 +79,13 @@ describe(DB.name, () => {
     expect(await db2.get('key')).toBeUndefined();
     await db2.stop();
   });
-  test('start wipes dirty transaction state', async () => {
-    const dbPath = `${dataDir}/db`;
-    const db = await DB.createDB({ dbPath, crypto, logger });
-    const data = await db.serializeEncrypt('bar', false);
-    // Put in dirty transaction state
-    await rocksdbP.dbPut(
-      db.db,
-      utils.keyPathToKey(['transactions', 'foo']),
-      data,
-      {},
-    );
-    expect(await db.dump(['transactions'], false, true)).toStrictEqual([
-      [['foo'], 'bar'],
-    ]);
-    await db.stop();
-    // Should wipe the transaction state
-    await db.start();
-    expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
-    await db.stop();
-  });
   test('start performs canary check to validate key', async () => {
     const dbPath = `${dataDir}/db`;
     let db = await DB.createDB({ dbPath, crypto, logger });
     await db.stop();
     const crypto_ = {
       ...crypto,
-      key: testUtils.generateKeySync(256),
+      key: testsUtils.generateKeySync(256),
     };
     await expect(
       DB.createDB({ dbPath, crypto: crypto_, logger }),
@@ -154,8 +131,8 @@ describe(DB.name, () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
     const keyPaths: Array<KeyPath> = Array.from({ length: 1000 }, () =>
-      Array.from({ length: testUtils.getRandomInt(0, 11) }, () =>
-        nodeCrypto.randomBytes(testUtils.getRandomInt(0, 11)),
+      Array.from({ length: testsUtils.getRandomInt(0, 11) }, () =>
+        nodeCrypto.randomBytes(testsUtils.getRandomInt(0, 11)),
       ),
     );
     for (const kP of keyPaths) {
@@ -203,7 +180,7 @@ describe(DB.name, () => {
       'key',
     ]);
     const records: Array<[KeyPath, Buffer]> = [];
-    for await (const [kP, v] of db.iterator(undefined, [
+    for await (const [kP, v] of db.iterator([
       Buffer.concat([utils.sep, Buffer.from('level')]),
     ])) {
       records.push([kP, v]);
@@ -213,24 +190,24 @@ describe(DB.name, () => {
     ]);
     await db.stop();
   });
-  // Test('keys that are empty arrays are converted to empty string', async () => {
-  //   const dbPath = `${dataDir}/db`;
-  //   const db = await DB.createDB({ dbPath, crypto, logger });
-  //   await db.put([], 'value');
-  //   expect(await db.get([])).toBe('value');
-  //   await db.del([]);
-  //   expect(await db.get([])).toBeUndefined();
-  //   await withF([db.transaction()], async ([tran]) => {
-  //     await tran.put([], 'value');
-  //     expect(await tran.get([])).toBe('value');
-  //     await tran.del([]);
-  //   });
-  //   await withF([db.transaction()], async ([tran]) => {
-  //     await tran.put([], 'value');
-  //   });
-  //   expect(await db.get([])).toBe('value');
-  //   await db.stop();
-  // });
+  test('keys that are empty arrays are converted to empty string', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    await db.put([], 'value');
+    expect(await db.get([])).toBe('value');
+    await db.del([]);
+    expect(await db.get([])).toBeUndefined();
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.put([], 'value');
+      expect(await tran.get([])).toBe('value');
+      await tran.del([]);
+    });
+    await withF([db.transaction()], async ([tran]) => {
+      await tran.put([], 'value');
+    });
+    expect(await db.get([])).toBe('value');
+    await db.stop();
+  });
   test('keys can contain separator buffer', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
@@ -517,6 +494,79 @@ describe(DB.name, () => {
     expect(await db.get('b')).toBe('value1');
     expect(await db.get('c')).toBe('value2');
     expect(await db.get('d')).toBe('value3');
+    await db.stop();
+  });
+  test('debug dumping', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    await db.put('a', 'value0');
+    await db.put('b', 'value1');
+    await db.put('c', 'value2');
+    await db.put('d', 'value3');
+    expect(await db.dump()).toStrictEqual([
+      [['a'], 'value0'],
+      [['b'], 'value1'],
+      [['c'], 'value2'],
+      [['d'], 'value3'],
+    ]);
+    // Remember non-raw data is always encoded with JSON
+    // So the raw dump is a buffer version of the JSON string
+    expect(await db.dump([], true)).toStrictEqual([
+      [[Buffer.from('a')], Buffer.from(JSON.stringify('value0'))],
+      [[Buffer.from('b')], Buffer.from(JSON.stringify('value1'))],
+      [[Buffer.from('c')], Buffer.from(JSON.stringify('value2'))],
+      [[Buffer.from('d')], Buffer.from(JSON.stringify('value3'))],
+    ]);
+    // Raw dumping will acquire values from the `data` root level
+    // and also the canary key
+    expect(await db.dump([], true, true)).toStrictEqual([
+      [
+        [Buffer.from('data'), Buffer.from('a')],
+        Buffer.from(JSON.stringify('value0')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('b')],
+        Buffer.from(JSON.stringify('value1')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('c')],
+        Buffer.from(JSON.stringify('value2')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('d')],
+        Buffer.from(JSON.stringify('value3')),
+      ],
+      [[Buffer.from('canary')], Buffer.from(JSON.stringify('deadbeef'))],
+    ]);
+    // It is also possible to insert at root level
+    await db._put([], 'value0');
+    await db._put(['a'], 'value1');
+    await db._put(['a', 'b'], 'value2');
+    expect(await db.dump([], true, true)).toStrictEqual([
+      [
+        [Buffer.from('a'), Buffer.from('b')],
+        Buffer.from(JSON.stringify('value2')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('a')],
+        Buffer.from(JSON.stringify('value0')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('b')],
+        Buffer.from(JSON.stringify('value1')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('c')],
+        Buffer.from(JSON.stringify('value2')),
+      ],
+      [
+        [Buffer.from('data'), Buffer.from('d')],
+        Buffer.from(JSON.stringify('value3')),
+      ],
+      [[Buffer.from('')], Buffer.from(JSON.stringify('value0'))],
+      [[Buffer.from('a')], Buffer.from(JSON.stringify('value1'))],
+      [[Buffer.from('canary')], Buffer.from(JSON.stringify('deadbeef'))],
+    ]);
     await db.stop();
   });
 });

@@ -1,4 +1,4 @@
-import type { Callback, KeyPath, LevelPath } from './types';
+import type { Callback, Merge, KeyPath, LevelPath } from './types';
 import * as errors from './errors';
 
 /**
@@ -90,6 +90,7 @@ function decodePart(data: Buffer): Buffer {
 
 /**
  * Used to convert possible KeyPath into legal KeyPath
+ * Returns a copy which can be mutated
  */
 function toKeyPath(keyPath: KeyPath | string | Buffer): KeyPath {
   if (!Array.isArray(keyPath)) {
@@ -323,6 +324,76 @@ function filterUndefined(o: object): void {
   });
 }
 
+function iterationOptions<
+  O extends {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+  },
+>(
+  options: O,
+  levelPath: LevelPath,
+): Merge<
+  O,
+  {
+    gt?: Buffer;
+    gte?: Buffer;
+    lt?: Buffer;
+    lte?: Buffer;
+    keyEncoding: 'buffer';
+    valueEncoding: 'buffer';
+  }
+> {
+  const options_ = {
+    ...options,
+    // Internally we always use the buffer
+    keyEncoding: 'buffer' as const,
+    valueEncoding: 'buffer' as const,
+  } as Merge<
+    O,
+    {
+      gt?: Buffer;
+      gte?: Buffer;
+      lt?: Buffer;
+      lte?: Buffer;
+      keyEncoding: 'buffer';
+      valueEncoding: 'buffer';
+    }
+  >;
+  if (options?.gt != null) {
+    options_.gt = keyPathToKey(levelPath.concat(toKeyPath(options.gt)));
+  }
+  if (options?.gte != null) {
+    options_.gte = keyPathToKey(levelPath.concat(toKeyPath(options.gte)));
+  }
+  if (options?.gt == null && options?.gte == null) {
+    // If the level path is empty then all keys are allowed
+    if (levelPath.length > 0) {
+      options_.gt = levelPathToKey(levelPath);
+    }
+  }
+  if (options?.lt != null) {
+    options_.lt = keyPathToKey(levelPath.concat(toKeyPath(options.lt)));
+  }
+  if (options?.lte != null) {
+    options_.lte = keyPathToKey(levelPath.concat(toKeyPath(options.lte)));
+  }
+  if (options?.lt == null && options?.lte == null) {
+    // If the level path is empty then all keys are allowed
+    if (levelPath.length > 0) {
+      const levelKeyEnd = levelPathToKey(levelPath);
+      // This works because the separator byte is 0x00
+      // Therefore we have `sep level sep`
+      // and we can acquire keys less than `sep level sep+1`
+      levelKeyEnd[levelKeyEnd.length - 1] += 1;
+      options_.lt = levelKeyEnd;
+    }
+  }
+  filterUndefined(options_);
+  return options_;
+}
+
 export {
   sep,
   encodePart,
@@ -338,4 +409,5 @@ export {
   fromArrayBuffer,
   promisify,
   filterUndefined,
+  iterationOptions,
 };

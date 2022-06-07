@@ -467,7 +467,6 @@ NAPI_METHOD(dbClear) {
   NAPI_DB_CONTEXT();
   napi_value options = argv[1];
   napi_value callback = argv[2];
-  const bool reverse = BooleanProperty(env, options, "reverse", false);
   const int limit = Int32Property(env, options, "limit", -1);
   std::string* lt = RangeOption(env, options, "lt");
   std::string* lte = RangeOption(env, options, "lte");
@@ -475,9 +474,28 @@ NAPI_METHOD(dbClear) {
   std::string* gte = RangeOption(env, options, "gte");
   const Snapshot* snapshot = SnapshotProperty(env, options, "snapshot");
   const bool sync = BooleanProperty(env, options, "sync", false);
-  IteratorClearWorker* worker =
-      new IteratorClearWorker(env, database, callback, reverse, limit, lt, lte,
-                              gt, gte, sync, snapshot);
+  IteratorClearWorker* worker = new IteratorClearWorker(
+      env, database, callback, limit, lt, lte, gt, gte, sync, snapshot);
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
+ * Count a range from a database.
+ */
+NAPI_METHOD(dbCount) {
+  NAPI_ARGV(3);
+  NAPI_DB_CONTEXT();
+  napi_value options = argv[1];
+  napi_value callback = argv[2];
+  const int limit = Int32Property(env, options, "limit", -1);
+  std::string* lt = RangeOption(env, options, "lt");
+  std::string* lte = RangeOption(env, options, "lte");
+  std::string* gt = RangeOption(env, options, "gt");
+  std::string* gte = RangeOption(env, options, "gte");
+  const Snapshot* snapshot = SnapshotProperty(env, options, "snapshot");
+  IteratorCountWorker* worker = new IteratorCountWorker(
+      env, database, callback, limit, lt, lte, gt, gte, snapshot);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
@@ -807,6 +825,16 @@ NAPI_METHOD(transactionInit) {
   return transaction_ref;
 }
 
+NAPI_METHOD(transactionId) {
+  NAPI_ARGV(1);
+  NAPI_TRANSACTION_CONTEXT();
+  ASSERT_TRANSACTION_READY(env, transaction);
+  // This uses our own id instead of `Transaction::GetID()` and
+  // `Transaction::GetId()`
+  const uint32_t id = transaction->id_;
+  NAPI_RETURN_UINT32(id);
+}
+
 /**
  * Commit transaction
  */
@@ -1032,7 +1060,6 @@ NAPI_METHOD(transactionClear) {
   ASSERT_TRANSACTION_READY(env, transaction);
   napi_value options = argv[1];
   napi_value callback = argv[2];
-  const bool reverse = BooleanProperty(env, options, "reverse", false);
   const int limit = Int32Property(env, options, "limit", -1);
   std::string* lt = RangeOption(env, options, "lt");
   std::string* lte = RangeOption(env, options, "lte");
@@ -1041,7 +1068,26 @@ NAPI_METHOD(transactionClear) {
   const TransactionSnapshot* snapshot =
       TransactionSnapshotProperty(env, options, "snapshot");
   IteratorClearWorker* worker = new IteratorClearWorker(
-      env, transaction, callback, reverse, limit, lt, lte, gt, gte, snapshot);
+      env, transaction, callback, limit, lt, lte, gt, gte, snapshot);
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+NAPI_METHOD(transactionCount) {
+  NAPI_ARGV(3);
+  NAPI_TRANSACTION_CONTEXT();
+  ASSERT_TRANSACTION_READY(env, transaction);
+  napi_value options = argv[1];
+  napi_value callback = argv[2];
+  const int limit = Int32Property(env, options, "limit", -1);
+  std::string* lt = RangeOption(env, options, "lt");
+  std::string* lte = RangeOption(env, options, "lte");
+  std::string* gt = RangeOption(env, options, "gt");
+  std::string* gte = RangeOption(env, options, "gte");
+  const TransactionSnapshot* snapshot =
+      TransactionSnapshotProperty(env, options, "snapshot");
+  IteratorCountWorker* worker = new IteratorCountWorker(
+      env, transaction, callback, limit, lt, lte, gt, gte, snapshot);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
@@ -1061,6 +1107,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(dbPut);
   NAPI_EXPORT_FUNCTION(dbDel);
   NAPI_EXPORT_FUNCTION(dbClear);
+  NAPI_EXPORT_FUNCTION(dbCount);
   NAPI_EXPORT_FUNCTION(dbApproximateSize);
   NAPI_EXPORT_FUNCTION(dbCompactRange);
   NAPI_EXPORT_FUNCTION(dbGetProperty);
@@ -1084,6 +1131,7 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(batchWrite);
 
   NAPI_EXPORT_FUNCTION(transactionInit);
+  NAPI_EXPORT_FUNCTION(transactionId);
   NAPI_EXPORT_FUNCTION(transactionCommit);
   NAPI_EXPORT_FUNCTION(transactionRollback);
   NAPI_EXPORT_FUNCTION(transactionGet);
@@ -1095,4 +1143,5 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(transactionSnapshot);
   NAPI_EXPORT_FUNCTION(transactionIteratorInit);
   NAPI_EXPORT_FUNCTION(transactionClear);
+  NAPI_EXPORT_FUNCTION(transactionCount);
 }

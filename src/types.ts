@@ -3,6 +3,10 @@ import type {
   RocksDBIteratorOptions,
   RocksDBBatchPutOperation,
   RocksDBBatchDelOperation,
+  RocksDBClearOptions,
+  RocksDBCountOptions,
+  RocksDBSnapshot,
+  RocksDBTransactionSnapshot,
 } from './rocksdb/types';
 import type fs from 'fs';
 import type { WorkerManagerInterface } from '@matrixai/workers';
@@ -85,21 +89,41 @@ type DBOptions = Omit<
  * The `valueAsBuffer` property controls value type
  * It should be considered to default to true
  */
-type DBIteratorOptions = Merge<
-  Omit<RocksDBIteratorOptions, 'keyEncoding' | 'valueEncoding'>,
+type DBIteratorOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Merge<
+  Omit<RocksDBIteratorOptions<S>, 'keyEncoding' | 'valueEncoding'>,
   {
     gt?: KeyPath | Buffer | string;
     gte?: KeyPath | Buffer | string;
     lt?: KeyPath | Buffer | string;
     lte?: KeyPath | Buffer | string;
-    limit?: number;
-    keys?: boolean;
-    values?: boolean;
     keyAsBuffer?: boolean;
     valueAsBuffer?: boolean;
-    reverse?: boolean;
-    fillCache?: boolean;
-    highWaterMarkBytes?: number;
+  }
+>;
+
+type DBClearOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Merge<
+  RocksDBClearOptions<S>,
+  {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+  }
+>;
+
+type DBCountOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Merge<
+  RocksDBCountOptions<S>,
+  {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
   }
 >;
 
@@ -139,6 +163,8 @@ export type {
   LevelPath,
   DBOptions,
   DBIteratorOptions,
+  DBClearOptions,
+  DBCountOptions,
   DBBatch,
   DBOp,
   DBOps,

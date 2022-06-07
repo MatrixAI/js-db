@@ -40,10 +40,6 @@ class ErrorDBParseValue<T> extends ErrorDB<T> {
   static description = 'DB value parsing failed';
 }
 
-class ErrorDBLiveReference<T> extends ErrorDB<T> {
-  static description = 'DB has live DBIterator or DBTransaction references';
-}
-
 class ErrorDBIterator<T> extends ErrorDB<T> {
   static description = 'DBIterator error';
 }
@@ -76,6 +72,12 @@ class ErrorDBTransactionRollbacked<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction is rollbacked';
 }
 
+class ErrorDBTransactionNotCommittedNorRollbacked<
+  T,
+> extends ErrorDBTransaction<T> {
+  static description = 'DBTransaction is not comitted nor rollbacked';
+}
+
 class ErrorDBTransactionConflict<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction cannot commit due to conflicting writes';
 }
@@ -91,7 +93,6 @@ export {
   ErrorDBDecrypt,
   ErrorDBParseKey,
   ErrorDBParseValue,
-  ErrorDBLiveReference,
   ErrorDBIterator,
   ErrorDBIteratorDestroyed,
   ErrorDBIteratorBusy,
@@ -100,5 +101,6 @@ export {
   ErrorDBTransactionCommitted,
   ErrorDBTransactionNotCommitted,
   ErrorDBTransactionRollbacked,
+  ErrorDBTransactionNotCommittedNorRollbacked,
   ErrorDBTransactionConflict,
 };

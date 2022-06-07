@@ -1,6 +1,11 @@
 import type { Opaque } from '../types';
 
 /**
+ * Note that `undefined` is not a valid value for these options
+ * If properties exist, they must have the correct type
+ */
+
+/**
  * RocksDBDatabase object
  * A `napi_external` type
  */
@@ -50,9 +55,6 @@ type RocksDBTransactionSnapshot = Opaque<'RocksDBTransactionSnapshot', object>;
 
 /**
  * RocksDB database options
- * Note that `undefined` is not a valid value for these options
- * Make sure that the property either exists and it is a correct type
- * or that it does not exist
  */
 type RocksDBDatabaseOptions = {
   createIfMissing?: boolean; // Default true
@@ -69,11 +71,10 @@ type RocksDBDatabaseOptions = {
 
 /**
  * Get options
- * Note that `undefined` is not a valid value for these options
- * Make sure that the property either exists and it is a correct type
- * or that it does not exist
  */
-type RocksDBGetOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot> = {
+type RocksDBGetOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = {
   valueEncoding?: 'utf8' | 'buffer'; // Default 'utf8';
   fillCache?: boolean; // Default true
   snapshot?: S;
@@ -81,9 +82,6 @@ type RocksDBGetOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = 
 
 /**
  * Put options
- * Note that `undefined` is not a valid value for these options
- * Make sure that the property either exists and it is a correct type
- * or that it does not exist
  */
 type RocksDBPutOptions = {
   /**
@@ -98,15 +96,11 @@ type RocksDBPutOptions = {
 
 /**
  * Del options
- * Note that `undefined` is not a valid value for these options
- * If properties exist, they must have the correct type
  */
 type RocksDBDelOptions = RocksDBPutOptions;
 
 /**
  * Range options
- * Note that `undefined` is not a valid value for these options
- * If properties exist, they must have the correct type
  */
 type RocksDBRangeOptions = {
   gt?: string | Buffer;
@@ -119,24 +113,29 @@ type RocksDBRangeOptions = {
 
 /**
  * Clear options
- * Note that `undefined` is not a valid value for these options
- * If properties exist, they must have the correct type
  */
-type RocksDBClearOptions
-<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot>
-= RocksDBRangeOptions & {
+type RocksDBClearOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Omit<RocksDBRangeOptions, 'reverse'> & {
   snapshot?: S;
   sync?: S extends RocksDBSnapshot ? boolean : void; // Default false
 };
 
 /**
- * Iterator options
- * Note that `undefined` is not a valid value for these options
- * If properties exist, they must have the correct type
+ * Count options
  */
-type RocksDBIteratorOptions
-<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot>
-= RocksDBGetOptions<S> &
+type RocksDBCountOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Omit<RocksDBRangeOptions, 'reverse'> & {
+  snapshot?: S;
+};
+
+/**
+ * Iterator options
+ */
+type RocksDBIteratorOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = RocksDBGetOptions<S> &
   RocksDBRangeOptions & {
     keys?: boolean;
     values?: boolean;
@@ -146,15 +145,11 @@ type RocksDBIteratorOptions
 
 /**
  * Transaction options
- * Note that `undefined` is not a valid value for these options
- * If properties exist, they must have the correct type
  */
 type RocksDBTransactionOptions = RocksDBPutOptions;
 
 /**
  * Batch options
- * Note that `undefined` is not a valid value for these options
- * If properties exist, they must have the correct type
  */
 type RocksDBBatchOptions = RocksDBPutOptions;
 
@@ -182,6 +177,7 @@ export type {
   RocksDBDelOptions,
   RocksDBRangeOptions,
   RocksDBClearOptions,
+  RocksDBCountOptions,
   RocksDBIteratorOptions,
   RocksDBTransactionOptions,
   RocksDBBatchOptions,

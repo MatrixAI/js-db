@@ -9,17 +9,17 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import DB from '@/DB';
 import DBIterator from '@/DBIterator';
 import rocksdbP from '@/rocksdb/rocksdbP';
-import * as testUtils from './utils';
+import * as testsUtils from './utils';
 
 describe(DBIterator.name, () => {
   const logger = new Logger(`${DBIterator.name} test`, LogLevel.WARN, [
     new StreamHandler(),
   ]);
   const crypto = {
-    key: testUtils.generateKeySync(256),
+    key: testsUtils.generateKeySync(256),
     ops: {
-      encrypt: testUtils.encrypt,
-      decrypt: testUtils.decrypt,
+      encrypt: testsUtils.encrypt,
+      decrypt: testsUtils.decrypt,
     },
   };
   let dataDir: string;
@@ -74,7 +74,7 @@ describe(DBIterator.name, () => {
     await db.put(Buffer.from([0x00, 0x00]), Buffer.alloc(0));
     await db.put(Buffer.from([]), Buffer.alloc(0));
     const keyPaths: Array<KeyPath> = [];
-    for await (const [kP] of db.iterator({ values: false })) {
+    for await (const [kP] of db.iterator([], { values: false })) {
       keyPaths.push(kP);
     }
     expect(keyPaths).toEqual([
@@ -98,13 +98,13 @@ describe(DBIterator.name, () => {
   });
   test('lexicographic iteration order fuzzing', async () => {
     const keys: Array<Buffer> = Array.from({ length: 1000 }, () =>
-      nodeCrypto.randomBytes(testUtils.getRandomInt(0, 101)),
+      nodeCrypto.randomBytes(testsUtils.getRandomInt(0, 101)),
     );
     for (const k of keys) {
       await db.put(k, 'value');
     }
     const keyPaths: Array<KeyPath> = [];
-    for await (const [kP] of db.iterator({ values: false })) {
+    for await (const [kP] of db.iterator([], { values: false })) {
       keyPaths.push(kP);
     }
     // Check that this matches Buffer.compare order
@@ -125,7 +125,7 @@ describe(DBIterator.name, () => {
       await db.put(Buffer.from(lexi.pack(k)), 'value');
     }
     const keysIterated: Array<number> = [];
-    for await (const [kP] of db.iterator({ values: false })) {
+    for await (const [kP] of db.iterator([], { values: false })) {
       keysIterated.push(lexi.unpack([...kP[0]]));
     }
     expect(keys).not.toEqual(keysIterated);
@@ -169,7 +169,7 @@ describe(DBIterator.name, () => {
       Buffer.alloc(0),
     );
     const keyPaths: Array<KeyPath> = [];
-    for await (const [kP] of db.iterator({ values: false })) {
+    for await (const [kP] of db.iterator([], { values: false })) {
       keyPaths.push(kP);
     }
     /**
@@ -212,21 +212,21 @@ describe(DBIterator.name, () => {
   });
   test('lexicographic level iteration order fuzzing', async () => {
     const keyPathsInput: Array<KeyPath> = Array.from({ length: 5000 }, () =>
-      Array.from({ length: testUtils.getRandomInt(0, 11) }, () =>
-        nodeCrypto.randomBytes(testUtils.getRandomInt(0, 11)),
+      Array.from({ length: testsUtils.getRandomInt(0, 11) }, () =>
+        nodeCrypto.randomBytes(testsUtils.getRandomInt(0, 11)),
       ),
     );
     for (const kP of keyPathsInput) {
       await db.put(kP, 'value');
     }
     const keyPathsOutput: Array<KeyPath> = [];
-    for await (const [kP] of db.iterator({ values: false })) {
+    for await (const [kP] of db.iterator([], { values: false })) {
       keyPathsOutput.push(kP);
     }
     // Copy the DB sorted key paths
     const keyPathsOutput_ = [...keyPathsOutput];
     // Shuffle the DB sorted key paths
-    testUtils.arrayShuffle(keyPathsOutput_);
+    testsUtils.arrayShuffle(keyPathsOutput_);
     keyPathsOutput_.sort((kP1: Array<Buffer>, kP2: Array<Buffer>) => {
       const lP1 = kP1.slice(0, kP1.length - 1);
       const lP2 = kP2.slice(0, kP2.length - 1);
@@ -284,7 +284,7 @@ describe(DBIterator.name, () => {
     await db.put(['level1', 'level2', 'b'], 'value1');
     let results: Array<[KeyPath, string]>;
     results = [];
-    for await (const [kP, v] of db.iterator<string>({
+    for await (const [kP, v] of db.iterator<string>([], {
       keyAsBuffer: false,
       valueAsBuffer: false,
     })) {
@@ -299,10 +299,10 @@ describe(DBIterator.name, () => {
       [['b'], 'value1'],
     ]);
     results = [];
-    for await (const [kP, v] of db.iterator<string>(
-      { keyAsBuffer: false, valueAsBuffer: false },
-      ['level1'],
-    )) {
+    for await (const [kP, v] of db.iterator<string>(['level1'], {
+      keyAsBuffer: false,
+      valueAsBuffer: false,
+    })) {
       results.push([kP, v]);
     }
     expect(results).toStrictEqual([
@@ -330,13 +330,10 @@ describe(DBIterator.name, () => {
     // Notice that this will not cover the key of `0x30 0x34`
     // That's because of rule 3
     // 3. Key parts with degree n are sorted in front of key parts with degree n - 1
-    for await (const [kP] of db.iterator(
-      {
-        lte: [Buffer.from([0x30, 0x35]), ''],
-        values: false,
-      },
-      ['level'],
-    )) {
+    for await (const [kP] of db.iterator(['level'], {
+      lte: [Buffer.from([0x30, 0x35]), ''],
+      values: false,
+    })) {
       keyPaths.push(kP);
     }
     expect(keyPaths).toStrictEqual([
@@ -348,13 +345,10 @@ describe(DBIterator.name, () => {
     // this would not work because of rule 3
     // The deeper level is in front
     keyPaths = [];
-    for await (const [kP] of db.iterator(
-      {
-        gte: [Buffer.from([0x30, 0x35]), ''],
-        lt: [Buffer.from([0x30, 0x36]), ''],
-      },
-      ['level'],
-    )) {
+    for await (const [kP] of db.iterator(['level'], {
+      gte: [Buffer.from([0x30, 0x35]), ''],
+      lt: [Buffer.from([0x30, 0x36]), ''],
+    })) {
       keyPaths.push(kP);
     }
     expect(keyPaths).toStrictEqual([
@@ -364,7 +358,7 @@ describe(DBIterator.name, () => {
     ]);
     // To actually do it, we need to specify as part of the level path parameter
     keyPaths = [];
-    for await (const [kP] of db.iterator(undefined, [
+    for await (const [kP] of db.iterator([
       'level',
       Buffer.from([0x30, 0x35]),
     ])) {
@@ -378,12 +372,9 @@ describe(DBIterator.name, () => {
     // However the deeper level is still there
     // But because of rule 3, we can do this instead
     keyPaths = [];
-    for await (const [kP] of db.iterator(
-      {
-        gte: '',
-      },
-      ['level', Buffer.from([0x30, 0x35])],
-    )) {
+    for await (const [kP] of db.iterator(['level', Buffer.from([0x30, 0x35])], {
+      gte: '',
+    })) {
       keyPaths.push(kP);
     }
     expect(keyPaths).toStrictEqual([[Buffer.from([])], [Buffer.from([0x61])]]);

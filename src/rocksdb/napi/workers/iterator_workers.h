@@ -58,14 +58,13 @@ struct IteratorNextWorker final : public BaseWorker {
  */
 struct IteratorClearWorker final : public PriorityWorker {
   IteratorClearWorker(napi_env env, Database* database, napi_value callback,
-                      const bool reverse, const int limit, std::string* lt,
-                      std::string* lte, std::string* gt, std::string* gte,
-                      const bool sync, const Snapshot* snapshot = nullptr);
+                      const int limit, std::string* lt, std::string* lte,
+                      std::string* gt, std::string* gte, const bool sync,
+                      const Snapshot* snapshot = nullptr);
 
   IteratorClearWorker(napi_env env, Transaction* transaction,
-                      napi_value callback, const bool reverse, const int limit,
-                      std::string* lt, std::string* lte, std::string* gt,
-                      std::string* gte,
+                      napi_value callback, const int limit, std::string* lt,
+                      std::string* lte, std::string* gt, std::string* gte,
                       const TransactionSnapshot* snapshot = nullptr);
 
   ~IteratorClearWorker();
@@ -75,4 +74,26 @@ struct IteratorClearWorker final : public PriorityWorker {
  private:
   BaseIterator* iterator_;
   rocksdb::WriteOptions* writeOptions_;
+};
+
+struct IteratorCountWorker final : public PriorityWorker {
+  IteratorCountWorker(napi_env env, Database* database, napi_value callback,
+                      const int limit, std::string* lt, std::string* lte,
+                      std::string* gt, std::string* gte,
+                      const Snapshot* snapshot = nullptr);
+
+  IteratorCountWorker(napi_env env, Transaction* transaction,
+                      napi_value callback, const int limit, std::string* lt,
+                      std::string* lte, std::string* gt, std::string* gte,
+                      const TransactionSnapshot* snapshot = nullptr);
+
+  ~IteratorCountWorker();
+
+  void DoExecute() override;
+
+  void HandleOKCallback(napi_env env, napi_value callback) override;
+
+ private:
+  BaseIterator* iterator_;
+  uint32_t count_ = 0;
 };

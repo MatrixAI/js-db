@@ -1,7 +1,13 @@
-import type { KeyPath, LevelPath, DBIteratorOptions } from './types';
-import type { RocksDBIterator, RocksDBIteratorOptions } from './rocksdb';
 import type DB from './DB';
-import type Logger from '@matrixai/logger';
+import type DBTransaction from './DBTransaction';
+import type { Merge, KeyPath, LevelPath, DBIteratorOptions } from './types';
+import type {
+  RocksDBIterator,
+  RocksDBIteratorOptions,
+  RocksDBSnapshot,
+  RocksDBTransactionSnapshot,
+} from './rocksdb';
+import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import { Lock } from '@matrixai/async-locks';
 import { rocksdbP } from './rocksdb';
@@ -12,81 +18,101 @@ import * as utils from './utils';
 interface DBIterator<K extends KeyPath | undefined, V> extends CreateDestroy {}
 @CreateDestroy()
 class DBIterator<K extends KeyPath | undefined, V> {
-  protected db: DB;
-  protected levelPath: LevelPath;
   protected logger: Logger;
+  protected levelPath: LevelPath;
+  protected _db: DB;
+  protected _transaction?: DBTransaction;
+  protected _options: Merge<
+    DBIteratorOptions<any>,
+    {
+      gt?: Buffer;
+      gte?: Buffer;
+      lt?: Buffer;
+      lte?: Buffer;
+      keyEncoding: 'buffer';
+      valueEncoding: 'buffer';
+    }
+  >;
+  protected _iterator: RocksDBIterator<Buffer, Buffer>;
   protected first: boolean = true;
   protected finished: boolean = false;
   protected cache: Array<[Buffer, Buffer]> = [];
   protected cachePos: number = 0;
   protected lock: Lock = new Lock();
-  protected _options: DBIteratorOptions & RocksDBIteratorOptions;
-  protected _iterator: RocksDBIterator<Buffer, Buffer>;
 
+  public constructor(
+    options: {
+      db: DB;
+      levelPath: LevelPath;
+      logger?: Logger;
+    } & DBIteratorOptions<RocksDBSnapshot>,
+  );
+  public constructor(
+    options: {
+      db: DB;
+      transaction: DBTransaction;
+      levelPath: LevelPath;
+      logger?: Logger;
+    } & DBIteratorOptions<RocksDBTransactionSnapshot>,
+  );
   public constructor({
     db,
+    transaction,
     levelPath,
     logger,
     ...options
   }: {
     db: DB;
+    transaction?: DBTransaction;
     levelPath: LevelPath;
-    logger: Logger;
-  } & DBIteratorOptions) {
+    logger?: Logger;
+  } & DBIteratorOptions<any>) {
+    logger = logger ?? new Logger(this.constructor.name);
     logger.debug(`Constructing ${this.constructor.name}`);
     this.logger = logger;
-    this.db = db;
     this.levelPath = levelPath;
-    const options_ = {
-      ...options,
-      // Internally we always use the buffer
-      keyEncoding: 'buffer',
-      valueEncoding: 'buffer',
-    } as DBIteratorOptions &
-      RocksDBIteratorOptions & {
-        keyEncoding: 'buffer';
-        valueEncoding: 'buffer';
-      };
-    if (options?.gt != null) {
-      options_.gt = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options.gt)),
-      );
-    }
-    if (options?.gte != null) {
-      options_.gte = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options.gte)),
-      );
-    }
-    if (options?.gt == null && options?.gte == null) {
-      options_.gt = utils.levelPathToKey(levelPath);
-    }
-    if (options?.lt != null) {
-      options_.lt = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options.lt)),
-      );
-    }
-    if (options?.lte != null) {
-      options_.lte = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options.lte)),
-      );
-    }
-    if (options?.lt == null && options?.lte == null) {
-      const levelKeyEnd = utils.levelPathToKey(levelPath);
-      levelKeyEnd[levelKeyEnd.length - 1] += 1;
-      options_.lt = levelKeyEnd;
-    }
-    utils.filterUndefined(options_);
+    const options_ = utils.iterationOptions<DBIteratorOptions<any>>(
+      options,
+      levelPath,
+    );
     this._options = options_;
-    this._iterator = rocksdbP.iteratorInit(db.db, options_);
-    db.iteratorRefs.add(this);
+    this._db = db;
+    if (transaction != null) {
+      this._transaction = transaction;
+      this._iterator = rocksdbP.transactionIteratorInit(
+        transaction.transaction,
+        options_ as RocksDBIteratorOptions<RocksDBTransactionSnapshot> & {
+          keyEncoding: 'buffer';
+          valueEncoding: 'buffer';
+        },
+      );
+      transaction.iteratorRefs.add(this);
+    } else {
+      this._iterator = rocksdbP.iteratorInit(
+        db.db,
+        options_ as RocksDBIteratorOptions<RocksDBSnapshot> & {
+          keyEncoding: 'buffer';
+          valueEncoding: 'buffer';
+        },
+      );
+      db.iteratorRefs.add(this);
+    }
     logger.debug(`Constructed ${this.constructor.name}`);
+  }
+
+  get db(): Readonly<DB> {
+    return this._db;
+  }
+
+  get transaction(): Readonly<DBTransaction> | undefined {
+    return this._transaction;
   }
 
   get iterator(): Readonly<RocksDBIterator<Buffer, Buffer>> {
     return this._iterator;
   }
 
-  get options(): Readonly<RocksDBIteratorOptions> {
+  get options(): Readonly<DBIteratorOptions<any>> {
     return this._options;
   }
 
@@ -94,7 +120,11 @@ class DBIterator<K extends KeyPath | undefined, V> {
     this.logger.debug(`Destroying ${this.constructor.name}`);
     this.cache = [];
     await rocksdbP.iteratorClose(this._iterator);
-    this.db.iteratorRefs.delete(this);
+    if (this._transaction != null) {
+      this._transaction.iteratorRefs.delete(this);
+    } else {
+      this._db.iteratorRefs.delete(this);
+    }
     this.logger.debug(`Destroyed ${this.constructor.name}`);
   }
 
@@ -174,9 +204,9 @@ class DBIterator<K extends KeyPath | undefined, V> {
       value = undefined;
     } else {
       if (this._options.valueAsBuffer === false) {
-        value = await this.db.deserializeDecrypt<V>(entry[1], false);
+        value = await this._db.deserializeDecrypt<V>(entry[1], false);
       } else {
-        value = await this.db.deserializeDecrypt(entry[1], true);
+        value = await this._db.deserializeDecrypt(entry[1], true);
       }
     }
     return [keyPath, value] as [K, V];

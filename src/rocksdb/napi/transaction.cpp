@@ -75,6 +75,8 @@ rocksdb::Status Transaction::Commit() {
   }
   hasCommitted_ = true;
   rocksdb::Status status = tran_->Commit();
+  // If the commit failed, this object is still considered committed
+  // this means this object cannot be used anymore
   // Early deletion
   delete tran_;
   tran_ = nullptr;
@@ -93,6 +95,8 @@ rocksdb::Status Transaction::Rollback() {
   }
   hasRollbacked_ = true;
   rocksdb::Status status = tran_->Rollback();
+  // If the rollback failed, this object is still considered rollbacked
+  // this means this object cannot be used anymore
   // Early deletion
   delete tran_;
   tran_ = nullptr;

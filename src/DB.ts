@@ -1,7 +1,3 @@
-import type {
-  RocksDBDatabase,
-  RocksDBDatabaseOptions,
-} from './rocksdb';
 import type { ResourceAcquire } from '@matrixai/resources';
 import type {
   KeyPath,
@@ -9,11 +5,14 @@ import type {
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
-  DBOptions,
-  DBIteratorOptions,
   DBBatch,
   DBOps,
+  DBOptions,
+  DBIteratorOptions,
+  DBClearOptions,
+  DBCountOptions,
 } from './types';
+import type { RocksDBDatabase, RocksDBDatabaseOptions } from './rocksdb';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
@@ -22,7 +21,7 @@ import {
   ready,
 } from '@matrixai/async-init/dist/CreateDestroyStartStop';
 import DBIterator from './DBIterator';
-// Import DBTransaction from './DBTransaction';
+import DBTransaction from './DBTransaction';
 import { rocksdbP } from './rocksdb';
 import * as utils from './utils';
 import * as errors from './errors';
@@ -63,7 +62,6 @@ class DB {
   }
 
   public readonly dbPath: string;
-
   protected crypto?: {
     key: Buffer;
     ops: Crypto;
@@ -72,20 +70,32 @@ class DB {
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
   protected _db: RocksDBDatabase;
-  protected transactionCounter: number = 0;
-
   /**
    * References to iterators
-   * This set must be empty when stopping the DB
    */
   protected _iteratorRefs: Set<DBIterator<any, any>> = new Set();
-
   /**
    * References to transactions
-   * This set must be empty when stopping the DB
    */
-  // TODO: fix this to DBTransaction
-  protected _transactionRefs: Set<any> = new Set();
+  protected _transactionRefs: Set<DBTransaction> = new Set();
+
+  get db(): Readonly<RocksDBDatabase> {
+    return this._db;
+  }
+
+  /**
+   * @internal
+   */
+  get iteratorRefs(): Readonly<Set<DBIterator<any, any>>> {
+    return this._iteratorRefs;
+  }
+
+  /**
+   * @internal
+   */
+  get transactionRefs(): Readonly<Set<DBTransaction>> {
+    return this._transactionRefs;
+  }
 
   constructor({
     dbPath,
@@ -106,24 +116,6 @@ class DB {
     this.crypto = crypto;
     this.fs = fs;
   }
-
-  get db(): Readonly<RocksDBDatabase> {
-    return this._db;
-  }
-
-  /**
-   * @internal
-   */
-  get iteratorRefs(): Readonly<Set<DBIterator<any, any>>> {
-    return this._iteratorRefs;
-  }
-
-  // /**
-  //  * @internal
-  //  */
-  // get transactionRefs(): Readonly<Set<DBTransaction>> {
-  //   return this._transactionRefs;
-  // }
 
   public async start({
     fresh = false,
@@ -165,8 +157,11 @@ class DB {
 
   public async stop(): Promise<void> {
     this.logger.info(`Stopping ${this.constructor.name}`);
-    if (this._iteratorRefs.size > 0 || this._transactionRefs.size > 0) {
-      throw new errors.ErrorDBLiveReference();
+    for (const iterator of this._iteratorRefs) {
+      await iterator.destroy();
+    }
+    for (const transaction of this._transactionRefs) {
+      await transaction.rollback();
     }
     await rocksdbP.dbClose(this._db);
     this.logger.info(`Stopped ${this.constructor.name}`);
@@ -193,49 +188,41 @@ class DB {
     delete this.workerManager;
   }
 
-  // @ready(new errors.ErrorDBNotRunning())
-  // public transaction(): ResourceAcquire<DBTransaction> {
-  //   return async () => {
-  //     const transactionId = this.transactionCounter++;
-  //     const tran = await DBTransaction.createTransaction({
-  //       db: this,
-  //       transactionId,
-  //       logger: this.logger,
-  //     });
-  //     return [
-  //       async (e?: Error) => {
-  //         try {
-  //           if (e == null) {
-  //             try {
-  //               await tran.commit();
-  //             } catch (e) {
-  //               await tran.rollback(e);
-  //               throw e;
-  //             }
-  //             await tran.finalize();
-  //           } else {
-  //             await tran.rollback(e);
-  //           }
-  //         } finally {
-  //           await tran.destroy();
-  //         }
-  //       },
-  //       tran,
-  //     ];
-  //   };
-  // }
+  @ready(new errors.ErrorDBNotRunning())
+  public transaction(): ResourceAcquire<DBTransaction> {
+    return async () => {
+      const tran = new DBTransaction({
+        db: this,
+        logger: this.logger,
+      });
+      return [
+        async (e?: Error) => {
+          try {
+            if (e == null) {
+              await tran.commit();
+            } else {
+              await tran.rollback(e);
+            }
+          } finally {
+            await tran.destroy();
+          }
+        },
+        tran,
+      ];
+    };
+  }
 
-  // public async withTransactionF<T>(
-  //   f: (tran: DBTransaction) => Promise<T>,
-  // ): Promise<T> {
-  //   return withF([this.transaction()], ([tran]) => f(tran));
-  // }
+  public async withTransactionF<T>(
+    f: (tran: DBTransaction) => Promise<T>,
+  ): Promise<T> {
+    return withF([this.transaction()], ([tran]) => f(tran));
+  }
 
-  // public withTransactionG<T, TReturn, TNext>(
-  //   g: (tran: DBTransaction) => AsyncGenerator<T, TReturn, TNext>,
-  // ): AsyncGenerator<T, TReturn, TNext> {
-  //   return withG([this.transaction()], ([tran]) => g(tran));
-  // }
+  public withTransactionG<T, TReturn, TNext>(
+    g: (tran: DBTransaction) => AsyncGenerator<T, TReturn, TNext>,
+  ): AsyncGenerator<T, TReturn, TNext> {
+    return withG([this.transaction()], ([tran]) => g(tran));
+  }
 
   /**
    * Gets a value from the DB
@@ -442,39 +429,39 @@ class DB {
    * You must have at least one of them being true or undefined
    */
   public iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; values: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
   public iterator<V>(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, V>;
   public iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
   public iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { values: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, undefined>;
   public iterator<V>(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, V>;
   public iterator(
-    options?: DBIteratorOptions,
     levelPath?: LevelPath,
+    options?: DBIteratorOptions,
   ): DBIterator<KeyPath, Buffer>;
   @ready(new errors.ErrorDBNotRunning())
   public iterator(
+    levelPath: LevelPath = [],
     options: DBIteratorOptions & {
       keyAsBuffer?: any;
       valueAsBuffer?: any;
     } = {},
-    levelPath: LevelPath = [],
   ): DBIterator<any, any> {
     levelPath = ['data', ...levelPath];
-    return this._iterator(options, levelPath);
+    return this._iterator(levelPath, options);
   }
 
   /**
@@ -482,47 +469,47 @@ class DB {
    * @internal
    */
   public _iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; values: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
   /**
    * @internal
    */
   public _iterator<V>(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, V>;
   /**
    * @internal
    */
   public _iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
   /**
    * @internal
    */
   public _iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { values: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, undefined>;
   /**
    * @internal
    */
   public _iterator<V>(
+    levelPath: LevelPath | undefined,
     options?: DBIteratorOptions & { valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, V>;
   /**
    * @internal
    */
   public _iterator(
+    levelPath?: LevelPath | undefined,
     options?: DBIteratorOptions,
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, Buffer>;
   public _iterator<V>(
-    options: DBIteratorOptions = {},
     levelPath: LevelPath = [],
+    options: DBIteratorOptions = {},
   ): DBIterator<KeyPath | undefined, Buffer | V | undefined> {
     return new DBIterator({
       db: this,
@@ -537,31 +524,45 @@ class DB {
    * This is not atomic, it will iterate over a snapshot of the DB
    */
   @ready(new errors.ErrorDBNotRunning())
-  public async clear(levelPath: LevelPath = []): Promise<void> {
+  public async clear(
+    levelPath: LevelPath = [],
+    options: DBClearOptions = {},
+  ): Promise<void> {
     levelPath = ['data', ...levelPath];
-    await this._clear(levelPath);
+    await this._clear(levelPath, options);
   }
 
   /**
    * Clear from root level
    * @internal
    */
-  public async _clear(levelPath: LevelPath = []): Promise<void> {
-    for await (const [keyPath] of this._iterator(
-      { values: false },
-      levelPath,
-    )) {
-      await this._del(levelPath.concat(keyPath));
-    }
+  public async _clear(
+    levelPath: LevelPath = [],
+    options: DBClearOptions = {},
+  ): Promise<void> {
+    const options_ = utils.iterationOptions(options, levelPath);
+    return rocksdbP.dbClear(this._db, options_);
   }
 
   @ready(new errors.ErrorDBNotRunning())
-  public async count(levelPath: LevelPath = []): Promise<number> {
-    let count = 0;
-    for await (const _ of this.iterator({ values: false }, levelPath)) {
-      count++;
-    }
-    return count;
+  public async count(
+    levelPath: LevelPath = [],
+    options: DBCountOptions = {},
+  ): Promise<number> {
+    levelPath = ['data', ...levelPath];
+    return this._count(levelPath, options);
+  }
+
+  /**
+   * Count from root level
+   * @internal
+   */
+  public async _count(
+    levelPath: LevelPath = [],
+    options: DBCountOptions = {},
+  ): Promise<number> {
+    const options_ = utils.iterationOptions(options, levelPath);
+    return rocksdbP.dbCount(this._db, options_);
   }
 
   /**
@@ -591,13 +592,10 @@ class DB {
       levelPath = ['data', ...levelPath];
     }
     const records: Array<[KeyPath, any]> = [];
-    for await (const [keyPath, v] of this._iterator(
-      {
-        keyAsBuffer: raw,
-        valueAsBuffer: raw,
-      },
-      levelPath,
-    )) {
+    for await (const [keyPath, v] of this._iterator(levelPath, {
+      keyAsBuffer: raw,
+      valueAsBuffer: raw,
+    })) {
       records.push([keyPath, v]);
     }
     return records;
@@ -701,8 +699,7 @@ class DB {
   }
 
   protected async setupRootLevels(): Promise<void> {
-    // Clear any dirty state in transactions
-    await this._clear(['transactions']);
+    // Nothing to do yet
   }
 
   protected async canaryCheck(): Promise<void> {
