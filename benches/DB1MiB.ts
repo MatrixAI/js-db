@@ -20,13 +20,13 @@ async function main() {
   const summary = await b.suite(
     'DB1MiB',
     b.add('get 1 MiB of data', async () => {
-      await db.put('1kib', data1MiB, true);
+      await db.put('1mib', data1MiB, true);
       return async () => {
-        await db.get('1kib', true);
+        await db.get('1mib', true);
       };
     }),
     b.add('put 1 MiB of data', async () => {
-      await db.put('1kib', data1MiB, true);
+      await db.put('1mib', data1MiB, true);
     }),
     b.add('put zero data', async () => {
       await db.put('0', data0, true);
@@ -58,9 +58,7 @@ async function main() {
 }
 
 if (require.main === module) {
-  (async () => {
-    await main();
-  })();
+  void main();
 }
 
 export default main;

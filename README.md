@@ -18,6 +18,63 @@ This forks classic-level's C++ binding code around LevelDB 1.20. Differences fro
 npm install --save @matrixai/db
 ```
 
+## Usage
+
+
+```ts
+import { DB } from '@matrixai/db';
+
+async function main () {
+
+  const key = Buffer.from([
+    0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03,
+    0x00, 0x01, 0x02, 0x03, 0x00, 0x01, 0x02, 0x03,
+  ]);
+
+  const encrypt = async (
+    key: ArrayBuffer,
+    plainText: ArrayBuffer
+  ): Promise<ArrayBuffer> {
+    return plainText;
+  };
+
+  const decrypt = async (
+    key: ArrayBuffer,
+    cipherText: ArrayBuffer
+  ): Promise<ArrayBuffer | undefined> {
+    return cipherText;
+  }
+
+  const db = await DB.createDB({
+    dbPath: './tmp/db',
+    crypto: {
+      key,
+      ops: { encrypt, decrypt },
+    },
+    fresh: true,
+  });
+
+  await db.put(['level', Buffer.from([0x30, 0x30]), 'a'], 'value');
+  await db.put(['level', Buffer.from([0x30, 0x31]), 'b'], 'value');
+  await db.put(['level', Buffer.from([0x30, 0x32]), 'c'], 'value');
+  await db.put(['level', Buffer.from([0x30, 0x33]), 'c'], 'value');
+
+  console.log(await db.get(['level', Buffer.from([0x30, 0x32]), 'c']));
+
+  await db.del(['level', Buffer.from([0x30, 0x32]), 'c']);
+
+  for await (const [kP, v] of db.iterator({
+    lt: [Buffer.from([0x30, 0x32]), ''],
+  }, ['level'])) {
+    console.log(kP, v);
+  }
+
+  await db.stop();
+}
+
+main();
+```
+
 ## Development
 
 Run `nix-shell`, and once you're inside, you can use:

@@ -1,4 +1,7 @@
-import type { LevelDB } from 'level';
+import type {
+  LevelDBDatabase,
+  LevelDBDatabaseOptions,
+} from './leveldb';
 import type { ResourceAcquire } from '@matrixai/resources';
 import type {
   KeyPath,
@@ -6,12 +9,11 @@ import type {
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
+  DBOptions,
   DBIteratorOptions,
-  DBIterator,
   DBBatch,
   DBOps,
 } from './types';
-import level from 'level';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
@@ -19,7 +21,9 @@ import {
   CreateDestroyStartStop,
   ready,
 } from '@matrixai/async-init/dist/CreateDestroyStartStop';
-import DBTransaction from './DBTransaction';
+import DBIterator from './DBIterator';
+// Import DBTransaction from './DBTransaction';
+import { leveldbP } from './leveldb';
 import * as utils from './utils';
 import * as errors from './errors';
 
@@ -35,6 +39,7 @@ class DB {
     fs = require('fs'),
     logger = new Logger(this.name),
     fresh = false,
+    ...dbOptions
   }: {
     dbPath: string;
     crypto?: {
@@ -44,15 +49,15 @@ class DB {
     fs?: FileSystem;
     logger?: Logger;
     fresh?: boolean;
-  }): Promise<DB> {
+  } & DBOptions): Promise<DB> {
     logger.info(`Creating ${this.name}`);
-    const db = new DB({
+    const db = new this({
       dbPath,
       crypto,
       fs,
       logger,
     });
-    await db.start({ fresh });
+    await db.start({ fresh, ...dbOptions });
     logger.info(`Created ${this.name}`);
     return db;
   }
@@ -66,8 +71,21 @@ class DB {
   protected fs: FileSystem;
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
-  protected _db: LevelDB<string | Buffer, Buffer>;
+  protected _db: LevelDBDatabase;
   protected transactionCounter: number = 0;
+
+  /**
+   * References to iterators
+   * This set must be empty when stopping the DB
+   */
+  protected _iteratorRefs: Set<DBIterator<any, any>> = new Set();
+
+  /**
+   * References to transactions
+   * This set must be empty when stopping the DB
+   */
+  // TODO: fix this to DBTransaction
+  protected _transactionRefs: Set<any> = new Set();
 
   constructor({
     dbPath,
@@ -89,15 +107,30 @@ class DB {
     this.fs = fs;
   }
 
-  get db(): Readonly<LevelDB<string | Buffer, Buffer>> {
+  get db(): Readonly<LevelDBDatabase> {
     return this._db;
   }
 
+  /**
+   * @internal
+   */
+  get iteratorRefs(): Readonly<Set<DBIterator<any, any>>> {
+    return this._iteratorRefs;
+  }
+
+  // /**
+  //  * @internal
+  //  */
+  // get transactionRefs(): Readonly<Set<DBTransaction>> {
+  //   return this._transactionRefs;
+  // }
+
   public async start({
     fresh = false,
+    ...dbOptions
   }: {
     fresh?: boolean;
-  } = {}) {
+  } & DBOptions = {}) {
     this.logger.info(`Starting ${this.constructor.name}`);
     this.logger.info(`Setting DB path to ${this.dbPath}`);
     if (fresh) {
@@ -110,7 +143,11 @@ class DB {
         throw new errors.ErrorDBDelete(e.message, { cause: e });
       }
     }
-    const db = await this.setupDb(this.dbPath);
+    const db = await this.setupDb(this.dbPath, {
+      ...dbOptions,
+      createIfMissing: true,
+      errorIfExists: false,
+    });
     this._db = db;
     try {
       // Only run these after this._db is assigned
@@ -120,7 +157,7 @@ class DB {
       }
     } catch (e) {
       // LevelDB must be closed otherwise its lock will persist
-      await this._db.close();
+      await leveldbP.db_close(db);
       throw e;
     }
     this.logger.info(`Started ${this.constructor.name}`);
@@ -128,7 +165,10 @@ class DB {
 
   public async stop(): Promise<void> {
     this.logger.info(`Stopping ${this.constructor.name}`);
-    await this._db.close();
+    if (this._iteratorRefs.size > 0 || this._transactionRefs.size > 0) {
+      throw new errors.ErrorDBLiveReference();
+    }
+    await leveldbP.db_close(this._db);
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
@@ -153,49 +193,49 @@ class DB {
     delete this.workerManager;
   }
 
-  @ready(new errors.ErrorDBNotRunning())
-  public transaction(): ResourceAcquire<DBTransaction> {
-    return async () => {
-      const transactionId = this.transactionCounter++;
-      const tran = await DBTransaction.createTransaction({
-        db: this,
-        transactionId,
-        logger: this.logger,
-      });
-      return [
-        async (e?: Error) => {
-          try {
-            if (e == null) {
-              try {
-                await tran.commit();
-              } catch (e) {
-                await tran.rollback(e);
-                throw e;
-              }
-              await tran.finalize();
-            } else {
-              await tran.rollback(e);
-            }
-          } finally {
-            await tran.destroy();
-          }
-        },
-        tran,
-      ];
-    };
-  }
+  // @ready(new errors.ErrorDBNotRunning())
+  // public transaction(): ResourceAcquire<DBTransaction> {
+  //   return async () => {
+  //     const transactionId = this.transactionCounter++;
+  //     const tran = await DBTransaction.createTransaction({
+  //       db: this,
+  //       transactionId,
+  //       logger: this.logger,
+  //     });
+  //     return [
+  //       async (e?: Error) => {
+  //         try {
+  //           if (e == null) {
+  //             try {
+  //               await tran.commit();
+  //             } catch (e) {
+  //               await tran.rollback(e);
+  //               throw e;
+  //             }
+  //             await tran.finalize();
+  //           } else {
+  //             await tran.rollback(e);
+  //           }
+  //         } finally {
+  //           await tran.destroy();
+  //         }
+  //       },
+  //       tran,
+  //     ];
+  //   };
+  // }
 
-  public async withTransactionF<T>(
-    f: (tran: DBTransaction) => Promise<T>,
-  ): Promise<T> {
-    return withF([this.transaction()], ([tran]) => f(tran));
-  }
+  // public async withTransactionF<T>(
+  //   f: (tran: DBTransaction) => Promise<T>,
+  // ): Promise<T> {
+  //   return withF([this.transaction()], ([tran]) => f(tran));
+  // }
 
-  public withTransactionG<T, TReturn, TNext>(
-    g: (tran: DBTransaction) => AsyncGenerator<T, TReturn, TNext>,
-  ): AsyncGenerator<T, TReturn, TNext> {
-    return withG([this.transaction()], ([tran]) => g(tran));
-  }
+  // public withTransactionG<T, TReturn, TNext>(
+  //   g: (tran: DBTransaction) => AsyncGenerator<T, TReturn, TNext>,
+  // ): AsyncGenerator<T, TReturn, TNext> {
+  //   return withG([this.transaction()], ([tran]) => g(tran));
+  // }
 
   /**
    * Gets a value from the DB
@@ -235,9 +275,9 @@ class DB {
     let data;
     try {
       const key = utils.keyPathToKey(keyPath);
-      data = await this._db.get(key);
+      data = await leveldbP.db_get(this._db, key, { valueEncoding: 'buffer' });
     } catch (e) {
-      if (e.notFound) {
+      if (e.code === 'LEVEL_NOT_FOUND') {
         return undefined;
       }
       throw e;
@@ -253,64 +293,88 @@ class DB {
     keyPath: KeyPath | string | Buffer,
     value: any,
     raw?: false,
+    sync?: boolean,
   ): Promise<void>;
   public async put(
     keyPath: KeyPath | string | Buffer,
     value: Buffer,
     raw: true,
+    sync?: boolean,
   ): Promise<void>;
   @ready(new errors.ErrorDBNotRunning())
   public async put(
     keyPath: KeyPath | string | Buffer,
     value: any,
     raw: boolean = false,
+    sync: boolean = false,
   ): Promise<void> {
     keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
-    return this._put(keyPath, value, raw as any);
+    return this._put(keyPath, value, raw as any, sync);
   }
 
   /**
    * Put from root level
    * @internal
    */
-  public async _put(keyPath: KeyPath, value: any, raw?: false): Promise<void>;
+  public async _put(
+    keyPath: KeyPath,
+    value: any,
+    raw?: false,
+    sync?: boolean,
+  ): Promise<void>;
   /**
    * @internal
    */
-  public async _put(keyPath: KeyPath, value: Buffer, raw: true): Promise<void>;
+  public async _put(
+    keyPath: KeyPath,
+    value: Buffer,
+    raw: true,
+    sync?: boolean,
+  ): Promise<void>;
   public async _put(
     keyPath: KeyPath,
     value: any,
     raw: boolean = false,
+    sync: boolean = false,
   ): Promise<void> {
     const data = await this.serializeEncrypt(value, raw as any);
-    return this._db.put(utils.keyPathToKey(keyPath), data);
+    const key = utils.keyPathToKey(keyPath);
+    await leveldbP.db_put(this._db, key, data, { sync });
+    return;
   }
 
   /**
    * Deletes a key from the DB
    */
   @ready(new errors.ErrorDBNotRunning())
-  public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
+  public async del(
+    keyPath: KeyPath | string | Buffer,
+    sync: boolean = false,
+  ): Promise<void> {
     keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
-    return this._del(keyPath);
+    return this._del(keyPath, sync);
   }
 
   /**
    * Delete from root level
    * @internal
    */
-  public async _del(keyPath: KeyPath): Promise<void> {
-    return this._db.del(utils.keyPathToKey(keyPath));
+  public async _del(keyPath: KeyPath, sync: boolean = false): Promise<void> {
+    const key = utils.keyPathToKey(keyPath);
+    await leveldbP.db_del(this._db, key, { sync });
+    return;
   }
 
   /**
    * Batches operations together atomically
    */
   @ready(new errors.ErrorDBNotRunning())
-  public async batch(ops: Readonly<DBOps>): Promise<void> {
+  public async batch(
+    ops: Readonly<DBOps>,
+    sync: boolean = false,
+  ): Promise<void> {
     const opsP: Array<Promise<DBBatch> | DBBatch> = [];
     for (const op of ops) {
       op.keyPath = utils.toKeyPath(op.keyPath);
@@ -333,14 +397,18 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    return this._db.batch(opsB);
+    await leveldbP.batch_do(this._db, opsB, { sync });
+    return;
   }
 
   /**
    * Batch from root level
    * @internal
    */
-  public async _batch(ops: Readonly<DBOps>): Promise<void> {
+  public async _batch(
+    ops: Readonly<DBOps>,
+    sync: boolean = false,
+  ): Promise<void> {
     const opsP: Array<Promise<DBBatch> | DBBatch> = [];
     for (const op of ops) {
       if (!Array.isArray(op.keyPath)) {
@@ -364,7 +432,8 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    return this._db.batch(opsB);
+    await leveldbP.batch_do(this._db, opsB, { sync });
+    return;
   }
 
   /**
@@ -398,7 +467,10 @@ class DB {
   ): DBIterator<KeyPath, Buffer>;
   @ready(new errors.ErrorDBNotRunning())
   public iterator(
-    options?: DBIteratorOptions & { keyAsBuffer?: any; valueAsBuffer?: any },
+    options: DBIteratorOptions & {
+      keyAsBuffer?: any;
+      valueAsBuffer?: any;
+    } = {},
     levelPath: LevelPath = [],
   ): DBIterator<any, any> {
     levelPath = ['data', ...levelPath];
@@ -449,93 +521,15 @@ class DB {
     levelPath?: LevelPath,
   ): DBIterator<KeyPath, Buffer>;
   public _iterator<V>(
-    options?: DBIteratorOptions,
+    options: DBIteratorOptions = {},
     levelPath: LevelPath = [],
   ): DBIterator<KeyPath | undefined, Buffer | V | undefined> {
-    const options_ = {
-      ...(options ?? {}),
-      // Internally we always use the buffer
-      keyAsBuffer: true,
-      valueAsBuffer: true,
-    };
-    if (options_.gt != null) {
-      options_.gt = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.gt)),
-      );
-    }
-    if (options_.gte != null) {
-      options_.gte = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.gte)),
-      );
-    }
-    if (options_.gt == null && options_.gte == null) {
-      options_.gte = utils.levelPathToKey(levelPath);
-    }
-    if (options_.lt != null) {
-      options_.lt = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.lt)),
-      );
-    }
-    if (options_.lte != null) {
-      options_.lte = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.lte)),
-      );
-    }
-    if (options_.lt == null && options_.lte == null) {
-      const levelKeyEnd = utils.levelPathToKey(levelPath);
-      levelKeyEnd[levelKeyEnd.length - 1] += 1;
-      options_.lt = levelKeyEnd;
-    }
-    const iterator_ = this._db.iterator(options_);
-    const iterator = {
-      seek: (keyPath: KeyPath | Buffer | string): void => {
-        iterator_.seek(
-          utils.keyPathToKey(levelPath.concat(utils.toKeyPath(keyPath))),
-        );
-      },
-      end: async () => {
-        // @ts-ignore AbstractIterator type is outdated
-        // eslint-disable-next-line @typescript-eslint/await-thenable
-        await iterator_.end();
-      },
-      next: async () => {
-        // @ts-ignore AbstractIterator type is outdated
-        // eslint-disable-next-line @typescript-eslint/await-thenable
-        const kv = (await iterator_.next()) as any;
-        // If kv is undefined, we have reached the end of iteration
-        if (kv == null) return kv;
-        // Handle keys: false
-        if (kv[0] != null) {
-          // Truncate level path so the returned key is relative to the level path
-          const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
-          if (options?.keyAsBuffer === false) {
-            kv[0] = keyPath.map((k) => k.toString('utf-8'));
-          } else {
-            kv[0] = keyPath;
-          }
-        }
-        // Handle values: false
-        if (kv[1] != null) {
-          if (options?.valueAsBuffer === false) {
-            kv[1] = await this.deserializeDecrypt<V>(kv[1], false);
-          } else {
-            kv[1] = await this.deserializeDecrypt(kv[1], true);
-          }
-        }
-        return kv;
-      },
-      [Symbol.asyncIterator]: async function* () {
-        try {
-          let kv: [KeyPath | undefined, any] | undefined;
-          while ((kv = await iterator.next()) !== undefined) {
-            yield kv;
-          }
-        } finally {
-          if (!iterator_._ended) await iterator.end();
-        }
-      },
-    };
-    return iterator;
+    return new DBIterator({
+      db: this,
+      levelPath,
+      logger: this.logger.getChild(DBIterator.name),
+      ...options,
+    });
   }
 
   /**
@@ -686,7 +680,8 @@ class DB {
 
   protected async setupDb(
     dbPath: string,
-  ): Promise<LevelDB<string | Buffer, Buffer>> {
+    options: LevelDBDatabaseOptions = {},
+  ): Promise<LevelDBDatabase> {
     try {
       await this.fs.promises.mkdir(dbPath);
     } catch (e) {
@@ -694,26 +689,11 @@ class DB {
         throw new errors.ErrorDBCreate(e.message, { cause: e });
       }
     }
-    let db: LevelDB<string | Buffer, Buffer>;
+    const db = leveldbP.db_init();
+    // Mutates options object which is copied from this.start
+    utils.filterUndefined(options);
     try {
-      db = await new Promise<LevelDB<string | Buffer, Buffer>>(
-        (resolve, reject) => {
-          const db = level(
-            dbPath,
-            {
-              keyEncoding: 'binary',
-              valueEncoding: 'binary',
-            },
-            (e) => {
-              if (e) {
-                reject(e);
-              } else {
-                resolve(db);
-              }
-            },
-          );
-        },
-      );
+      await leveldbP.db_open(db, dbPath, options);
     } catch (e) {
       throw new errors.ErrorDBCreate(e.message, { cause: e });
     }

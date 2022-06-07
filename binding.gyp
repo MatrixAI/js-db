@@ -10,8 +10,9 @@
     'sources': ['./src/leveldb/index.cpp'],
     'conditions': [
       ['OS=="linux"', {
-        'cflags': [ '-std=c99', '-Wpedantic' ],
-        'cflags_cc': [ '-std=c++17', '-Wpedantic' ],
+        "cflags!": [ "-fno-tree-vrp"],
+        # 'cflags': [ '-std=c99', '-Wpedantic' ],
+        # 'cflags_cc': [ '-std=c++17', '-Wpedantic' ],
       }],
       ['OS=="win"', {
         'defines': [

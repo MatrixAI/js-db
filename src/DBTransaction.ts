@@ -8,6 +8,7 @@ import type {
 } from './types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { Lock } from '@matrixai/async-locks';
 import * as utils from './utils';
 import * as errors from './errors';
 
@@ -61,6 +62,17 @@ class DBTransaction {
 
   protected db: DB;
   protected logger: Logger;
+  /**
+   * LevelDB snapshots can only be accessed via an iterator
+   * This maintains a consistent read-only snapshot of the DB
+   * when `DBTransaction` is constructed
+   */
+  protected snapshot: DBIterator<Buffer, Buffer>;
+  /**
+   * Reading from the snapshot iterator needs to be an atomic operation
+   * involving a synchronus seek and asynchronous next
+   */
+  protected snapshotLock = new Lock();
   protected _ops: DBOps = [];
   protected _callbacksSuccess: Array<() => any> = [];
   protected _callbacksFailure: Array<(e?: Error) => any> = [];
@@ -79,6 +91,7 @@ class DBTransaction {
   }) {
     this.logger = logger;
     this.db = db;
+    this.snapshot = db._iterator(undefined, ['data']);
     this.transactionId = transactionId;
     this.transactionPath = ['transactions', this.transactionId.toString()];
     // Data path contains the COW overlay
@@ -94,10 +107,13 @@ class DBTransaction {
     this.logger.debug(
       `Destroying ${this.constructor.name} ${this.transactionId}`,
     );
-    await this.db._clear(this.transactionPath),
-      this.logger.debug(
-        `Destroyed ${this.constructor.name} ${this.transactionId}`,
-      );
+    await Promise.all([
+      this.snapshot.end(),
+      this.db._clear(this.transactionPath),
+    ]);
+    this.logger.debug(
+      `Destroyed ${this.constructor.name} ${this.transactionId}`,
+    );
   }
 
   get ops(): Readonly<DBOps> {
@@ -145,10 +161,8 @@ class DBTransaction {
           ...keyPath,
         ])) !== true
       ) {
-        value = await this.db.get<T>(keyPath, raw as any);
+        value = await this.getSnapshot<T>(keyPath, raw as any);
       }
-      // Don't set it in the transaction DB
-      // Because this is not a repeatable-read "snapshot"
     }
     return value;
   }
@@ -492,6 +506,43 @@ class DBTransaction {
     this.logger.debug(
       `Finalized ${this.constructor.name} ${this.transactionId}`,
     );
+  }
+
+  /**
+   * Get value from the snapshot iterator
+   * This is an atomic operation
+   * It will seek to the key path and await the next entry
+   * If the entry's key equals the desired key, the entry is returned
+   */
+  protected async getSnapshot<T>(
+    keyPath: KeyPath,
+    raw?: false,
+  ): Promise<T | undefined>;
+  protected async getSnapshot(
+    keyPath: KeyPath,
+    raw: true,
+  ): Promise<Buffer | undefined>;
+  protected async getSnapshot<T>(
+    keyPath: KeyPath,
+    raw: boolean = false,
+  ): Promise<T | Buffer | undefined> {
+    return await this.snapshotLock.withF(async () => {
+      const key = utils.keyPathToKey(keyPath);
+      this.snapshot.seek(utils.keyPathToKey(keyPath));
+      const snapKV = await this.snapshot.next();
+      if (snapKV == null) {
+        return undefined;
+      }
+      const [snapKey, snapData] = snapKV;
+      if (!key.equals(snapKey)) {
+        return undefined;
+      }
+      if (raw) {
+        return snapData;
+      } else {
+        return utils.deserialize<T>(snapData);
+      }
+    });
   }
 }
 

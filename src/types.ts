@@ -1,4 +1,9 @@
-import type { AbstractBatch } from 'abstract-leveldown';
+import type {
+  LevelDBDatabaseOptions,
+  LevelDBIteratorOptions,
+  LevelDBBatchPutOperation,
+  LevelDBBatchDelOperation,
+} from './leveldb';
 import type fs from 'fs';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 
@@ -6,6 +11,33 @@ import type { WorkerManagerInterface } from '@matrixai/workers';
  * Plain data dictionary
  */
 type POJO = { [key: string]: any };
+
+/**
+ * Opaque types are wrappers of existing types
+ * that require smart constructors
+ */
+type Opaque<K, T> = T & { readonly [brand]: K };
+declare const brand: unique symbol;
+
+/**
+ * Generic callback
+ */
+type Callback<P extends Array<any> = [], R = any, E extends Error = Error> = {
+  (e: E, ...params: Partial<P>): R;
+  (e?: null | undefined, ...params: P): R;
+};
+
+/**
+ * Merge A property types with B property types
+ * while B's property types override A's property types
+ */
+type Merge<A, B> = {
+  [K in keyof (A & B)]: K extends keyof B
+    ? B[K]
+    : K extends keyof A
+    ? A[K]
+    : never;
+};
 
 interface FileSystem {
   promises: {
@@ -40,6 +72,11 @@ type KeyPath = Readonly<Array<string | Buffer>>;
  */
 type LevelPath = Readonly<Array<string | Buffer>>;
 
+type DBOptions = Omit<
+  LevelDBDatabaseOptions,
+  'createIfMissing' | 'errorIfExists'
+>;
+
 /**
  * Iterator options
  * The `keyAsBuffer` property controls
@@ -48,30 +85,35 @@ type LevelPath = Readonly<Array<string | Buffer>>;
  * The `valueAsBuffer` property controls value type
  * It should be considered to default to true
  */
-type DBIteratorOptions = {
-  gt?: KeyPath | Buffer | string;
-  gte?: KeyPath | Buffer | string;
-  lt?: KeyPath | Buffer | string;
-  lte?: KeyPath | Buffer | string;
-  limit?: number;
-  keys?: boolean;
-  values?: boolean;
-  keyAsBuffer?: boolean;
-  valueAsBuffer?: boolean;
-  reverse?: boolean;
-};
+type DBIteratorOptions = Merge<
+  Omit<LevelDBIteratorOptions, 'keyEncoding' | 'valueEncoding'>,
+  {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+    limit?: number;
+    keys?: boolean;
+    values?: boolean;
+    keyAsBuffer?: boolean;
+    valueAsBuffer?: boolean;
+    reverse?: boolean;
+    fillCache?: boolean;
+    highWaterMarkBytes?: number;
+  }
+>;
 
-/**
- * Iterator
- */
-type DBIterator<K extends KeyPath | undefined, V> = {
-  seek: (k: KeyPath | string | Buffer) => void;
-  end: () => Promise<void>;
-  next: () => Promise<[K, V] | undefined>;
-  [Symbol.asyncIterator]: () => AsyncGenerator<[K, V]>;
-};
+// /**
+//  * Iterator
+//  */
+// type DBIterator<K extends KeyPath | undefined, V> = {
+//   seek: (k: KeyPath | string | Buffer) => void;
+//   close: () => Promise<void>;
+//   next: () => Promise<[K, V] | undefined>;
+//   [Symbol.asyncIterator]: () => AsyncGenerator<[K, V]>;
+// };
 
-type DBBatch = AbstractBatch;
+type DBBatch = LevelDBBatchPutOperation | LevelDBBatchDelOperation;
 
 type DBOp_ =
   | {
@@ -97,13 +139,17 @@ type DBOps = Array<DBOp>;
 
 export type {
   POJO,
+  Opaque,
+  Callback,
+  Merge,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
   KeyPath,
   LevelPath,
+  DBOptions,
   DBIteratorOptions,
-  DBIterator,
+  // DBIterator,
   DBBatch,
   DBOp,
   DBOps,

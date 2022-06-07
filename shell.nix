@@ -27,6 +27,9 @@ mkShell {
     # Path to headers used by node-gyp for native addons
     export npm_config_nodedir="${nodejs}"
 
+    # Use all cores during node-gyp compilation
+    export npm_config_jobs=max
+
     # Verbose logging of the Nix compiler wrappers
     export NIX_DEBUG=1
 

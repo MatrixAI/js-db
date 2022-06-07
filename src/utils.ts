@@ -1,4 +1,4 @@
-import type { KeyPath, LevelPath } from './types';
+import type { Callback, KeyPath, LevelPath } from './types';
 import * as errors from './errors';
 
 /**
@@ -274,6 +274,53 @@ function fromArrayBuffer(
   return Buffer.from(b, offset, length);
 }
 
+/**
+ * Convert callback-style to promise-style
+ * If this is applied to overloaded function
+ * it will only choose one of the function signatures to use
+ */
+function promisify<
+  T extends Array<unknown>,
+  P extends Array<unknown>,
+  R extends T extends [] ? void : T extends [unknown] ? T[0] : T,
+>(
+  f: (...args: [...params: P, callback: Callback<T>]) => unknown,
+): (...params: P) => Promise<R> {
+  // Uses a regular function so that `this` can be bound
+  return function (...params: P): Promise<R> {
+    return new Promise((resolve, reject) => {
+      const callback = (error, ...values) => {
+        if (error != null) {
+          return reject(error);
+        }
+        if (values.length === 0) {
+          (resolve as () => void)();
+        } else if (values.length === 1) {
+          resolve(values[0] as R);
+        } else {
+          resolve(values as R);
+        }
+        return;
+      };
+      params.push(callback);
+      f.apply(this, params);
+    });
+  };
+}
+
+/**
+ * Native addons expect strict optional properties
+ * Properties that have the value undefined may be misinterpreted
+ * Apply these to options objects before passing them to the native addon
+ */
+function filterUndefined(o: object): void {
+  Object.keys(o).forEach((k) => {
+    if (o[k] === undefined) {
+      delete o[k];
+    }
+  });
+}
+
 export {
   sep,
   encodePart,
@@ -287,4 +334,6 @@ export {
   deserialize,
   toArrayBuffer,
   fromArrayBuffer,
+  promisify,
+  filterUndefined,
 };
