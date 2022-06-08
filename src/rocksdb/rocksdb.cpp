@@ -287,13 +287,10 @@ static size_t StringOrBufferLength (napi_env env, napi_value value) {
 static std::string* RangeOption (napi_env env, napi_value opts, const char* name) {
   if (HasProperty(env, opts, name)) {
     napi_value value = GetProperty(env, opts, name);
-
-    if (StringOrBufferLength(env, value) >= 0) {
-      LD_STRING_OR_BUFFER_TO_COPY(env, value, to);
-      std::string* result = new std::string(toCh_, toSz_);
-      delete [] toCh_;
-      return result;
-    }
+    LD_STRING_OR_BUFFER_TO_COPY(env, value, to);
+    std::string* result = new std::string(toCh_, toSz_);
+    delete [] toCh_;
+    return result;
   }
 
   return NULL;
@@ -312,8 +309,7 @@ static std::vector<std::string>* KeyArray (napi_env env, napi_value arr) {
     for (uint32_t i = 0; i < length; i++) {
       napi_value element;
 
-      if (napi_get_element(env, arr, i, &element) == napi_ok &&
-          StringOrBufferLength(env, element) >= 0) {
+      if (napi_get_element(env, arr, i, &element) == napi_ok) {
         LD_STRING_OR_BUFFER_TO_COPY(env, element, to);
         result->emplace_back(toCh_, toSz_);
         delete [] toCh_;
