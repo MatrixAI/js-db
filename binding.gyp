@@ -7,7 +7,16 @@
     'dependencies': [
       '<(module_root_dir)/deps/rocksdb/rocksdb.gyp:rocksdb'
     ],
-    'sources': ['./src/rocksdb/rocksdb.cpp'],
+    'sources': [
+      './src/rocksdb/napi/index.cpp',
+      './src/rocksdb/napi/database.cpp',
+      './src/rocksdb/napi/batch.cpp',
+      './src/rocksdb/napi/iterator.cpp',
+      './src/rocksdb/napi/transaction.cpp',
+      './src/rocksdb/napi/worker.cpp',
+      './src/rocksdb/napi/workers.cpp',
+      './src/rocksdb/napi/utils.cpp'
+    ],
     'conditions': [
       ['OS=="linux"', {
         'cflags': [ '-std=c99', '-Wpedantic' ],
