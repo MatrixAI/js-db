@@ -77,7 +77,7 @@ class DBIterator<K extends KeyPath | undefined, V> {
     }
     utils.filterUndefined(options_);
     this._options = options_;
-    this._iterator = rocksdbP.iterator_init(db.db, options_);
+    this._iterator = rocksdbP.iteratorInit(db.db, options_);
     db.iteratorRefs.add(this);
     logger.debug(`Constructed ${this.constructor.name}`);
   }
@@ -93,7 +93,7 @@ class DBIterator<K extends KeyPath | undefined, V> {
   public async destroy(): Promise<void> {
     this.logger.debug(`Destroying ${this.constructor.name}`);
     this.cache = [];
-    await rocksdbP.iterator_close(this._iterator);
+    await rocksdbP.iteratorClose(this._iterator);
     this.db.iteratorRefs.delete(this);
     this.logger.debug(`Destroyed ${this.constructor.name}`);
   }
@@ -103,7 +103,7 @@ class DBIterator<K extends KeyPath | undefined, V> {
     if (this.lock.isLocked()) {
       throw new errors.ErrorDBIteratorBusy();
     }
-    rocksdbP.iterator_seek(
+    rocksdbP.iteratorSeek(
       this._iterator,
       utils.keyPathToKey(this.levelPath.concat(utils.toKeyPath(keyPath))),
     );
@@ -129,10 +129,10 @@ class DBIterator<K extends KeyPath | undefined, V> {
     }
     let entries: Array<[Buffer, Buffer]>, finished: boolean;
     if (this.first) {
-      [entries, finished] = await rocksdbP.iterator_nextv(this._iterator, 1);
+      [entries, finished] = await rocksdbP.iteratorNextv(this._iterator, 1);
       this.first = false;
     } else {
-      [entries, finished] = await rocksdbP.iterator_nextv(this._iterator, 1000);
+      [entries, finished] = await rocksdbP.iteratorNextv(this._iterator, 1000);
     }
     this.cachePos = 0;
     this.cache = entries;

@@ -15,58 +15,58 @@ describe('rocksdbP', () => {
       recursive: true,
     });
   });
-  test('db_open invalid log level option', async () => {
+  test('dbOpen invalid log level option', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = rocksdbP.db_init();
-    await expect(rocksdbP.db_open(db, dbPath, {
+    const db = rocksdbP.dbInit();
+    await expect(rocksdbP.dbOpen(db, dbPath, {
       // @ts-ignore
       infoLogLevel: 'incorrect'
     })).rejects.toHaveProperty('code', 'DB_OPEN');
   });
-  test('db_close is idempotent', async () => {
+  test('dbClose is idempotent', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = rocksdbP.db_init();
-    await rocksdbP.db_open(db, dbPath, {});
-    await expect(rocksdbP.db_close(db)).resolves.toBeUndefined();
-    await expect(rocksdbP.db_close(db)).resolves.toBeUndefined();
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    await expect(rocksdbP.dbClose(db)).resolves.toBeUndefined();
+    await expect(rocksdbP.dbClose(db)).resolves.toBeUndefined();
   });
-  test('iterator_close is idempotent', async () => {
+  test('iteratorClose is idempotent', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = rocksdbP.db_init();
-    await rocksdbP.db_open(db, dbPath, {});
-    const it = rocksdbP.iterator_init(db, {});
-    await expect(rocksdbP.iterator_close(it)).resolves.toBeUndefined();
-    await expect(rocksdbP.iterator_close(it)).resolves.toBeUndefined();
-    await rocksdbP.db_close(db);
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    const it = rocksdbP.iteratorInit(db, {});
+    await expect(rocksdbP.iteratorClose(it)).resolves.toBeUndefined();
+    await expect(rocksdbP.iteratorClose(it)).resolves.toBeUndefined();
+    await rocksdbP.dbClose(db);
   });
-  test('transaction_commit is idempotent', async () => {
+  test('transactionCommit is idempotent', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = rocksdbP.db_init();
-    await rocksdbP.db_open(db, dbPath, {});
-    const tran = rocksdbP.transaction_init(db, {});
-    await expect(rocksdbP.transaction_commit(tran)).resolves.toBeUndefined();
-    await expect(rocksdbP.transaction_commit(tran)).resolves.toBeUndefined();
-    await rocksdbP.db_close(db);
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    const tran = rocksdbP.transactionInit(db, {});
+    await expect(rocksdbP.transactionCommit(tran)).resolves.toBeUndefined();
+    await expect(rocksdbP.transactionCommit(tran)).resolves.toBeUndefined();
+    await rocksdbP.dbClose(db);
   });
-  test('transaction_rollback is idempotent', async () => {
+  test('transactionRollback is idempotent', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = rocksdbP.db_init();
-    await rocksdbP.db_open(db, dbPath, {});
-    const tran = rocksdbP.transaction_init(db, {});
-    await expect(rocksdbP.transaction_rollback(tran)).resolves.toBeUndefined();
-    await expect(rocksdbP.transaction_rollback(tran)).resolves.toBeUndefined();
-    await rocksdbP.db_close(db);
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    const tran = rocksdbP.transactionInit(db, {});
+    await expect(rocksdbP.transactionRollback(tran)).resolves.toBeUndefined();
+    await expect(rocksdbP.transactionRollback(tran)).resolves.toBeUndefined();
+    await rocksdbP.dbClose(db);
   });
-  test('transaction_commit after rollback', async () => {
+  test('transactionCommit after rollback', async () => {
     const dbPath = `${dataDir}/db`;
-    const db = rocksdbP.db_init();
-    await rocksdbP.db_open(db, dbPath, {});
-    const tran = rocksdbP.transaction_init(db, {});
-    await rocksdbP.transaction_rollback(tran);
-    await expect(rocksdbP.transaction_commit(tran)).rejects.toHaveProperty(
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    const tran = rocksdbP.transactionInit(db, {});
+    await rocksdbP.transactionRollback(tran);
+    await expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty(
       'code',
       'TRANSACTION_ROLLBACKED'
     );
-    await rocksdbP.db_close(db);
+    await rocksdbP.dbClose(db);
   });
 });

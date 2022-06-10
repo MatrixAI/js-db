@@ -40,23 +40,23 @@ describe(DBIterator.name, () => {
   });
   test('internal db lexicographic iteration order', async () => {
     const dbPath = `${dataDir}/leveldb`;
-    const db = rocksdbP.db_init();
-    await rocksdbP.db_open(db, dbPath, {});
-    await rocksdbP.db_put(db, Buffer.from([0x01]), Buffer.alloc(0), {});
-    await rocksdbP.db_put(
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    await rocksdbP.dbPut(db, Buffer.from([0x01]), Buffer.alloc(0), {});
+    await rocksdbP.dbPut(
       db,
       Buffer.from([0x00, 0x00, 0x00]),
       Buffer.alloc(0),
       {},
     );
-    await rocksdbP.db_put(db, Buffer.from([0x00, 0x00]), Buffer.alloc(0), {});
-    await rocksdbP.db_put(db, Buffer.from([]), Buffer.alloc(0), {});
-    const iterator = rocksdbP.iterator_init(db, {
+    await rocksdbP.dbPut(db, Buffer.from([0x00, 0x00]), Buffer.alloc(0), {});
+    await rocksdbP.dbPut(db, Buffer.from([]), Buffer.alloc(0), {});
+    const iterator = rocksdbP.iteratorInit(db, {
       keyEncoding: 'buffer',
       valueEncoding: 'buffer',
     });
-    const [entries] = await rocksdbP.iterator_nextv(iterator, 4);
-    await rocksdbP.iterator_close(iterator);
+    const [entries] = await rocksdbP.iteratorNextv(iterator, 4);
+    await rocksdbP.iteratorClose(iterator);
     const keys = entries.map((entry) => entry[0]);
     expect(keys).toEqual([
       Buffer.from([]),
@@ -66,7 +66,7 @@ describe(DBIterator.name, () => {
       // Therefore `aa` is earlier than `z`
       Buffer.from([0x01]),
     ]);
-    await rocksdbP.db_close(db);
+    await rocksdbP.dbClose(db);
   });
   test('lexicographic iteration order', async () => {
     await db.put(Buffer.from([0x01]), Buffer.alloc(0));

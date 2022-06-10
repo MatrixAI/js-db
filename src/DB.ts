@@ -157,7 +157,7 @@ class DB {
       }
     } catch (e) {
       // RocksDB must be closed otherwise its lock will persist
-      await rocksdbP.db_close(db);
+      await rocksdbP.dbClose(db);
       throw e;
     }
     this.logger.info(`Started ${this.constructor.name}`);
@@ -168,7 +168,7 @@ class DB {
     if (this._iteratorRefs.size > 0 || this._transactionRefs.size > 0) {
       throw new errors.ErrorDBLiveReference();
     }
-    await rocksdbP.db_close(this._db);
+    await rocksdbP.dbClose(this._db);
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
@@ -275,7 +275,7 @@ class DB {
     let data;
     try {
       const key = utils.keyPathToKey(keyPath);
-      data = await rocksdbP.db_get(this._db, key, { valueEncoding: 'buffer' });
+      data = await rocksdbP.dbGet(this._db, key, { valueEncoding: 'buffer' });
     } catch (e) {
       if (e.code === 'NOT_FOUND') {
         return undefined;
@@ -340,7 +340,7 @@ class DB {
   ): Promise<void> {
     const data = await this.serializeEncrypt(value, raw as any);
     const key = utils.keyPathToKey(keyPath);
-    await rocksdbP.db_put(this._db, key, data, { sync });
+    await rocksdbP.dbPut(this._db, key, data, { sync });
     return;
   }
 
@@ -363,7 +363,7 @@ class DB {
    */
   public async _del(keyPath: KeyPath, sync: boolean = false): Promise<void> {
     const key = utils.keyPathToKey(keyPath);
-    await rocksdbP.db_del(this._db, key, { sync });
+    await rocksdbP.dbDel(this._db, key, { sync });
     return;
   }
 
@@ -397,7 +397,7 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    await rocksdbP.batch_do(this._db, opsB, { sync });
+    await rocksdbP.batchDo(this._db, opsB, { sync });
     return;
   }
 
@@ -432,7 +432,7 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    await rocksdbP.batch_do(this._db, opsB, { sync });
+    await rocksdbP.batchDo(this._db, opsB, { sync });
     return;
   }
 
@@ -689,11 +689,11 @@ class DB {
         throw new errors.ErrorDBCreate(e.message, { cause: e });
       }
     }
-    const db = rocksdbP.db_init();
+    const db = rocksdbP.dbInit();
     // Mutates options object which is copied from this.start
     utils.filterUndefined(options);
     try {
-      await rocksdbP.db_open(db, dbPath, options);
+      await rocksdbP.dbOpen(db, dbPath, options);
     } catch (e) {
       throw new errors.ErrorDBCreate(e.message, { cause: e });
     }

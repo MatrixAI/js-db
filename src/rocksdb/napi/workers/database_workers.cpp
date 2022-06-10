@@ -304,7 +304,7 @@ void CompactRangeWorker::DoExecute () {
 DestroyWorker::DestroyWorker (napi_env env,
                 const std::string& location,
                 napi_value callback)
-  : BaseWorker(env, NULL, callback, "rocksdb.destroy_db"),
+  : BaseWorker(env, NULL, callback, "rocksdb.destroyDb"),
     location_(location) {}
 
 DestroyWorker::~DestroyWorker () {}
@@ -322,7 +322,7 @@ void DestroyWorker::DoExecute () {
 RepairWorker::RepairWorker (napi_env env,
               const std::string& location,
               napi_value callback)
-  : BaseWorker(env, NULL, callback, "rocksdb.repair_db"),
+  : BaseWorker(env, NULL, callback, "rocksdb.repairDb"),
     location_(location) {}
 
 RepairWorker::~RepairWorker () {}

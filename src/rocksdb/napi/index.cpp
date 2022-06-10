@@ -26,12 +26,12 @@
 static void env_cleanup_hook (void* arg) {
   Database* database = (Database*)arg;
 
-  // Do everything that db_close() does but synchronously. We're expecting that GC
+  // Do everything that dbClose() does but synchronously. We're expecting that GC
   // did not (yet) collect the database because that would be a user mistake (not
   // closing their db) made during the lifetime of the environment. That's different
   // from an environment being torn down (like the main process or a worker thread)
   // where it's our responsibility to clean up. Note also, the following code must
-  // be a safe noop if called before db_open() or after db_close().
+  // be a safe noop if called before dbOpen() or after dbClose().
   if (database && database->db_ != NULL) {
     std::map<uint32_t, Iterator*> iterators = database->iterators_;
     std::map<uint32_t, Iterator*>::iterator iterator_it;
@@ -53,8 +53,8 @@ static void env_cleanup_hook (void* arg) {
 }
 
 /**
- * Called by NAPI_METHOD(iterator_close) and also when closing
- * open iterators during NAPI_METHOD(db_close).
+ * Called by NAPI_METHOD(iteratorClose) and also when closing
+ * open iterators during NAPI_METHOD(dbClose).
  */
 static void iterator_close_do (napi_env env, Iterator* iterator, napi_value cb) {
   CloseIteratorWorker* worker = new CloseIteratorWorker(env, iterator, cb);
@@ -67,8 +67,8 @@ static void iterator_close_do (napi_env env, Iterator* iterator, napi_value cb) 
 }
 
 /**
- * Called by NAPI_METHOD(transaction_rollback) and also when closing
- * open transactions during NAPI_METHOD(db_close)
+ * Called by NAPI_METHOD(transactionRollback) and also when closing
+ * open transactions during NAPI_METHOD(dbClose)
  */
 static void transaction_rollback_do (
   napi_env env,
@@ -128,7 +128,7 @@ static void FinalizeTransaction (napi_env env, void* data, void* hint) {
 /**
  * Returns a context object for a database.
  */
-NAPI_METHOD(db_init) {
+NAPI_METHOD(dbInit) {
   Database* database = new Database();
   napi_add_env_cleanup_hook(env, env_cleanup_hook, database);
 
@@ -146,7 +146,7 @@ NAPI_METHOD(db_init) {
 /**
  * Open a database.
  */
-NAPI_METHOD(db_open) {
+NAPI_METHOD(dbOpen) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
   NAPI_ARGV_UTF8_NEW(location, 1);
@@ -209,7 +209,7 @@ NAPI_METHOD(db_open) {
 /**
  * Close a database.
  */
-NAPI_METHOD(db_close) {
+NAPI_METHOD(dbClose) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
 
@@ -258,7 +258,7 @@ NAPI_METHOD(db_close) {
 /**
  * Gets a value from a database.
  */
-NAPI_METHOD(db_get) {
+NAPI_METHOD(dbGet) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
 
@@ -278,7 +278,7 @@ NAPI_METHOD(db_get) {
 /**
  * Gets many values from a database.
  */
-NAPI_METHOD(db_get_many) {
+NAPI_METHOD(dbGetMany) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
 
@@ -300,7 +300,7 @@ NAPI_METHOD(db_get_many) {
 /**
  * Puts a key and a value to a database.
  */
-NAPI_METHOD(db_put) {
+NAPI_METHOD(dbPut) {
   NAPI_ARGV(5);
   NAPI_DB_CONTEXT();
 
@@ -318,7 +318,7 @@ NAPI_METHOD(db_put) {
 /**
  * Delete a value from a database.
  */
-NAPI_METHOD(db_del) {
+NAPI_METHOD(dbDel) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
 
@@ -335,7 +335,7 @@ NAPI_METHOD(db_del) {
 /**
  * Delete a range from a database.
  */
-NAPI_METHOD(db_clear) {
+NAPI_METHOD(dbClear) {
   NAPI_ARGV(3);
   NAPI_DB_CONTEXT();
 
@@ -359,7 +359,7 @@ NAPI_METHOD(db_clear) {
 /**
  * Calculates the approximate size of a range in a database.
  */
-NAPI_METHOD(db_approximate_size) {
+NAPI_METHOD(dbApproximateSize) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
 
@@ -379,7 +379,7 @@ NAPI_METHOD(db_approximate_size) {
 /**
  * Compacts a range in a database.
  */
-NAPI_METHOD(db_compact_range) {
+NAPI_METHOD(dbCompactRange) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
 
@@ -397,7 +397,7 @@ NAPI_METHOD(db_compact_range) {
 /**
  * Get a property from a database.
  */
-NAPI_METHOD(db_get_property) {
+NAPI_METHOD(dbGetProperty) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
 
@@ -417,7 +417,7 @@ NAPI_METHOD(db_get_property) {
 /**
  * Destroys a database.
  */
-NAPI_METHOD(destroy_db) {
+NAPI_METHOD(destroyDb) {
   NAPI_ARGV(2);
   NAPI_ARGV_UTF8_NEW(location, 0);
   napi_value callback = argv[1];
@@ -433,7 +433,7 @@ NAPI_METHOD(destroy_db) {
 /**
  * Repairs a database.
  */
-NAPI_METHOD(repair_db) {
+NAPI_METHOD(repairDb) {
   NAPI_ARGV(2);
   NAPI_ARGV_UTF8_NEW(location, 0);
   napi_value callback = argv[1];
@@ -449,7 +449,7 @@ NAPI_METHOD(repair_db) {
 /**
  * Create an iterator.
  */
-NAPI_METHOD(iterator_init) {
+NAPI_METHOD(iteratorInit) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
 
@@ -488,7 +488,7 @@ NAPI_METHOD(iterator_init) {
 /**
  * Seeks an iterator.
  */
-NAPI_METHOD(iterator_seek) {
+NAPI_METHOD(iteratorSeek) {
   NAPI_ARGV(2);
   NAPI_ITERATOR_CONTEXT();
 
@@ -507,7 +507,7 @@ NAPI_METHOD(iterator_seek) {
 /**
  * CLoses an iterator.
  */
-NAPI_METHOD(iterator_close) {
+NAPI_METHOD(iteratorClose) {
   NAPI_ARGV(2);
   NAPI_ITERATOR_CONTEXT();
   napi_value callback = argv[1];
@@ -524,7 +524,7 @@ NAPI_METHOD(iterator_close) {
 /**
  * Advance repeatedly and get multiple entries at once.
  */
-NAPI_METHOD(iterator_nextv) {
+NAPI_METHOD(iteratorNextv) {
   NAPI_ARGV(3);
   NAPI_ITERATOR_CONTEXT();
 
@@ -550,7 +550,7 @@ NAPI_METHOD(iterator_nextv) {
 /**
  * Does a batch write operation on a database.
  */
-NAPI_METHOD(batch_do) {
+NAPI_METHOD(batchDo) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
 
@@ -604,7 +604,7 @@ NAPI_METHOD(batch_do) {
 /**
  * Return a batch object.
  */
-NAPI_METHOD(batch_init) {
+NAPI_METHOD(batchInit) {
   NAPI_ARGV(1);
   NAPI_DB_CONTEXT();
 
@@ -620,7 +620,7 @@ NAPI_METHOD(batch_init) {
 /**
  * Adds a put instruction to a batch object.
  */
-NAPI_METHOD(batch_put) {
+NAPI_METHOD(batchPut) {
   NAPI_ARGV(3);
   NAPI_BATCH_CONTEXT();
 
@@ -636,7 +636,7 @@ NAPI_METHOD(batch_put) {
 /**
  * Adds a delete instruction to a batch object.
  */
-NAPI_METHOD(batch_del) {
+NAPI_METHOD(batchDel) {
   NAPI_ARGV(2);
   NAPI_BATCH_CONTEXT();
 
@@ -650,7 +650,7 @@ NAPI_METHOD(batch_del) {
 /**
  * Clears a batch object.
  */
-NAPI_METHOD(batch_clear) {
+NAPI_METHOD(batchClear) {
   NAPI_ARGV(1);
   NAPI_BATCH_CONTEXT();
 
@@ -662,7 +662,7 @@ NAPI_METHOD(batch_clear) {
 /**
  * Writes a batch object.
  */
-NAPI_METHOD(batch_write) {
+NAPI_METHOD(batchWrite) {
   NAPI_ARGV(3);
   NAPI_BATCH_CONTEXT();
 
@@ -681,7 +681,7 @@ NAPI_METHOD(batch_write) {
  *
  * @returns {napi_value} This is a `napi_external` that references `Transaction`
  */
-NAPI_METHOD(transaction_init) {
+NAPI_METHOD(transactionInit) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
 
@@ -709,9 +709,9 @@ NAPI_METHOD(transaction_init) {
 
 /**
  * Commit transaction
- * transaction_commit(transaction, callback)
+ * transactionCommit(transaction, callback)
  */
-NAPI_METHOD(transaction_commit) {
+NAPI_METHOD(transactionCommit) {
   NAPI_ARGV(2);
   NAPI_TRANSACTION_CONTEXT();
   napi_value callback = argv[1];
@@ -745,7 +745,7 @@ NAPI_METHOD(transaction_commit) {
 /**
  * Rollback transaction
  */
-NAPI_METHOD(transaction_rollback) {
+NAPI_METHOD(transactionRollback) {
   NAPI_ARGV(2);
   NAPI_TRANSACTION_CONTEXT();
   napi_value callback = argv[1];
@@ -771,7 +771,7 @@ NAPI_METHOD(transaction_rollback) {
 /**
  * Gets a value from a transaction
  */
-NAPI_METHOD(transaction_get) {
+NAPI_METHOD(transactionGet) {
   NAPI_ARGV(4);
   NAPI_TRANSACTION_CONTEXT();
   rocksdb::Slice key = ToSlice(env, argv[1]);
@@ -794,7 +794,7 @@ NAPI_METHOD(transaction_get) {
 /**
  * Gets a value for update from a transaction
  */
-NAPI_METHOD(transaction_get_for_update) {
+NAPI_METHOD(transactionGetForUpdate) {
   NAPI_ARGV(4);
   NAPI_TRANSACTION_CONTEXT();
   rocksdb::Slice key = ToSlice(env, argv[1]);
@@ -819,7 +819,7 @@ NAPI_METHOD(transaction_get_for_update) {
 /**
  * Puts a key and a value to a transaction
  */
-NAPI_METHOD(transaction_put) {
+NAPI_METHOD(transactionPut) {
   NAPI_ARGV(4);
   NAPI_TRANSACTION_CONTEXT();
   rocksdb::Slice key = ToSlice(env, argv[1]);
@@ -839,7 +839,7 @@ NAPI_METHOD(transaction_put) {
 /**
  * Delete a value from a database.
  */
-NAPI_METHOD(transaction_del) {
+NAPI_METHOD(transactionDel) {
   NAPI_ARGV(3);
   NAPI_TRANSACTION_CONTEXT();
   rocksdb::Slice key = ToSlice(env, argv[1]);
@@ -858,38 +858,38 @@ NAPI_METHOD(transaction_del) {
  * All exported functions.
  */
 NAPI_INIT() {
-  NAPI_EXPORT_FUNCTION(db_init);
-  NAPI_EXPORT_FUNCTION(db_open);
-  NAPI_EXPORT_FUNCTION(db_close);
-  NAPI_EXPORT_FUNCTION(db_get);
-  NAPI_EXPORT_FUNCTION(db_get_many);
-  NAPI_EXPORT_FUNCTION(db_put);
-  NAPI_EXPORT_FUNCTION(db_del);
-  NAPI_EXPORT_FUNCTION(db_clear);
-  NAPI_EXPORT_FUNCTION(db_approximate_size);
-  NAPI_EXPORT_FUNCTION(db_compact_range);
-  NAPI_EXPORT_FUNCTION(db_get_property);
+  NAPI_EXPORT_FUNCTION(dbInit);
+  NAPI_EXPORT_FUNCTION(dbOpen);
+  NAPI_EXPORT_FUNCTION(dbClose);
+  NAPI_EXPORT_FUNCTION(dbGet);
+  NAPI_EXPORT_FUNCTION(dbGetMany);
+  NAPI_EXPORT_FUNCTION(dbPut);
+  NAPI_EXPORT_FUNCTION(dbDel);
+  NAPI_EXPORT_FUNCTION(dbClear);
+  NAPI_EXPORT_FUNCTION(dbApproximateSize);
+  NAPI_EXPORT_FUNCTION(dbCompactRange);
+  NAPI_EXPORT_FUNCTION(dbGetProperty);
 
-  NAPI_EXPORT_FUNCTION(destroy_db);
-  NAPI_EXPORT_FUNCTION(repair_db);
+  NAPI_EXPORT_FUNCTION(destroyDb);
+  NAPI_EXPORT_FUNCTION(repairDb);
 
-  NAPI_EXPORT_FUNCTION(iterator_init);
-  NAPI_EXPORT_FUNCTION(iterator_seek);
-  NAPI_EXPORT_FUNCTION(iterator_close);
-  NAPI_EXPORT_FUNCTION(iterator_nextv);
+  NAPI_EXPORT_FUNCTION(iteratorInit);
+  NAPI_EXPORT_FUNCTION(iteratorSeek);
+  NAPI_EXPORT_FUNCTION(iteratorClose);
+  NAPI_EXPORT_FUNCTION(iteratorNextv);
 
-  NAPI_EXPORT_FUNCTION(batch_do);
-  NAPI_EXPORT_FUNCTION(batch_init);
-  NAPI_EXPORT_FUNCTION(batch_put);
-  NAPI_EXPORT_FUNCTION(batch_del);
-  NAPI_EXPORT_FUNCTION(batch_clear);
-  NAPI_EXPORT_FUNCTION(batch_write);
+  NAPI_EXPORT_FUNCTION(batchDo);
+  NAPI_EXPORT_FUNCTION(batchInit);
+  NAPI_EXPORT_FUNCTION(batchPut);
+  NAPI_EXPORT_FUNCTION(batchDel);
+  NAPI_EXPORT_FUNCTION(batchClear);
+  NAPI_EXPORT_FUNCTION(batchWrite);
 
-  NAPI_EXPORT_FUNCTION(transaction_init);
-  NAPI_EXPORT_FUNCTION(transaction_commit);
-  NAPI_EXPORT_FUNCTION(transaction_rollback);
-  NAPI_EXPORT_FUNCTION(transaction_get);
-  NAPI_EXPORT_FUNCTION(transaction_get_for_update);
-  NAPI_EXPORT_FUNCTION(transaction_put);
-  NAPI_EXPORT_FUNCTION(transaction_del);
+  NAPI_EXPORT_FUNCTION(transactionInit);
+  NAPI_EXPORT_FUNCTION(transactionCommit);
+  NAPI_EXPORT_FUNCTION(transactionRollback);
+  NAPI_EXPORT_FUNCTION(transactionGet);
+  NAPI_EXPORT_FUNCTION(transactionGetForUpdate);
+  NAPI_EXPORT_FUNCTION(transactionPut);
+  NAPI_EXPORT_FUNCTION(transactionDel);
 }

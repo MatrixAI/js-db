@@ -6,6 +6,7 @@ import type {
   RocksDBBatch,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
+  RocksDBGetForUpdateOptions,
   RocksDBPutOptions,
   RocksDBDelOptions,
   RocksDBClearOptions,
@@ -18,135 +19,168 @@ import type {
 import path from 'path';
 import nodeGypBuild from 'node-gyp-build';
 
-/* eslint-disable @typescript-eslint/naming-convention */
 interface RocksDB {
-  db_init(): RocksDBDatabase;
-  db_open(
+  dbInit(): RocksDBDatabase;
+  dbOpen(
     database: RocksDBDatabase,
     location: string,
     options: RocksDBDatabaseOptions,
     callback: Callback<[], void>,
   ): void;
-  db_close(database: RocksDBDatabase, callback: Callback<[], void>): void;
-  db_put(
+  dbClose(database: RocksDBDatabase, callback: Callback<[], void>): void;
+  dbGet(
+    database: RocksDBDatabase,
+    key: string | Buffer,
+    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
+    callback: Callback<[string], void>,
+  ): void;
+  dbGet(
+    database: RocksDBDatabase,
+    key: string | Buffer,
+    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
+    callback: Callback<[Buffer], void>,
+  ): void;
+  dbGetMany(
+    database: RocksDBDatabase,
+    keys: Array<string | Buffer>,
+    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
+    callback: Callback<[Array<string>], void>,
+  ): void;
+  dbGetMany(
+    database: RocksDBDatabase,
+    keys: Array<string | Buffer>,
+    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
+    callback: Callback<[Array<Buffer>], void>,
+  ): void;
+  dbPut(
     database: RocksDBDatabase,
     key: string | Buffer,
     value: string | Buffer,
     options: RocksDBPutOptions,
     callback: Callback<[], void>,
   ): void;
-  db_get(
-    database: RocksDBDatabase,
-    key: string | Buffer,
-    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
-    callback: Callback<[string], void>,
-  ): void;
-  db_get(
-    database: RocksDBDatabase,
-    key: string | Buffer,
-    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
-    callback: Callback<[Buffer], void>,
-  ): void;
-  db_get_many(
-    database: RocksDBDatabase,
-    keys: Array<string | Buffer>,
-    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
-    callback: Callback<[Array<string>], void>,
-  ): void;
-  db_get_many(
-    database: RocksDBDatabase,
-    keys: Array<string | Buffer>,
-    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
-    callback: Callback<[Array<Buffer>], void>,
-  ): void;
-  db_del(
+  dbDel(
     database: RocksDBDatabase,
     key: string | Buffer,
     options: RocksDBDelOptions,
     callback: Callback<[], void>,
   ): void;
-  db_clear(
+  dbClear(
     database: RocksDBDatabase,
     options: RocksDBClearOptions,
     callback: Callback<[], void>,
   ): void;
-  db_approximate_size(
+  dbApproximateSize(
     database: RocksDBDatabase,
     start: string | Buffer,
     end: string | Buffer,
     callback: Callback<[number], void>,
   ): void;
-  db_compact_range(
+  dbCompactRange(
     database: RocksDBDatabase,
     start: string | Buffer,
     end: string | Buffer,
     callback: Callback<[], void>,
   ): void;
-  db_get_property(database: RocksDBDatabase, property: string): string;
-  destroy_db(location: string, callback: Callback<[], void>): void;
-  repair_db(location: string, callback: Callback<[], void>): void;
-  iterator_init(
+  dbGetProperty(database: RocksDBDatabase, property: string): string;
+  destroyDb(location: string, callback: Callback<[], void>): void;
+  repairDb(location: string, callback: Callback<[], void>): void;
+  iteratorInit(
     database: RocksDBDatabase,
     options: RocksDBIteratorOptions & {
       keyEncoding: 'buffer';
       valueEncoding: 'buffer';
     },
   ): RocksDBIterator<Buffer, Buffer>;
-  iterator_init(
+  iteratorInit(
     database: RocksDBDatabase,
     options: RocksDBIteratorOptions & { keyEncoding: 'buffer' },
   ): RocksDBIterator<Buffer, string>;
-  iterator_init(
+  iteratorInit(
     database: RocksDBDatabase,
     options: RocksDBIteratorOptions & { valueEncoding: 'buffer' },
   ): RocksDBIterator<string, Buffer>;
-  iterator_init(
+  iteratorInit(
     database: RocksDBDatabase,
     options: RocksDBIteratorOptions,
   ): RocksDBIterator<string, string>;
-  iterator_seek<K extends string | Buffer>(
+  iteratorSeek<K extends string | Buffer>(
     iterator: RocksDBIterator<K>,
     target: K,
   ): void;
-  iterator_close(iterator: RocksDBIterator, callback: Callback<[], void>): void;
-  iterator_nextv<K extends string | Buffer, V extends string | Buffer>(
+  iteratorClose(iterator: RocksDBIterator, callback: Callback<[], void>): void;
+  iteratorNextv<K extends string | Buffer, V extends string | Buffer>(
     iterator: RocksDBIterator<K, V>,
     size: number,
     callback: Callback<[Array<[K, V]>, boolean], void>,
   ): void;
-  batch_do(
+  batchDo(
     database: RocksDBDatabase,
     operations: Array<RocksDBBatchPutOperation | RocksDBBatchDelOperation>,
     options: RocksDBBatchOptions,
     callback: Callback<[], void>,
   ): void;
-  batch_init(database: RocksDBDatabase): RocksDBBatch;
-  batch_put(
+  batchInit(database: RocksDBDatabase): RocksDBBatch;
+  batchPut(
     batch: RocksDBBatch,
     key: string | Buffer,
     value: string | Buffer,
   ): void;
-  batch_del(batch: RocksDBBatch, key: string | Buffer): void;
-  batch_clear(batch: RocksDBBatch): void;
-  batch_write(
+  batchDel(batch: RocksDBBatch, key: string | Buffer): void;
+  batchClear(batch: RocksDBBatch): void;
+  batchWrite(
     batch: RocksDBBatch,
     options: RocksDBBatchOptions,
     callback: Callback<[], void>,
   ): void;
-  transaction_init(
+  transactionInit(
     database: RocksDBDatabase,
     options: RocksDBTransactionOptions
   ): RocksDBTransaction;
-  transaction_commit(
+  transactionCommit(
     tran: RocksDBTransaction,
     callback: Callback<[], void>
   ): void;
-  transaction_rollback(
+  transactionRollback(
     tran: RocksDBTransaction,
     callback: Callback<[], void>
+  ): void;
+  transactionGet(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
+    callback: Callback<[string], void>,
+  ): void;
+  transactionGet(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
+    callback: Callback<[Buffer], void>,
+  ): void;
+  transactionGetForUpdate(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetForUpdateOptions & { valueEncoding: 'utf8' },
+    callback: Callback<[string], void>,
+  ): void;
+  transactionGetForUpdate(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetForUpdateOptions & { valueEncoding: 'buffer' },
+    callback: Callback<[Buffer], void>,
+  ): void;
+  transactionPut(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    value: string | Buffer,
+    callback: Callback<[], void>,
+  ): void;
+  transactionDel(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    callback: Callback<[], void>,
   ): void;
 }
-/* eslint-enable @typescript-eslint/naming-convention */
 
 const rocksdb: RocksDB = nodeGypBuild(path.join(__dirname, '../../'));
 

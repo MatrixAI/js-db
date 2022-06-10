@@ -87,7 +87,7 @@ describe(DB.name, () => {
     const db = await DB.createDB({ dbPath, crypto, logger });
     const data = await db.serializeEncrypt('bar', false);
     // Put in dirty transaction state
-    await rocksdbP.db_put(
+    await rocksdbP.dbPut(
       db.db,
       utils.keyPathToKey(['transactions', 'foo']),
       data,
