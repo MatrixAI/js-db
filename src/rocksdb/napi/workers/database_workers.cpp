@@ -1,20 +1,22 @@
 #define NAPI_VERSION 3
 
-#include "workers.h"
+#include "database_workers.h"
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <node_api.h>
 #include <rocksdb/env.h>
 #include <rocksdb/status.h>
+#include <rocksdb/slice.h>
 #include <rocksdb/cache.h>
 #include <rocksdb/options.h>
-#include <rocksdb/slice.h>
 #include <rocksdb/table.h>
 #include <rocksdb/write_batch.h>
 #include <rocksdb/filter_policy.h>
-#include "worker.h"
-#include "iterator.h"
-#include "utils.h"
+#include "../worker.h"
+#include "../database.h"
+#include "../iterator.h"
+#include "../utils.h"
 
 OpenWorker::OpenWorker (napi_env env,
             Database* database,
@@ -79,26 +81,6 @@ CloseWorker::~CloseWorker () {}
 
 void CloseWorker::DoExecute () {
   database_->CloseDatabase();
-}
-
-PutWorker::PutWorker (napi_env env,
-            Database* database,
-            napi_value callback,
-            rocksdb::Slice key,
-            rocksdb::Slice value,
-            bool sync)
-  : PriorityWorker(env, database, callback, "rocksdb.db.put"),
-    key_(key), value_(value) {
-  options_.sync = sync;
-}
-
-PutWorker::~PutWorker () {
-  DisposeSliceBuffer(key_);
-  DisposeSliceBuffer(value_);
-}
-
-void PutWorker::DoExecute () {
-  SetStatus(database_->Put(options_, key_, value_));
 }
 
 GetWorker::GetWorker (napi_env env,
@@ -186,6 +168,26 @@ void GetManyWorker::HandleOKCallback (napi_env env, napi_value callback) {
   napi_get_null(env, &argv[0]);
   argv[1] = array;
   CallFunction(env, callback, 2, argv);
+}
+
+PutWorker::PutWorker (napi_env env,
+            Database* database,
+            napi_value callback,
+            rocksdb::Slice key,
+            rocksdb::Slice value,
+            bool sync)
+  : PriorityWorker(env, database, callback, "rocksdb.db.put"),
+    key_(key), value_(value) {
+  options_.sync = sync;
+}
+
+PutWorker::~PutWorker () {
+  DisposeSliceBuffer(key_);
+  DisposeSliceBuffer(value_);
+}
+
+void PutWorker::DoExecute () {
+  SetStatus(database_->Put(options_, key_, value_));
 }
 
 DelWorker::DelWorker (napi_env env,
@@ -333,158 +335,4 @@ void RepairWorker::DoExecute () {
   options.info_log.reset(new NullLogger());
 
   SetStatus(rocksdb::RepairDB(location_, options));
-}
-
-CloseIteratorWorker::CloseIteratorWorker (napi_env env,
-            Iterator* iterator,
-            napi_value callback)
-  : BaseWorker(env, iterator->database_, callback, "rocksdb.iterator.close"),
-    iterator_(iterator) {}
-
-CloseIteratorWorker::~CloseIteratorWorker () {}
-
-void CloseIteratorWorker::DoExecute () {
-  iterator_->Close();
-}
-
-void CloseIteratorWorker::DoFinally (napi_env env) {
-  iterator_->Detach(env);
-  BaseWorker::DoFinally(env);
-}
-
-NextWorker::NextWorker (napi_env env,
-            Iterator* iterator,
-            uint32_t size,
-            napi_value callback)
-  : BaseWorker(env, iterator->database_, callback,
-                "rocksdb.iterator.next"),
-    iterator_(iterator), size_(size), ok_() {}
-
-NextWorker::~NextWorker () {}
-
-void NextWorker::DoExecute () {
-  if (!iterator_->DidSeek()) {
-    iterator_->SeekToRange();
-  }
-
-  ok_ = iterator_->ReadMany(size_);
-
-  if (!ok_) {
-    SetStatus(iterator_->Status());
-  }
-}
-
-void NextWorker::HandleOKCallback (napi_env env, napi_value callback) {
-  size_t size = iterator_->cache_.size();
-  napi_value jsArray;
-  napi_create_array_with_length(env, size, &jsArray);
-
-  const bool kab = iterator_->keyAsBuffer_;
-  const bool vab = iterator_->valueAsBuffer_;
-
-  for (uint32_t idx = 0; idx < size; idx++) {
-    napi_value element;
-    iterator_->cache_[idx].ConvertByMode(env, Mode::entries, kab, vab, &element);
-    napi_set_element(env, jsArray, idx, element);
-  }
-
-  napi_value argv[3];
-  napi_get_null(env, &argv[0]);
-  argv[1] = jsArray;
-  napi_get_boolean(env, !ok_, &argv[2]);
-  CallFunction(env, callback, 3, argv);
-}
-
-void NextWorker::DoFinally (napi_env env) {
-  // clean up & handle the next/close state
-  iterator_->nexting_ = false;
-
-  if (iterator_->closeWorker_ != NULL) {
-    iterator_->closeWorker_->Queue(env);
-    iterator_->closeWorker_ = NULL;
-  }
-
-  BaseWorker::DoFinally(env);
-}
-
-BatchWorker::BatchWorker (napi_env env,
-              Database* database,
-              napi_value callback,
-              rocksdb::WriteBatch* batch,
-              const bool sync,
-              const bool hasData)
-  : PriorityWorker(env, database, callback, "rocksdb.batch.do"),
-    batch_(batch), hasData_(hasData) {
-  options_.sync = sync;
-}
-
-BatchWorker::~BatchWorker () {
-  delete batch_;
-}
-
-void BatchWorker::DoExecute () {
-  if (hasData_) {
-    SetStatus(database_->WriteBatch(options_, batch_));
-  }
-}
-
-BatchWriteWorker::BatchWriteWorker (napi_env env,
-                  napi_value context,
-                  Batch* batch,
-                  napi_value callback,
-                  const bool sync)
-  : PriorityWorker(env, batch->database_, callback, "rocksdb.batch.write"),
-    batch_(batch),
-    sync_(sync) {
-      // Prevent GC of batch object before we execute
-      NAPI_STATUS_THROWS_VOID(napi_create_reference(env, context, 1, &contextRef_));
-    }
-
-BatchWriteWorker::~BatchWriteWorker () {}
-
-void BatchWriteWorker::DoExecute () {
-  if (batch_->hasData_) {
-    SetStatus(batch_->Write(sync_));
-  }
-}
-
-void BatchWriteWorker::DoFinally (napi_env env) {
-  napi_delete_reference(env, contextRef_);
-  PriorityWorker::DoFinally(env);
-}
-
-CommitTransactionWorker::CommitTransactionWorker (
-  napi_env env,
-  Transaction* tran,
-  napi_value callback
-) : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.commit"),
-  tran_(tran)
-  {}
-
-CommitTransactionWorker::~CommitTransactionWorker() {}
-
-void CommitTransactionWorker::DoExecute () {
-  SetStatus(tran_->Commit());
-}
-
-void CommitTransactionWorker::DoFinally (napi_env env) {
-  tran_->Detach(env);
-  PriorityWorker::DoFinally(env);
-}
-
-RollbackTransactionWorker::RollbackTransactionWorker (napi_env env,
-                            Transaction* tran,
-                            napi_value callback)
-  : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.rollback"),
-  tran_(tran) {}
-
-RollbackTransactionWorker::~RollbackTransactionWorker() {}
-
-void RollbackTransactionWorker::DoExecute () {
-  SetStatus(tran_->Rollback());
-}
-
-void RollbackTransactionWorker::DoFinally (napi_env env) {
-  tran_->Detach(env);
-  PriorityWorker::DoFinally(env);
 }

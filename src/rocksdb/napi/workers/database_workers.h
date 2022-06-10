@@ -7,14 +7,12 @@
 #include <cstdint>
 #include <string>
 #include <node_api.h>
+#include <rocksdb/env.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
-#include <rocksdb/write_batch.h>
-#include "worker.h"
-#include "database.h"
-#include "batch.h"
-#include "iterator.h"
-#include "transaction.h"
+#include "../worker.h"
+#include "../iterator.h"
+#include "../database.h"
 
 /**
  * Worker class for opening a database.
@@ -56,26 +54,6 @@ struct CloseWorker final : public BaseWorker {
   ~CloseWorker ();
 
   void DoExecute () override;
-};
-
-/**
- * Worker class for putting key/value to the database
- */
-struct PutWorker final : public PriorityWorker {
-  PutWorker (napi_env env,
-             Database* database,
-             napi_value callback,
-             rocksdb::Slice key,
-             rocksdb::Slice value,
-             bool sync);
-
-  ~PutWorker ();
-
-  void DoExecute () override;
-
-  rocksdb::WriteOptions options_;
-  rocksdb::Slice key_;
-  rocksdb::Slice value_;
 };
 
 /**
@@ -124,6 +102,26 @@ private:
   const std::vector<std::string>* keys_;
   const bool valueAsBuffer_;
   std::vector<std::string*> cache_;
+};
+
+/**
+ * Worker class for putting key/value to the database
+ */
+struct PutWorker final : public PriorityWorker {
+  PutWorker (napi_env env,
+             Database* database,
+             napi_value callback,
+             rocksdb::Slice key,
+             rocksdb::Slice value,
+             bool sync);
+
+  ~PutWorker ();
+
+  void DoExecute () override;
+
+  rocksdb::WriteOptions options_;
+  rocksdb::Slice key_;
+  rocksdb::Slice value_;
 };
 
 /**
@@ -234,130 +232,4 @@ struct RepairWorker final : public BaseWorker {
   void DoExecute () override;
 
   std::string location_;
-};
-
-/**
- * Worker class for closing an iterator
- */
-struct CloseIteratorWorker final : public BaseWorker {
-  CloseIteratorWorker (napi_env env,
-             Iterator* iterator,
-             napi_value callback);
-
-  ~CloseIteratorWorker ();
-
-  void DoExecute () override;
-
-  void DoFinally (napi_env env) override;
-
-private:
-  Iterator* iterator_;
-};
-
-/**
- * Worker class for nexting an iterator.
- */
-struct NextWorker final : public BaseWorker {
-  NextWorker (napi_env env,
-              Iterator* iterator,
-              uint32_t size,
-              napi_value callback);
-
-  ~NextWorker ();
-
-  void DoExecute () override;
-
-  void HandleOKCallback (napi_env env, napi_value callback) override;
-
-  void DoFinally (napi_env env) override;
-
-private:
-  Iterator* iterator_;
-  uint32_t size_;
-  bool ok_;
-};
-
-/**
- * Worker class for batch write operation.
- */
-struct BatchWorker final : public PriorityWorker {
-  BatchWorker (napi_env env,
-               Database* database,
-               napi_value callback,
-               rocksdb::WriteBatch* batch,
-               const bool sync,
-               const bool hasData);
-
-  ~BatchWorker ();
-
-  void DoExecute () override;
-
-private:
-  rocksdb::WriteOptions options_;
-  rocksdb::WriteBatch* batch_;
-  const bool hasData_;
-};
-
-/**
- * Worker class for batch write operation.
- */
-struct BatchWriteWorker final : public PriorityWorker {
-  BatchWriteWorker (napi_env env,
-                    napi_value context,
-                    Batch* batch,
-                    napi_value callback,
-                    const bool sync);
-
-  ~BatchWriteWorker ();
-
-  void DoExecute () override;
-
-  void DoFinally (napi_env env) override;
-
-private:
-  Batch* batch_;
-  const bool sync_;
-  napi_ref contextRef_;
-};
-
-/**
- * Transaction commit worker
- * This runs in the background executing the commit
- */
-struct CommitTransactionWorker final: public PriorityWorker {
-
-  CommitTransactionWorker (
-    napi_env env,
-    Transaction* tran,
-    napi_value callback
-  );
-
-  ~CommitTransactionWorker();
-
-  void DoExecute () override;
-
-  void DoFinally (napi_env env) override;
-
-private:
-  Transaction* tran_;
-};
-
-/**
- * Rollback commit worker
- * This runs in the background executing the rollback
- */
-struct RollbackTransactionWorker final: public PriorityWorker {
-
-  RollbackTransactionWorker (napi_env env,
-                             Transaction* tran,
-                             napi_value callback);
-
-  ~RollbackTransactionWorker();
-
-  void DoExecute () override;
-
-  void DoFinally (napi_env env) override;
-
-private:
-  Transaction* tran_;
 };

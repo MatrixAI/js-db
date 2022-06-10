@@ -64,3 +64,33 @@ rocksdb::Status Transaction::Rollback () {
   // database_->ReleaseSnapshot(options_->snapshot);
   return status;
 }
+
+rocksdb::Status Transaction::Get(
+  const rocksdb::ReadOptions& options,
+  rocksdb::Slice key,
+  std::string& value
+) {
+  return dbTransaction_->Get(options, key, &value);
+}
+
+rocksdb::Status Transaction::GetForUpdate(
+  const rocksdb::ReadOptions& options,
+  rocksdb::Slice key,
+  std::string& value,
+  bool exclusive
+) {
+  return dbTransaction_->GetForUpdate(options, key, &value, exclusive);
+}
+
+rocksdb::Status Transaction::Put(
+  rocksdb::Slice key,
+  rocksdb::Slice value
+) {
+  return dbTransaction_->Put(key, value);
+}
+
+rocksdb::Status Transaction::Del(
+  rocksdb::Slice key
+) {
+  return dbTransaction_->Delete(key);
+}

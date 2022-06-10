@@ -12,8 +12,11 @@
 #include "batch.h"
 #include "iterator.h"
 #include "transaction.h"
-#include "workers.h"
 #include "utils.h"
+#include "workers/database_workers.h"
+#include "workers/batch_workers.h"
+#include "workers/iterator_workers.h"
+#include "workers/transaction_workers.h"
 
 /**
  * Hook for when the environment exits. This hook will be called after
@@ -72,7 +75,7 @@ static void transaction_rollback_do (
   Transaction* transaction,
   napi_value cb
 ) {
-  RollbackTransactionWorker* worker = new RollbackTransactionWorker(
+  TransactionRollbackWorker* worker = new TransactionRollbackWorker(
     env,
     transaction,
     cb
@@ -253,24 +256,6 @@ NAPI_METHOD(db_close) {
 }
 
 /**
- * Puts a key and a value to a database.
- */
-NAPI_METHOD(db_put) {
-  NAPI_ARGV(5);
-  NAPI_DB_CONTEXT();
-
-  rocksdb::Slice key = ToSlice(env, argv[1]);
-  rocksdb::Slice value = ToSlice(env, argv[2]);
-  bool sync = BooleanProperty(env, argv[3], "sync", false);
-  napi_value callback = argv[4];
-
-  PutWorker* worker = new PutWorker(env, database, callback, key, value, sync);
-  worker->Queue(env);
-
-  NAPI_RETURN_UNDEFINED();
-}
-
-/**
  * Gets a value from a database.
  */
 NAPI_METHOD(db_get) {
@@ -308,6 +293,25 @@ NAPI_METHOD(db_get_many) {
   );
 
   worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+
+/**
+ * Puts a key and a value to a database.
+ */
+NAPI_METHOD(db_put) {
+  NAPI_ARGV(5);
+  NAPI_DB_CONTEXT();
+
+  rocksdb::Slice key = ToSlice(env, argv[1]);
+  rocksdb::Slice value = ToSlice(env, argv[2]);
+  bool sync = BooleanProperty(env, argv[3], "sync", false);
+  napi_value callback = argv[4];
+
+  PutWorker* worker = new PutWorker(env, database, callback, key, value, sync);
+  worker->Queue(env);
+
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -726,7 +730,7 @@ NAPI_METHOD(transaction_commit) {
     NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
     NAPI_RETURN_UNDEFINED();
   }
-  CommitTransactionWorker* worker = new CommitTransactionWorker(
+  TransactionCommitWorker* worker = new TransactionCommitWorker(
     env,
     transaction,
     callback
@@ -765,15 +769,101 @@ NAPI_METHOD(transaction_rollback) {
 }
 
 /**
+ * Gets a value from a transaction
+ */
+NAPI_METHOD(transaction_get) {
+  NAPI_ARGV(4);
+  NAPI_TRANSACTION_CONTEXT();
+  rocksdb::Slice key = ToSlice(env, argv[1]);
+  napi_value options = argv[2];
+  const bool asBuffer = EncodingIsBuffer(env, options, "valueEncoding");
+  const bool fillCache = BooleanProperty(env, options, "fillCache", true);
+  napi_value callback = argv[3];
+  TransactionGetWorker* worker = new TransactionGetWorker(
+    env,
+    transaction,
+    callback,
+    key,
+    asBuffer,
+    fillCache
+  );
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
+ * Gets a value for update from a transaction
+ */
+NAPI_METHOD(transaction_get_for_update) {
+  NAPI_ARGV(4);
+  NAPI_TRANSACTION_CONTEXT();
+  rocksdb::Slice key = ToSlice(env, argv[1]);
+  napi_value options = argv[2];
+  const bool asBuffer = EncodingIsBuffer(env, options, "valueEncoding");
+  const bool fillCache = BooleanProperty(env, options, "fillCache", true);
+  const bool exclusive = BooleanProperty(env, options, "exclusive", true);
+  napi_value callback = argv[3];
+  TransactionGetForUpdateWorker* worker = new TransactionGetForUpdateWorker(
+    env,
+    transaction,
+    callback,
+    key,
+    asBuffer,
+    fillCache,
+    exclusive
+  );
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
+ * Puts a key and a value to a transaction
+ */
+NAPI_METHOD(transaction_put) {
+  NAPI_ARGV(4);
+  NAPI_TRANSACTION_CONTEXT();
+  rocksdb::Slice key = ToSlice(env, argv[1]);
+  rocksdb::Slice value = ToSlice(env, argv[2]);
+  napi_value callback = argv[3];
+  TransactionPutWorker* worker = new TransactionPutWorker(
+    env,
+    transaction,
+    callback,
+    key,
+    value
+  );
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
+ * Delete a value from a database.
+ */
+NAPI_METHOD(transaction_del) {
+  NAPI_ARGV(3);
+  NAPI_TRANSACTION_CONTEXT();
+  rocksdb::Slice key = ToSlice(env, argv[1]);
+  napi_value callback = argv[2];
+  TransactionDelWorker* worker = new TransactionDelWorker(
+    env,
+    transaction,
+    callback,
+    key
+  );
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
+/**
  * All exported functions.
  */
 NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(db_init);
   NAPI_EXPORT_FUNCTION(db_open);
   NAPI_EXPORT_FUNCTION(db_close);
-  NAPI_EXPORT_FUNCTION(db_put);
   NAPI_EXPORT_FUNCTION(db_get);
   NAPI_EXPORT_FUNCTION(db_get_many);
+  NAPI_EXPORT_FUNCTION(db_put);
   NAPI_EXPORT_FUNCTION(db_del);
   NAPI_EXPORT_FUNCTION(db_clear);
   NAPI_EXPORT_FUNCTION(db_approximate_size);
@@ -798,4 +888,8 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(transaction_init);
   NAPI_EXPORT_FUNCTION(transaction_commit);
   NAPI_EXPORT_FUNCTION(transaction_rollback);
+  NAPI_EXPORT_FUNCTION(transaction_get);
+  NAPI_EXPORT_FUNCTION(transaction_get_for_update);
+  NAPI_EXPORT_FUNCTION(transaction_put);
+  NAPI_EXPORT_FUNCTION(transaction_del);
 }

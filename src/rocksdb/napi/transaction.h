@@ -50,6 +50,28 @@ struct Transaction final {
    */
   rocksdb::Status Rollback ();
 
+  rocksdb::Status Get(
+    const rocksdb::ReadOptions& options,
+    rocksdb::Slice key,
+    std::string& value
+  );
+
+  rocksdb::Status GetForUpdate(
+    const rocksdb::ReadOptions& options,
+    rocksdb::Slice key,
+    std::string& value,
+    bool exclusive = true
+  );
+
+  rocksdb::Status Put(
+    rocksdb::Slice key,
+    rocksdb::Slice value
+  );
+
+  rocksdb::Status Del(
+    rocksdb::Slice key
+  );
+
   Database* database_;
   const uint32_t id_;
   bool isCommitting_;
