@@ -1,7 +1,7 @@
 import type {
-  LevelDBDatabase,
-  LevelDBDatabaseOptions,
-} from './leveldb';
+  RocksDBDatabase,
+  RocksDBDatabaseOptions,
+} from './rocksdb';
 import type { ResourceAcquire } from '@matrixai/resources';
 import type {
   KeyPath,
@@ -23,7 +23,7 @@ import {
 } from '@matrixai/async-init/dist/CreateDestroyStartStop';
 import DBIterator from './DBIterator';
 // Import DBTransaction from './DBTransaction';
-import { leveldbP } from './leveldb';
+import { rocksdbP } from './rocksdb';
 import * as utils from './utils';
 import * as errors from './errors';
 
@@ -71,7 +71,7 @@ class DB {
   protected fs: FileSystem;
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
-  protected _db: LevelDBDatabase;
+  protected _db: RocksDBDatabase;
   protected transactionCounter: number = 0;
 
   /**
@@ -107,7 +107,7 @@ class DB {
     this.fs = fs;
   }
 
-  get db(): Readonly<LevelDBDatabase> {
+  get db(): Readonly<RocksDBDatabase> {
     return this._db;
   }
 
@@ -156,8 +156,8 @@ class DB {
         await this.canaryCheck();
       }
     } catch (e) {
-      // LevelDB must be closed otherwise its lock will persist
-      await leveldbP.db_close(db);
+      // RocksDB must be closed otherwise its lock will persist
+      await rocksdbP.db_close(db);
       throw e;
     }
     this.logger.info(`Started ${this.constructor.name}`);
@@ -168,7 +168,7 @@ class DB {
     if (this._iteratorRefs.size > 0 || this._transactionRefs.size > 0) {
       throw new errors.ErrorDBLiveReference();
     }
-    await leveldbP.db_close(this._db);
+    await rocksdbP.db_close(this._db);
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
@@ -275,9 +275,9 @@ class DB {
     let data;
     try {
       const key = utils.keyPathToKey(keyPath);
-      data = await leveldbP.db_get(this._db, key, { valueEncoding: 'buffer' });
+      data = await rocksdbP.db_get(this._db, key, { valueEncoding: 'buffer' });
     } catch (e) {
-      if (e.code === 'LEVEL_NOT_FOUND') {
+      if (e.code === 'NOT_FOUND') {
         return undefined;
       }
       throw e;
@@ -340,7 +340,7 @@ class DB {
   ): Promise<void> {
     const data = await this.serializeEncrypt(value, raw as any);
     const key = utils.keyPathToKey(keyPath);
-    await leveldbP.db_put(this._db, key, data, { sync });
+    await rocksdbP.db_put(this._db, key, data, { sync });
     return;
   }
 
@@ -363,7 +363,7 @@ class DB {
    */
   public async _del(keyPath: KeyPath, sync: boolean = false): Promise<void> {
     const key = utils.keyPathToKey(keyPath);
-    await leveldbP.db_del(this._db, key, { sync });
+    await rocksdbP.db_del(this._db, key, { sync });
     return;
   }
 
@@ -397,7 +397,7 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    await leveldbP.batch_do(this._db, opsB, { sync });
+    await rocksdbP.batch_do(this._db, opsB, { sync });
     return;
   }
 
@@ -432,7 +432,7 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    await leveldbP.batch_do(this._db, opsB, { sync });
+    await rocksdbP.batch_do(this._db, opsB, { sync });
     return;
   }
 
@@ -680,8 +680,8 @@ class DB {
 
   protected async setupDb(
     dbPath: string,
-    options: LevelDBDatabaseOptions = {},
-  ): Promise<LevelDBDatabase> {
+    options: RocksDBDatabaseOptions = {},
+  ): Promise<RocksDBDatabase> {
     try {
       await this.fs.promises.mkdir(dbPath);
     } catch (e) {
@@ -689,11 +689,11 @@ class DB {
         throw new errors.ErrorDBCreate(e.message, { cause: e });
       }
     }
-    const db = leveldbP.db_init();
+    const db = rocksdbP.db_init();
     // Mutates options object which is copied from this.start
     utils.filterUndefined(options);
     try {
-      await leveldbP.db_open(db, dbPath, options);
+      await rocksdbP.db_open(db, dbPath, options);
     } catch (e) {
       throw new errors.ErrorDBCreate(e.message, { cause: e });
     }

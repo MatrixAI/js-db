@@ -287,7 +287,7 @@ function promisify<
   f: (...args: [...params: P, callback: Callback<T>]) => unknown,
 ): (...params: P) => Promise<R> {
   // Uses a regular function so that `this` can be bound
-  return function (...params: P): Promise<R> {
+  const g = function (...params: P): Promise<R> {
     return new Promise((resolve, reject) => {
       const callback = (error, ...values) => {
         if (error != null) {
@@ -306,6 +306,8 @@ function promisify<
       f.apply(this, params);
     });
   };
+  Object.defineProperty(g, 'name', { value: f.name });
+  return g;
 }
 
 /**

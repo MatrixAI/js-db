@@ -1,9 +1,9 @@
 import type {
-  LevelDBDatabaseOptions,
-  LevelDBIteratorOptions,
-  LevelDBBatchPutOperation,
-  LevelDBBatchDelOperation,
-} from './leveldb';
+  RocksDBDatabaseOptions,
+  RocksDBIteratorOptions,
+  RocksDBBatchPutOperation,
+  RocksDBBatchDelOperation,
+} from './rocksdb/types';
 import type fs from 'fs';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 
@@ -73,7 +73,7 @@ type KeyPath = Readonly<Array<string | Buffer>>;
 type LevelPath = Readonly<Array<string | Buffer>>;
 
 type DBOptions = Omit<
-  LevelDBDatabaseOptions,
+  RocksDBDatabaseOptions,
   'createIfMissing' | 'errorIfExists'
 >;
 
@@ -86,7 +86,7 @@ type DBOptions = Omit<
  * It should be considered to default to true
  */
 type DBIteratorOptions = Merge<
-  Omit<LevelDBIteratorOptions, 'keyEncoding' | 'valueEncoding'>,
+  Omit<RocksDBIteratorOptions, 'keyEncoding' | 'valueEncoding'>,
   {
     gt?: KeyPath | Buffer | string;
     gte?: KeyPath | Buffer | string;
@@ -103,17 +103,7 @@ type DBIteratorOptions = Merge<
   }
 >;
 
-// /**
-//  * Iterator
-//  */
-// type DBIterator<K extends KeyPath | undefined, V> = {
-//   seek: (k: KeyPath | string | Buffer) => void;
-//   close: () => Promise<void>;
-//   next: () => Promise<[K, V] | undefined>;
-//   [Symbol.asyncIterator]: () => AsyncGenerator<[K, V]>;
-// };
-
-type DBBatch = LevelDBBatchPutOperation | LevelDBBatchDelOperation;
+type DBBatch = RocksDBBatchPutOperation | RocksDBBatchDelOperation;
 
 type DBOp_ =
   | {
@@ -149,7 +139,6 @@ export type {
   LevelPath,
   DBOptions,
   DBIteratorOptions,
-  // DBIterator,
   DBBatch,
   DBOp,
   DBOps,

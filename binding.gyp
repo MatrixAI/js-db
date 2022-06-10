@@ -1,23 +1,25 @@
 {
   'targets': [{
-    'target_name': 'leveldb',
+    'target_name': 'rocksdb',
     'include_dirs': [
       "<!(node -e \"require('napi-macros')\")"
     ],
     'dependencies': [
-      '<(module_root_dir)/deps/leveldb/leveldb.gyp:leveldb'
+      '<(module_root_dir)/deps/rocksdb/rocksdb.gyp:rocksdb'
     ],
-    'sources': ['./src/leveldb/index.cpp'],
+    'sources': ['./src/rocksdb/rocksdb.cpp'],
     'conditions': [
       ['OS=="linux"', {
-        "cflags!": [ "-fno-tree-vrp"],
-        # 'cflags': [ '-std=c99', '-Wpedantic' ],
-        # 'cflags_cc': [ '-std=c++17', '-Wpedantic' ],
+        'cflags': [ '-std=c99', '-Wpedantic' ],
+        'cflags!': [ '-fno-tree-vrp', '-fno-exceptions' ],
+        'cflags_cc': [ '-std=c++17', '-Wpedantic' ],
+        'cflags_cc!': [ '-fno-exceptions' ],
       }],
       ['OS=="win"', {
         'defines': [
           # See: https://github.com/nodejs/node-addon-api/issues/85#issuecomment-911450807
-          '_HAS_EXCEPTIONS=0'
+          '_HAS_EXCEPTIONS=0',
+          'OS_WIN=1',
         ],
         'msvs_settings': {
           'VCCLCompilerTool': {
@@ -32,6 +34,13 @@
               '4506',
             ],
             'AdditionalOptions': [ '/std:c++17' ]
+          },
+          'VCLinkerTool': {
+            'AdditionalDependencies': [
+              # SDK import libs
+              'Shlwapi.lib',
+              'rpcrt4.lib'
+            ]
           }
         },
       }],
@@ -63,20 +72,6 @@
             '-arch arm64'
           ]
         }
-      }],
-      ['OS == "android"', {
-        'cflags': [ '-std=c99', '-fPIC' ],
-        'cflags_cc': [ '-std=c++17', '-fPIC '],
-        'ldflags': [ '-fPIC' ],
-        'cflags!': [
-          '-fPIE',
-          '-mfloat-abi=hard',
-        ],
-        'cflags_cc!': [
-          '-fPIE',
-          '-mfloat-abi=hard',
-        ],
-        'ldflags!': [ '-fPIE' ],
       }],
       ['target_arch == "arm"', {
         'cflags': [ '-mfloat-abi=hard' ],

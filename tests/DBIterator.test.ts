@@ -8,7 +8,7 @@ import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import DB from '@/DB';
 import DBIterator from '@/DBIterator';
-import { leveldbP } from '@/leveldb';
+import rocksdbP from '@/rocksdb/rocksdbP';
 import * as testUtils from './utils';
 
 describe(DBIterator.name, () => {
@@ -40,23 +40,23 @@ describe(DBIterator.name, () => {
   });
   test('internal db lexicographic iteration order', async () => {
     const dbPath = `${dataDir}/leveldb`;
-    const db = leveldbP.db_init();
-    await leveldbP.db_open(db, dbPath, {});
-    await leveldbP.db_put(db, Buffer.from([0x01]), Buffer.alloc(0), {});
-    await leveldbP.db_put(
+    const db = rocksdbP.db_init();
+    await rocksdbP.db_open(db, dbPath, {});
+    await rocksdbP.db_put(db, Buffer.from([0x01]), Buffer.alloc(0), {});
+    await rocksdbP.db_put(
       db,
       Buffer.from([0x00, 0x00, 0x00]),
       Buffer.alloc(0),
       {},
     );
-    await leveldbP.db_put(db, Buffer.from([0x00, 0x00]), Buffer.alloc(0), {});
-    await leveldbP.db_put(db, Buffer.from([]), Buffer.alloc(0), {});
-    const iterator = leveldbP.iterator_init(db, {
+    await rocksdbP.db_put(db, Buffer.from([0x00, 0x00]), Buffer.alloc(0), {});
+    await rocksdbP.db_put(db, Buffer.from([]), Buffer.alloc(0), {});
+    const iterator = rocksdbP.iterator_init(db, {
       keyEncoding: 'buffer',
       valueEncoding: 'buffer',
     });
-    const [entries] = await leveldbP.iterator_nextv(iterator, 4);
-    await leveldbP.iterator_close(iterator);
+    const [entries] = await rocksdbP.iterator_nextv(iterator, 4);
+    await rocksdbP.iterator_close(iterator);
     const keys = entries.map((entry) => entry[0]);
     expect(keys).toEqual([
       Buffer.from([]),
@@ -66,7 +66,7 @@ describe(DBIterator.name, () => {
       // Therefore `aa` is earlier than `z`
       Buffer.from([0x01]),
     ]);
-    await leveldbP.db_close(db);
+    await rocksdbP.db_close(db);
   });
   test('lexicographic iteration order', async () => {
     await db.put(Buffer.from([0x01]), Buffer.alloc(0));

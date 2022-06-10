@@ -1,3 +1,6 @@
 [submodule "deps/snappy/snappy"]
 	path = deps/snappy/snappy
 	url = https://github.com/google/snappy.git
+[submodule "deps/rocksdb/rocksdb"]
+	path = deps/rocksdb/rocksdb
+	url = https://github.com/facebook/rocksdb.git

@@ -11,7 +11,7 @@ import { WorkerManager } from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
 import { spawn, Worker } from 'threads';
 import DB from '@/DB';
-import { leveldbP } from '@/leveldb';
+import rocksdbP from '@/rocksdb/rocksdbP';
 import * as errors from '@/errors';
 import * as utils from '@/utils';
 import * as testUtils from './utils';
@@ -87,7 +87,7 @@ describe(DB.name, () => {
     const db = await DB.createDB({ dbPath, crypto, logger });
     const data = await db.serializeEncrypt('bar', false);
     // Put in dirty transaction state
-    await leveldbP.db_put(
+    await rocksdbP.db_put(
       db.db,
       utils.keyPathToKey(['transactions', 'foo']),
       data,

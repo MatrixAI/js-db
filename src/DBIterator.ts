@@ -1,10 +1,10 @@
 import type { KeyPath, LevelPath, DBIteratorOptions } from './types';
-import type { LevelDBIterator, LevelDBIteratorOptions } from './leveldb';
+import type { RocksDBIterator, RocksDBIteratorOptions } from './rocksdb';
 import type DB from './DB';
 import type Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import { Lock } from '@matrixai/async-locks';
-import { leveldbP } from './leveldb';
+import { rocksdbP } from './rocksdb';
 import * as errors from './errors';
 import * as utils from './utils';
 
@@ -20,8 +20,8 @@ class DBIterator<K extends KeyPath | undefined, V> {
   protected cache: Array<[Buffer, Buffer]> = [];
   protected cachePos: number = 0;
   protected lock: Lock = new Lock();
-  protected _options: DBIteratorOptions & LevelDBIteratorOptions;
-  protected _iterator: LevelDBIterator<Buffer, Buffer>;
+  protected _options: DBIteratorOptions & RocksDBIteratorOptions;
+  protected _iterator: RocksDBIterator<Buffer, Buffer>;
 
   public constructor({
     db,
@@ -43,7 +43,7 @@ class DBIterator<K extends KeyPath | undefined, V> {
       keyEncoding: 'buffer',
       valueEncoding: 'buffer',
     } as DBIteratorOptions &
-      LevelDBIteratorOptions & {
+      RocksDBIteratorOptions & {
         keyEncoding: 'buffer';
         valueEncoding: 'buffer';
       };
@@ -77,23 +77,23 @@ class DBIterator<K extends KeyPath | undefined, V> {
     }
     utils.filterUndefined(options_);
     this._options = options_;
-    this._iterator = leveldbP.iterator_init(db.db, options_);
+    this._iterator = rocksdbP.iterator_init(db.db, options_);
     db.iteratorRefs.add(this);
     logger.debug(`Constructed ${this.constructor.name}`);
   }
 
-  get iterator(): Readonly<LevelDBIterator<Buffer, Buffer>> {
+  get iterator(): Readonly<RocksDBIterator<Buffer, Buffer>> {
     return this._iterator;
   }
 
-  get options(): Readonly<LevelDBIteratorOptions> {
+  get options(): Readonly<RocksDBIteratorOptions> {
     return this._options;
   }
 
   public async destroy(): Promise<void> {
     this.logger.debug(`Destroying ${this.constructor.name}`);
     this.cache = [];
-    await leveldbP.iterator_close(this._iterator);
+    await rocksdbP.iterator_close(this._iterator);
     this.db.iteratorRefs.delete(this);
     this.logger.debug(`Destroyed ${this.constructor.name}`);
   }
@@ -103,7 +103,7 @@ class DBIterator<K extends KeyPath | undefined, V> {
     if (this.lock.isLocked()) {
       throw new errors.ErrorDBIteratorBusy();
     }
-    leveldbP.iterator_seek(
+    rocksdbP.iterator_seek(
       this._iterator,
       utils.keyPathToKey(this.levelPath.concat(utils.toKeyPath(keyPath))),
     );
@@ -129,10 +129,10 @@ class DBIterator<K extends KeyPath | undefined, V> {
     }
     let entries: Array<[Buffer, Buffer]>, finished: boolean;
     if (this.first) {
-      [entries, finished] = await leveldbP.iterator_nextv(this._iterator, 1);
+      [entries, finished] = await rocksdbP.iterator_nextv(this._iterator, 1);
       this.first = false;
     } else {
-      [entries, finished] = await leveldbP.iterator_nextv(this._iterator, 1000);
+      [entries, finished] = await rocksdbP.iterator_nextv(this._iterator, 1000);
     }
     this.cachePos = 0;
     this.cache = entries;
