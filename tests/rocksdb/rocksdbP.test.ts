@@ -15,6 +15,14 @@ describe('rocksdbP', () => {
       recursive: true,
     });
   });
+  test('db_open invalid log level option', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = rocksdbP.db_init();
+    await expect(rocksdbP.db_open(db, dbPath, {
+      // @ts-ignore
+      infoLogLevel: 'incorrect'
+    })).rejects.toHaveProperty('code', 'DB_OPEN');
+  });
   test('db_close is idempotent', async () => {
     const dbPath = `${dataDir}/db`;
     const db = rocksdbP.db_init();

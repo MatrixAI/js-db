@@ -46,6 +46,7 @@ type RocksDBDatabaseOptions = {
   createIfMissing?: boolean; // Default true
   errorIfExists?: boolean; // Default false
   compression?: boolean; // Default true
+  infoLogLevel?: 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'header'; // Default undefined
   cacheSize?: number; // Default 8 * 1024 * 1024
   writeBufferSize?: number; // Default 4 * 1024 * 1024
   blockSize?: number; // Default 4096
