@@ -34,7 +34,6 @@ private:
  * Rollback commit worker
  */
 struct TransactionRollbackWorker final: public PriorityWorker {
-
   TransactionRollbackWorker (napi_env env,
                              Transaction* tran,
                              napi_value callback);
@@ -53,7 +52,6 @@ private:
  * Worker for transaction get
  */
 struct TransactionGetWorker final: public PriorityWorker {
-
   TransactionGetWorker(
     napi_env env,
     Transaction* tran,

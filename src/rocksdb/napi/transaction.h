@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <node_api.h>
+#include <rocksdb/slice.h>
 #include <rocksdb/status.h>
 #include <rocksdb/options.h>
 #include <rocksdb/utilities/transaction.h>
@@ -15,7 +16,6 @@
  * Transaction to be used from JS land.
  */
 struct Transaction final {
-
   Transaction(
     Database* database,
     const uint32_t id,

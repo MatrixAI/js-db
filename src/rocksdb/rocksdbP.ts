@@ -5,6 +5,7 @@ import type {
   RocksDBBatch,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
+  RocksDBGetForUpdateOptions,
   RocksDBPutOptions,
   RocksDBDelOptions,
   RocksDBClearOptions,
@@ -25,12 +26,6 @@ interface RocksDBP {
     options: RocksDBDatabaseOptions,
   ): Promise<void>;
   dbClose(database: RocksDBDatabase): Promise<void>;
-  dbPut(
-    database: RocksDBDatabase,
-    key: string | Buffer,
-    value: string | Buffer,
-    options: RocksDBPutOptions,
-  ): Promise<void>;
   dbGet(
     database: RocksDBDatabase,
     key: string | Buffer,
@@ -51,6 +46,12 @@ interface RocksDBP {
     keys: Array<string | Buffer>,
     options: RocksDBGetOptions & { valueEncoding: 'buffer' },
   ): Promise<Array<Buffer>>;
+  dbPut(
+    database: RocksDBDatabase,
+    key: string | Buffer,
+    value: string | Buffer,
+    options: RocksDBPutOptions,
+  ): Promise<void>;
   dbDel(
     database: RocksDBDatabase,
     key: string | Buffer,
@@ -121,6 +122,35 @@ interface RocksDBP {
   ): RocksDBTransaction;
   transactionCommit(tran: RocksDBTransaction): Promise<void>;
   transactionRollback(tran: RocksDBTransaction): Promise<void>;
+  transactionGet(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
+  ): Promise<string>;
+  transactionGet(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
+  ): Promise<Buffer>;
+  transactionGetForUpdate(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetForUpdateOptions & { valueEncoding: 'utf8' },
+  ): Promise<string>;
+  transactionGetForUpdate(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    options: RocksDBGetForUpdateOptions & { valueEncoding: 'buffer' },
+  ): Promise<Buffer>;
+  transactionPut(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+    value: string | Buffer,
+  ): Promise<void>;
+  transactionDel(
+    tran: RocksDBTransaction,
+    key: string | Buffer,
+  ): Promise<void>;
 }
 
 /**
@@ -130,9 +160,9 @@ const rocksdbP: RocksDBP = {
   dbInit: rocksdb.dbInit.bind(rocksdb),
   dbOpen: utils.promisify(rocksdb.dbOpen).bind(rocksdb),
   dbClose: utils.promisify(rocksdb.dbClose).bind(rocksdb),
-  dbPut: utils.promisify(rocksdb.dbPut).bind(rocksdb),
   dbGet: utils.promisify(rocksdb.dbGet).bind(rocksdb),
   dbGetMany: utils.promisify(rocksdb.dbGetMany).bind(rocksdb),
+  dbPut: utils.promisify(rocksdb.dbPut).bind(rocksdb),
   dbDel: utils.promisify(rocksdb.dbDel).bind(rocksdb),
   dbClear: utils.promisify(rocksdb.dbClear).bind(rocksdb),
   dbApproximateSize: utils
@@ -155,6 +185,10 @@ const rocksdbP: RocksDBP = {
   transactionInit: rocksdb.transactionInit.bind(rocksdb),
   transactionCommit: utils.promisify(rocksdb.transactionCommit).bind(rocksdb),
   transactionRollback: utils.promisify(rocksdb.transactionRollback).bind(rocksdb),
+  transactionGet: utils.promisify(rocksdb.transactionGet).bind(rocksdb),
+  transactionGetForUpdate: utils.promisify(rocksdb.transactionGetForUpdate).bind(rocksdb),
+  transactionPut: utils.promisify(rocksdb.transactionPut).bind(rocksdb),
+  transactionDel: utils.promisify(rocksdb.transactionDel).bind(rocksdb),
 };
 
 export default rocksdbP;

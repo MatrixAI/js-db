@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <cstdint>
 #include <node_api.h>
+#include <rocksdb/slice.h>
 #include <rocksdb/status.h>
 #include <rocksdb/options.h>
 #include "database.h"

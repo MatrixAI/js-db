@@ -16,7 +16,8 @@ TransactionCommitWorker::TransactionCommitWorker (
   napi_env env,
   Transaction* tran,
   napi_value callback
-) : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.commit"),
+) :
+  PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.commit"),
   tran_(tran)
   {}
 
@@ -35,11 +36,14 @@ void TransactionCommitWorker::DoFinally (napi_env env) {
  * Transaction rollback
  */
 
-TransactionRollbackWorker::TransactionRollbackWorker (napi_env env,
-                            Transaction* tran,
-                            napi_value callback)
-  : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.rollback"),
-  tran_(tran) {}
+TransactionRollbackWorker::TransactionRollbackWorker(
+  napi_env env,
+  Transaction* tran,
+  napi_value callback
+) :
+  PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.rollback"),
+  tran_(tran)
+  {}
 
 TransactionRollbackWorker::~TransactionRollbackWorker() {}
 
@@ -65,8 +69,10 @@ TransactionGetWorker::TransactionGetWorker(
   const bool fillCache
 ):
   PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.get"),
+  tran_(tran),
   key_(key),
-  asBuffer_(asBuffer) {
+  asBuffer_(asBuffer)
+  {
   options_.fill_cache = fillCache;
 }
 
@@ -98,7 +104,8 @@ TransactionGetForUpdateWorker::TransactionGetForUpdateWorker(
   const bool fillCache,
   const bool exclusive
 ):
-  PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.get"),
+  PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.get_for_update"),
+  tran_(tran),
   key_(key),
   asBuffer_(asBuffer),
   exclusive_(exclusive)
@@ -133,7 +140,10 @@ TransactionPutWorker::TransactionPutWorker (
   rocksdb::Slice value
 ):
   PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.put"),
-  key_(key), value_(value) {}
+  tran_(tran),
+  key_(key),
+  value_(value)
+  {}
 
 TransactionPutWorker::~TransactionPutWorker () {
   DisposeSliceBuffer(key_);
@@ -155,7 +165,9 @@ TransactionDelWorker::TransactionDelWorker(
   rocksdb::Slice key
 ):
   PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.del"),
-  key_(key) { }
+  tran_(tran),
+  key_(key)
+  {}
 
 TransactionDelWorker::~TransactionDelWorker () {
   DisposeSliceBuffer(key_);

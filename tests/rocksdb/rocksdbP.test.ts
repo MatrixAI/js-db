@@ -69,4 +69,18 @@ describe('rocksdbP', () => {
     );
     await rocksdbP.dbClose(db);
   });
+  test('transactionGet, transactionPut, transactionDel', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    const tran = rocksdbP.transactionInit(db, {});
+    await rocksdbP.transactionPut(tran, 'foo', 'bar');
+    await rocksdbP.transactionPut(tran, 'bar', 'foo');
+    expect(await rocksdbP.transactionGet(tran, 'foo', {})).toBe('bar');
+    await rocksdbP.transactionDel(tran, 'bar');
+    await rocksdbP.transactionCommit(tran);
+    expect(await rocksdbP.dbGet(db, 'foo', {})).toBe('bar');
+    await expect(rocksdbP.dbGet(db, 'bar', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+    await rocksdbP.dbClose(db);
+  });
 });
