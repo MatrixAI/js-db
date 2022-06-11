@@ -13,6 +13,7 @@
 #include <rocksdb/utilities/transaction.h>
 
 #include "database.h"
+#include "worker.h"
 
 /**
  * Transaction to be used from JS land.
@@ -59,15 +60,36 @@ struct Transaction final {
 
   rocksdb::Status Del(rocksdb::Slice key);
 
+  /**
+   * Set the snapshot for the transaction
+   * This only affects write consistency
+   * It does not affect whether reads are consistent
+   */
+  void SetSnapshot();
+
+  /**
+   * Get the snapshot that was set for the transaction
+   * If you don't set the snapshot prior, this will return `nullptr`
+   */
+  const rocksdb::Snapshot* GetSnapshot();
+
+  void IncrementPriorityWork(napi_env env);
+
+  void DecrementPriorityWork(napi_env env);
+
+  bool HasPriorityWork() const;
+
   Database* database_;
   const uint32_t id_;
   bool isCommitting_;
   bool hasCommitted_;
   bool isRollbacking_;
   bool hasRollbacked_;
+  BaseWorker* pendingCloseWorker_;
 
  private:
   rocksdb::Transaction* dbTransaction_;
   rocksdb::WriteOptions* options_;
   napi_ref ref_;
+  uint32_t priorityWork_;
 };

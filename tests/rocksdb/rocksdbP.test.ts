@@ -2,7 +2,6 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import rocksdbP from '@/rocksdb/rocksdbP';
-import rocksdb from '@/rocksdb/rocksdb';
 
 describe('rocksdbP', () => {
   let dataDir: string;
@@ -29,6 +28,49 @@ describe('rocksdbP', () => {
     await rocksdbP.dbOpen(db, dbPath, {});
     await expect(rocksdbP.dbClose(db)).resolves.toBeUndefined();
     await expect(rocksdbP.dbClose(db)).resolves.toBeUndefined();
+  });
+  test('dbClose auto-closes dangling snapshots, iterators and transactions', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    const snap = rocksdbP.snapshotInit(db);
+    const iterator = rocksdbP.iteratorInit(db, {});
+    const tran = rocksdbP.transactionInit(db, {});
+    // This should auto-close them
+    await rocksdbP.dbClose(db);
+    // We can also attempt to close, which is idempotent
+    await rocksdbP.snapshotRelease(snap);
+    await rocksdbP.iteratorClose(iterator);
+    await rocksdbP.transactionRollback(tran);
+  });
+  test('dbMultiGet', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    await rocksdbP.dbPut(db, 'foo', 'bar', {});
+    await rocksdbP.dbPut(db, 'bar', 'foo', {});
+    expect(await rocksdbP.dbMultiGet(db, ['foo', 'bar', 'abc'], {})).toEqual(['bar', 'foo', undefined]);
+    await rocksdbP.dbClose(db);
+  });
+  test('dbGet and dbMultiget with snapshots', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = rocksdbP.dbInit();
+    await rocksdbP.dbOpen(db, dbPath, {});
+    await rocksdbP.dbPut(db, 'K1', '100', {});
+    await rocksdbP.dbPut(db, 'K2', '100', {});
+    const snap = rocksdbP.snapshotInit(db);
+    await rocksdbP.dbPut(db, 'K1', '200', {});
+    await rocksdbP.dbPut(db, 'K2', '200', {});
+    expect(await rocksdbP.dbGet(db, 'K1', { snapshot: snap })).toBe('100');
+    expect(await rocksdbP.dbGet(db, 'K2', { snapshot: snap })).toBe('100');
+    expect(await rocksdbP.dbMultiGet(db, ['K1', 'K2'], {
+      snapshot: snap
+    })).toEqual(['100', '100']);
+    expect(await rocksdbP.dbGet(db, 'K1', {})).toBe('200');
+    expect(await rocksdbP.dbGet(db, 'K2', {})).toBe('200');
+    expect(await rocksdbP.dbMultiGet(db, ['K1', 'K2'], {})).toEqual(['200', '200']);
+    await rocksdbP.snapshotRelease(snap);
+    await rocksdbP.dbClose(db);
   });
   test('iteratorClose is idempotent', async () => {
     const dbPath = `${dataDir}/db`;
@@ -123,5 +165,85 @@ describe('rocksdbP', () => {
       return result.status === 'rejected' && result.reason.code === 'TRANSACTION_CONFLICT';
     })).toBe(true);
     await rocksdbP.dbClose(db);
+  });
+  describe('transaction without snapshot', () => {
+    test('no conflict when db write occurs before transaction write', async () => {
+      const dbPath = `${dataDir}/db`;
+      const db = rocksdbP.dbInit();
+      await rocksdbP.dbOpen(db, dbPath, {});
+      // No conflict since the write directly to DB occurred before the transaction write occurred
+      const tran = rocksdbP.transactionInit(db, {});
+      await rocksdbP.dbPut(db, 'K1', '100', {});
+      await rocksdbP.transactionPut(tran, 'K1', '200');
+      await rocksdbP.transactionCommit(tran);
+      expect(await rocksdbP.dbGet(db, 'K1', {})).toBe('200');
+      await rocksdbP.dbClose(db);
+    });
+    test('conflicts when db write occurs after transaction write', async () => {
+      const dbPath = `${dataDir}/db`;
+      const db = rocksdbP.dbInit();
+      await rocksdbP.dbOpen(db, dbPath, {});
+      // Conflict because write directly to DB occurred after the transaction write occurred
+      const tran = rocksdbP.transactionInit(db, {});
+      await rocksdbP.transactionPut(tran, 'K1', '200');
+      await rocksdbP.dbPut(db, 'K1', '100', {});
+      await expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
+      await rocksdbP.dbClose(db);
+    });
+    test('non-repeatable reads', async () => {
+      const dbPath = `${dataDir}/db`;
+      const db = rocksdbP.dbInit();
+      await rocksdbP.dbOpen(db, dbPath, {});
+      await rocksdbP.dbPut(db, 'K1', '100', {});
+      const tran = rocksdbP.transactionInit(db, {});
+      expect(await rocksdbP.transactionGet(tran, 'K1', {})).toBe('100');
+      await rocksdbP.dbPut(db, 'K1', '200', {});
+      expect(await rocksdbP.transactionGet(tran, 'K1', {})).toBe('200');
+      await rocksdbP.transactionCommit(tran);
+      await rocksdbP.dbClose(db);
+    });
+  });
+  describe('transaction with snapshot', () => {
+    test('conflicts when db write occurs after snapshot creation', async () => {
+      const dbPath = `${dataDir}/db`;
+      const db = rocksdbP.dbInit();
+      await rocksdbP.dbOpen(db, dbPath, {});
+      const tran = rocksdbP.transactionInit(db, {});
+      rocksdbP.transactionSnapshot(tran);
+      // Conflict because snapshot was set at the beginning of the transaction
+      await rocksdbP.dbPut(db, 'K1', '100', {});
+      await rocksdbP.transactionPut(tran, 'K1', '200');
+      await expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
+      await rocksdbP.dbClose(db);
+    });
+    test('repeatable reads', async () => {
+      const dbPath = `${dataDir}/db`;
+      const db = rocksdbP.dbInit();
+      await rocksdbP.dbOpen(db, dbPath, {});
+      await rocksdbP.dbPut(db, 'K1', '100', {});
+      const tran = rocksdbP.transactionInit(db, {});
+      const tranSnap = rocksdbP.transactionSnapshot(tran);
+      expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('100');
+      await rocksdbP.dbPut(db, 'K1', '200', {});
+      expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('100');
+      await rocksdbP.transactionRollback(tran);
+      await rocksdbP.dbClose(db);
+    });
+    test('repeatable reads use write overlay', async () => {
+      const dbPath = `${dataDir}/db`;
+      const db = rocksdbP.dbInit();
+      await rocksdbP.dbOpen(db, dbPath, {});
+      await rocksdbP.dbPut(db, 'K1', '100', {});
+      const tran = rocksdbP.transactionInit(db, {});
+      const tranSnap = rocksdbP.transactionSnapshot(tran);
+      expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('100');
+      await rocksdbP.transactionPut(tran, 'K1', '300');
+      await rocksdbP.dbPut(db, 'K1', '200', {});
+      // Here even though we're using the snapshot, because the transaction has 300 written
+      // it ends up using 300, but it ignores the 200 that's written directly to the DB
+      expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('300');
+      await rocksdbP.transactionRollback(tran);
+      await rocksdbP.dbClose(db);
+    });
   });
 });

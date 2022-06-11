@@ -8,6 +8,7 @@
 #include <rocksdb/status.h>
 
 #include "database.h"
+#include "transaction.h"
 
 /**
  * Base worker class. Handles the async work. Derived classes can override the
@@ -22,6 +23,9 @@
  */
 struct BaseWorker {
   BaseWorker(napi_env env, Database* database, napi_value callback,
+             const char* resourceName);
+
+  BaseWorker(napi_env env, Transaction* transaction, napi_value callback,
              const char* resourceName);
 
   virtual ~BaseWorker();
@@ -47,6 +51,7 @@ struct BaseWorker {
   void Queue(napi_env env);
 
   Database* database_;
+  Transaction* transaction_;
 
  private:
   napi_ref callbackRef_;
@@ -60,6 +65,9 @@ struct BaseWorker {
  */
 struct PriorityWorker : public BaseWorker {
   PriorityWorker(napi_env env, Database* database, napi_value callback,
+                 const char* resourceName);
+
+  PriorityWorker(napi_env env, Transaction* transaction, napi_value callback,
                  const char* resourceName);
 
   virtual ~PriorityWorker();

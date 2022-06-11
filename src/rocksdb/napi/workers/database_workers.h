@@ -15,6 +15,7 @@
 #include "../worker.h"
 #include "../iterator.h"
 #include "../database.h"
+#include "../snapshot.h"
 
 /**
  * Worker class for opening a database.
@@ -53,7 +54,8 @@ struct CloseWorker final : public BaseWorker {
  */
 struct GetWorker final : public PriorityWorker {
   GetWorker(napi_env env, Database* database, napi_value callback,
-            rocksdb::Slice key, const bool asBuffer, const bool fillCache);
+            rocksdb::Slice key, const bool asBuffer, const bool fillCache,
+            const Snapshot* snapshot = nullptr);
 
   ~GetWorker();
 
@@ -71,12 +73,13 @@ struct GetWorker final : public PriorityWorker {
 /**
  * Worker class for getting many values.
  */
-struct GetManyWorker final : public PriorityWorker {
-  GetManyWorker(napi_env env, Database* database,
-                const std::vector<std::string>* keys, napi_value callback,
-                const bool valueAsBuffer, const bool fillCache);
+struct MultiGetWorker final : public PriorityWorker {
+  MultiGetWorker(napi_env env, Database* database,
+                 const std::vector<rocksdb::Slice>* keys, napi_value callback,
+                 const bool valueAsBuffer, const bool fillCache,
+                 const Snapshot* snapshot = nullptr);
 
-  ~GetManyWorker();
+  ~MultiGetWorker();
 
   void DoExecute() override;
 
@@ -84,9 +87,9 @@ struct GetManyWorker final : public PriorityWorker {
 
  private:
   rocksdb::ReadOptions options_;
-  const std::vector<std::string>* keys_;
+  const std::vector<rocksdb::Slice>* keys_;
+  std::vector<std::string*> values_;
   const bool valueAsBuffer_;
-  std::vector<std::string*> cache_;
 };
 
 /**

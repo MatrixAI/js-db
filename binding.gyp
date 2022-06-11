@@ -13,12 +13,14 @@
       './src/rocksdb/napi/batch.cpp',
       './src/rocksdb/napi/iterator.cpp',
       './src/rocksdb/napi/transaction.cpp',
+      './src/rocksdb/napi/snapshot.cpp',
       './src/rocksdb/napi/worker.cpp',
       './src/rocksdb/napi/utils.cpp',
       './src/rocksdb/napi/workers/batch_workers.cpp',
       './src/rocksdb/napi/workers/database_workers.cpp',
       './src/rocksdb/napi/workers/iterator_workers.cpp',
-      './src/rocksdb/napi/workers/transaction_workers.cpp'
+      './src/rocksdb/napi/workers/transaction_workers.cpp',
+      './src/rocksdb/napi/workers/snapshot_workers.cpp'
     ],
     'conditions': [
       ['OS=="linux"', {

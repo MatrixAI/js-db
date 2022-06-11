@@ -12,6 +12,12 @@
 #include <rocksdb/env.h>
 #include <rocksdb/slice.h>
 
+#include "database.h"
+#include "iterator.h"
+#include "transaction.h"
+#include "batch.h"
+#include "snapshot.h"
+
 /**
  * Macros
  */
@@ -32,6 +38,10 @@
 #define NAPI_BATCH_CONTEXT() \
   Batch* batch = NULL;       \
   NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], (void**)&batch));
+
+#define NAPI_SNAPSHOT_CONTEXT() \
+  Snapshot* snapshot = NULL;    \
+  NAPI_STATUS_THROWS(napi_get_value_external(env, argv[0], (void**)&snapshot));
 
 #define NAPI_RETURN_UNDEFINED() return 0;
 
@@ -59,6 +69,32 @@
     napi_get_buffer_info(env, from, (void**)&buf, &to##Sz_);               \
     to##Ch_ = new char[to##Sz_];                                           \
     memcpy(to##Ch_, buf, to##Sz_);                                         \
+  }
+
+#define ASSERT_TRANSACTION_READY_CB(env, transaction, callback)              \
+  if (transaction->isCommitting_ || transaction->hasCommitted_) {            \
+    napi_value callback_error = CreateCodeError(                             \
+        env, "TRANSACTION_COMMITTED", "Transaction is already committed");   \
+    NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));     \
+    NAPI_RETURN_UNDEFINED();                                                 \
+  }                                                                          \
+  if (transaction->isRollbacking_ || transaction->hasRollbacked_) {          \
+    napi_value callback_error = CreateCodeError(                             \
+        env, "TRANSACTION_ROLLBACKED", "Transaction is already rollbacked"); \
+    NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));     \
+    NAPI_RETURN_UNDEFINED();                                                 \
+  }
+
+#define ASSERT_TRANSACTION_READY(env, transaction)                  \
+  if (transaction->isCommitting_ || transaction->hasCommitted_) {   \
+    napi_throw_error(env, "TRANSACTION_COMMITTED",                  \
+                     "Transaction is already committed");           \
+    NAPI_RETURN_UNDEFINED();                                        \
+  }                                                                 \
+  if (transaction->isRollbacking_ || transaction->hasRollbacked_) { \
+    napi_throw_error(env, "TRANSACTION_ROLLBACKED",                 \
+                     "Transaction is already rollbacked");          \
+    NAPI_RETURN_UNDEFINED();                                        \
   }
 
 /**
@@ -101,6 +137,21 @@ bool IsBuffer(napi_env env, napi_value value);
  * Returns true if 'value' is an object.
  */
 bool IsObject(napi_env env, napi_value value);
+
+/**
+ * Returns true if 'value' is an undefined.
+ */
+bool IsUndefined(napi_env env, napi_value value);
+
+/**
+ * Returns true if 'value' is an null.
+ */
+bool IsNull(napi_env env, napi_value value);
+
+/**
+ * Returns true if 'value' is an external.
+ */
+bool IsExternal(napi_env env, napi_value value);
 
 /**
  * Create an error object.
@@ -151,6 +202,20 @@ int Int32Property(napi_env env, napi_value obj, const char* key, int DEFAULT);
  */
 std::string StringProperty(napi_env env, napi_value obj, const char* key);
 
+/**
+ * Returns a snapshot property 'key' from 'obj'.
+ * Returns `nullptr` if the property doesn't exist.
+ */
+const Snapshot* SnapshotProperty(napi_env env, napi_value obj, const char* key);
+
+/**
+ * Returns a transaction snapshot property 'key' from 'obj'.
+ * Returns `nullptr` if the property doesn't exist.
+ */
+const TransactionSnapshot* TransactionSnapshotProperty(napi_env env,
+                                                       napi_value obj,
+                                                       const char* key);
+
 void DisposeSliceBuffer(rocksdb::Slice slice);
 
 /**
@@ -172,7 +237,7 @@ std::string* RangeOption(napi_env env, napi_value opts, const char* name);
 /**
  * Converts an array containing Buffer or string keys to a vector.
  */
-std::vector<std::string>* KeyArray(napi_env env, napi_value arr);
+std::vector<rocksdb::Slice>* KeyArray(napi_env env, napi_value arr);
 
 /**
  * Calls a function.

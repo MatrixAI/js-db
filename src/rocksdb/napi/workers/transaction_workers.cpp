@@ -8,6 +8,7 @@
 #include "../worker.h"
 #include "../transaction.h"
 #include "../iterator.h"
+#include "../snapshot.h"
 #include "../utils.h"
 
 /**
@@ -17,17 +18,15 @@
 TransactionCommitWorker::TransactionCommitWorker(napi_env env,
                                                  Transaction* tran,
                                                  napi_value callback)
-    : PriorityWorker(env, tran->database_, callback,
-                     "rocksdb.transaction.commit"),
-      tran_(tran) {}
+    : BaseWorker(env, tran, callback, "rocksdb.transaction.commit") {}
 
-TransactionCommitWorker::~TransactionCommitWorker() {}
+TransactionCommitWorker::~TransactionCommitWorker() = default;
 
-void TransactionCommitWorker::DoExecute() { SetStatus(tran_->Commit()); }
+void TransactionCommitWorker::DoExecute() { SetStatus(transaction_->Commit()); }
 
 void TransactionCommitWorker::DoFinally(napi_env env) {
-  tran_->Detach(env);
-  PriorityWorker::DoFinally(env);
+  transaction_->Detach(env);
+  BaseWorker::DoFinally(env);
 }
 
 /**
@@ -37,17 +36,17 @@ void TransactionCommitWorker::DoFinally(napi_env env) {
 TransactionRollbackWorker::TransactionRollbackWorker(napi_env env,
                                                      Transaction* tran,
                                                      napi_value callback)
-    : PriorityWorker(env, tran->database_, callback,
-                     "rocksdb.transaction.rollback"),
-      tran_(tran) {}
+    : BaseWorker(env, tran, callback, "rocksdb.transaction.rollback") {}
 
-TransactionRollbackWorker::~TransactionRollbackWorker() {}
+TransactionRollbackWorker::~TransactionRollbackWorker() = default;
 
-void TransactionRollbackWorker::DoExecute() { SetStatus(tran_->Rollback()); }
+void TransactionRollbackWorker::DoExecute() {
+  SetStatus(transaction_->Rollback());
+}
 
 void TransactionRollbackWorker::DoFinally(napi_env env) {
-  tran_->Detach(env);
-  PriorityWorker::DoFinally(env);
+  transaction_->Detach(env);
+  BaseWorker::DoFinally(env);
 }
 
 /**
@@ -58,18 +57,19 @@ TransactionGetWorker::TransactionGetWorker(napi_env env, Transaction* tran,
                                            napi_value callback,
                                            rocksdb::Slice key,
                                            const bool asBuffer,
-                                           const bool fillCache)
-    : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.get"),
-      tran_(tran),
+                                           const bool fillCache,
+                                           const TransactionSnapshot* snapshot)
+    : PriorityWorker(env, tran, callback, "rocksdb.transaction.get"),
       key_(key),
       asBuffer_(asBuffer) {
   options_.fill_cache = fillCache;
+  if (snapshot != nullptr) options_.snapshot = snapshot->snapshot();
 }
 
 TransactionGetWorker::~TransactionGetWorker() { DisposeSliceBuffer(key_); }
 
 void TransactionGetWorker::DoExecute() {
-  SetStatus(tran_->Get(options_, key_, value_));
+  SetStatus(transaction_->Get(options_, key_, value_));
 }
 
 void TransactionGetWorker::HandleOKCallback(napi_env env, napi_value callback) {
@@ -85,14 +85,14 @@ void TransactionGetWorker::HandleOKCallback(napi_env env, napi_value callback) {
 
 TransactionGetForUpdateWorker::TransactionGetForUpdateWorker(
     napi_env env, Transaction* tran, napi_value callback, rocksdb::Slice key,
-    const bool asBuffer, const bool fillCache, const bool exclusive)
-    : PriorityWorker(env, tran->database_, callback,
-                     "rocksdb.transaction.get_for_update"),
-      tran_(tran),
+    const bool asBuffer, const bool fillCache,
+    const TransactionSnapshot* snapshot, const bool exclusive)
+    : PriorityWorker(env, tran, callback, "rocksdb.transaction.get_for_update"),
       key_(key),
       asBuffer_(asBuffer),
       exclusive_(exclusive) {
   options_.fill_cache = fillCache;
+  if (snapshot != nullptr) options_.snapshot = snapshot->snapshot();
 }
 
 TransactionGetForUpdateWorker::~TransactionGetForUpdateWorker() {
@@ -100,7 +100,7 @@ TransactionGetForUpdateWorker::~TransactionGetForUpdateWorker() {
 }
 
 void TransactionGetForUpdateWorker::DoExecute() {
-  SetStatus(tran_->GetForUpdate(options_, key_, value_, exclusive_));
+  SetStatus(transaction_->GetForUpdate(options_, key_, value_, exclusive_));
 }
 
 void TransactionGetForUpdateWorker::HandleOKCallback(napi_env env,
@@ -119,8 +119,7 @@ TransactionPutWorker::TransactionPutWorker(napi_env env, Transaction* tran,
                                            napi_value callback,
                                            rocksdb::Slice key,
                                            rocksdb::Slice value)
-    : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.put"),
-      tran_(tran),
+    : PriorityWorker(env, tran, callback, "rocksdb.transaction.put"),
       key_(key),
       value_(value) {}
 
@@ -129,7 +128,9 @@ TransactionPutWorker::~TransactionPutWorker() {
   DisposeSliceBuffer(value_);
 }
 
-void TransactionPutWorker::DoExecute() { SetStatus(tran_->Put(key_, value_)); }
+void TransactionPutWorker::DoExecute() {
+  SetStatus(transaction_->Put(key_, value_));
+}
 
 /**
  * Transaction del
@@ -138,10 +139,9 @@ void TransactionPutWorker::DoExecute() { SetStatus(tran_->Put(key_, value_)); }
 TransactionDelWorker::TransactionDelWorker(napi_env env, Transaction* tran,
                                            napi_value callback,
                                            rocksdb::Slice key)
-    : PriorityWorker(env, tran->database_, callback, "rocksdb.transaction.del"),
-      tran_(tran),
+    : PriorityWorker(env, tran, callback, "rocksdb.transaction.del"),
       key_(key) {}
 
 TransactionDelWorker::~TransactionDelWorker() { DisposeSliceBuffer(key_); }
 
-void TransactionDelWorker::DoExecute() { SetStatus(tran_->Del(key_)); }
+void TransactionDelWorker::DoExecute() { SetStatus(transaction_->Del(key_)); }

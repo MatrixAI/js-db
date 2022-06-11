@@ -19,7 +19,9 @@ Transaction::Transaction(Database* database, const uint32_t id, const bool sync)
       hasCommitted_(false),
       isRollbacking_(false),
       hasRollbacked_(false),
-      ref_(NULL) {
+      pendingCloseWorker_(nullptr),
+      ref_(nullptr),
+      priorityWork_(0) {
   options_ = new rocksdb::WriteOptions();
   options_->sync = sync;
   dbTransaction_ = database->NewTransaction(options_);
@@ -83,4 +85,29 @@ rocksdb::Status Transaction::Put(rocksdb::Slice key, rocksdb::Slice value) {
 
 rocksdb::Status Transaction::Del(rocksdb::Slice key) {
   return dbTransaction_->Delete(key);
+}
+
+void Transaction::SetSnapshot() { return dbTransaction_->SetSnapshot(); }
+
+const rocksdb::Snapshot* Transaction::GetSnapshot() {
+  return dbTransaction_->GetSnapshot();
+}
+
+void Transaction::IncrementPriorityWork(napi_env env) {
+  napi_reference_ref(env, ref_, &priorityWork_);
+}
+
+void Transaction::DecrementPriorityWork(napi_env env) {
+  napi_reference_unref(env, ref_, &priorityWork_);
+
+  if (priorityWork_ == 0 && pendingCloseWorker_ != NULL) {
+    pendingCloseWorker_->Queue(env);
+    pendingCloseWorker_ = NULL;
+  }
+}
+
+bool Transaction::HasPriorityWork() const {
+  // The initial ref count for transaction starts at 1
+  // to prevent `tran_ref` from being GCed by JS
+  return priorityWork_ > 1;
 }

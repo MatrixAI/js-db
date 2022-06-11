@@ -37,6 +37,18 @@ type RocksDBTransaction = Opaque<'RocksDBTransaction', object>;
 type RocksDBBatch = Opaque<'RocksDBBatch', object>;
 
 /**
+ * RocksDBSnapshot object
+ * A `napi_external` type
+ */
+type RocksDBSnapshot = Opaque<'RocksDBSnapshot', object>;
+
+/**
+ * RocksDBTransactionSnapshot object
+ * A `napi_external` type
+ */
+type RocksDBTransactionSnapshot = Opaque<'RocksDBTransactionSnapshot', object>;
+
+/**
  * RocksDB database options
  * Note that `undefined` is not a valid value for these options
  * Make sure that the property either exists and it is a correct type
@@ -61,9 +73,10 @@ type RocksDBDatabaseOptions = {
  * Make sure that the property either exists and it is a correct type
  * or that it does not exist
  */
-type RocksDBGetOptions = {
+type RocksDBGetOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot> = {
   valueEncoding?: 'utf8' | 'buffer'; // Default 'utf8';
   fillCache?: boolean; // Default true
+  snapshot?: S;
 };
 
 /**
@@ -72,7 +85,7 @@ type RocksDBGetOptions = {
  * Make sure that the property either exists and it is a correct type
  * or that it does not exist
  */
-type RocksDBGetForUpdateOptions = RocksDBGetOptions & {
+type RocksDBGetForUpdateOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot> = RocksDBGetOptions<S> & {
   exclusive?: boolean; // Default true
 };
 
@@ -164,6 +177,8 @@ export type {
   RocksDBIterator,
   RocksDBTransaction,
   RocksDBBatch,
+  RocksDBSnapshot,
+  RocksDBTransactionSnapshot,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
   RocksDBGetForUpdateOptions,

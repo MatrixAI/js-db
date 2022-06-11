@@ -76,11 +76,12 @@ void CloseWorker::DoExecute() { database_->CloseDatabase(); }
 
 GetWorker::GetWorker(napi_env env, Database* database, napi_value callback,
                      rocksdb::Slice key, const bool asBuffer,
-                     const bool fillCache)
+                     const bool fillCache, const Snapshot* snapshot)
     : PriorityWorker(env, database, callback, "rocksdb.db.get"),
       key_(key),
       asBuffer_(asBuffer) {
   options_.fill_cache = fillCache;
+  if (snapshot) options_.snapshot = snapshot->snapshot();
 }
 
 GetWorker::~GetWorker() { DisposeSliceBuffer(key_); }
@@ -96,55 +97,55 @@ void GetWorker::HandleOKCallback(napi_env env, napi_value callback) {
   CallFunction(env, callback, 2, argv);
 }
 
-GetManyWorker::GetManyWorker(napi_env env, Database* database,
-                             const std::vector<std::string>* keys,
-                             napi_value callback, const bool valueAsBuffer,
-                             const bool fillCache)
-    : PriorityWorker(env, database, callback, "rocksdb.get.many"),
+MultiGetWorker::MultiGetWorker(napi_env env, Database* database,
+                               const std::vector<rocksdb::Slice>* keys,
+                               napi_value callback, const bool valueAsBuffer,
+                               const bool fillCache, const Snapshot* snapshot)
+    : PriorityWorker(env, database, callback, "rocksdb.db.multiget"),
       keys_(keys),
       valueAsBuffer_(valueAsBuffer) {
   options_.fill_cache = fillCache;
-  options_.snapshot = database->NewSnapshot();
+  if (snapshot) options_.snapshot = snapshot->snapshot();
 }
 
-GetManyWorker::~GetManyWorker() { delete keys_; }
+MultiGetWorker::~MultiGetWorker() { delete keys_; }
 
-void GetManyWorker::DoExecute() {
-  cache_.reserve(keys_->size());
-
-  for (const std::string& key : *keys_) {
-    std::string* value = new std::string();
-    rocksdb::Status status = database_->Get(options_, key, *value);
-
-    if (status.ok()) {
-      cache_.push_back(value);
-    } else if (status.IsNotFound()) {
-      delete value;
-      cache_.push_back(NULL);
+void MultiGetWorker::DoExecute() {
+  // NAPI requires a vector of string pointers
+  // the nullptr can be used to represent `undefined`
+  values_.reserve(keys_->size());
+  // RocksDB requires just a vector of strings
+  // these will be automatically deallocated
+  std::vector<std::string> values(keys_->size());
+  std::vector<rocksdb::Status> statuses =
+      database_->MultiGet(options_, *keys_, values);
+  for (size_t i = 0; i != statuses.size(); i++) {
+    if (statuses[i].ok()) {
+      std::string* value = new std::string(values[i]);
+      values_.push_back(value);
+    } else if (statuses[i].IsNotFound()) {
+      values_.push_back(nullptr);
     } else {
-      delete value;
-      for (const std::string* value : cache_) {
+      for (const std::string* value : values_) {
         if (value != NULL) delete value;
       }
-      SetStatus(status);
+      SetStatus(statuses[i]);
       break;
     }
   }
-
-  database_->ReleaseSnapshot(options_.snapshot);
 }
 
-void GetManyWorker::HandleOKCallback(napi_env env, napi_value callback) {
-  size_t size = cache_.size();
+void MultiGetWorker::HandleOKCallback(napi_env env, napi_value callback) {
+  size_t size = values_.size();
   napi_value array;
   napi_create_array_with_length(env, size, &array);
 
   for (size_t idx = 0; idx < size; idx++) {
-    std::string* value = cache_[idx];
+    std::string* value = values_[idx];
     napi_value element;
     Entry::Convert(env, value, valueAsBuffer_, &element);
     napi_set_element(env, array, static_cast<uint32_t>(idx), element);
-    if (value != NULL) delete value;
+    if (value != nullptr) delete value;
   }
 
   napi_value argv[2];
@@ -270,7 +271,7 @@ void CompactRangeWorker::DoExecute() {
 
 DestroyWorker::DestroyWorker(napi_env env, const std::string& location,
                              napi_value callback)
-    : BaseWorker(env, NULL, callback, "rocksdb.destroyDb"),
+    : BaseWorker(env, (Database*)nullptr, callback, "rocksdb.destroyDb"),
       location_(location) {}
 
 DestroyWorker::~DestroyWorker() {}
@@ -287,7 +288,7 @@ void DestroyWorker::DoExecute() {
 
 RepairWorker::RepairWorker(napi_env env, const std::string& location,
                            napi_value callback)
-    : BaseWorker(env, NULL, callback, "rocksdb.repairDb"),
+    : BaseWorker(env, (Database*)nullptr, callback, "rocksdb.repairDb"),
       location_(location) {}
 
 RepairWorker::~RepairWorker() {}

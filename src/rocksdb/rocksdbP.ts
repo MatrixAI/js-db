@@ -2,6 +2,8 @@ import type {
   RocksDBDatabase,
   RocksDBIterator,
   RocksDBTransaction,
+  RocksDBSnapshot,
+  RocksDBTransactionSnapshot,
   RocksDBBatch,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
@@ -36,12 +38,12 @@ interface RocksDBP {
     key: string | Buffer,
     options: RocksDBGetOptions & { valueEncoding: 'buffer' },
   ): Promise<Buffer>;
-  dbGetMany(
+  dbMultiGet(
     database: RocksDBDatabase,
     keys: Array<string | Buffer>,
     options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
   ): Promise<Array<string>>;
-  dbGetMany(
+  dbMultiGet(
     database: RocksDBDatabase,
     keys: Array<string | Buffer>,
     options: RocksDBGetOptions & { valueEncoding: 'buffer' },
@@ -72,6 +74,8 @@ interface RocksDBP {
     end: string | Buffer,
   ): Promise<void>;
   dbGetProperty(database: RocksDBDatabase, property: string): string;
+  snapshotInit(database: RocksDBDatabase): RocksDBSnapshot;
+  snapshotRelease(snap: RocksDBSnapshot): Promise<void>;
   destroyDb(location: string): Promise<void>;
   repairDb(location: string): Promise<void>;
   iteratorInit(
@@ -125,22 +129,22 @@ interface RocksDBP {
   transactionGet(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
   ): Promise<string>;
   transactionGet(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
   ): Promise<Buffer>;
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions & { valueEncoding?: 'utf8' },
+    options: RocksDBGetForUpdateOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
   ): Promise<string>;
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions & { valueEncoding: 'buffer' },
+    options: RocksDBGetForUpdateOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
   ): Promise<Buffer>;
   transactionPut(
     tran: RocksDBTransaction,
@@ -151,6 +155,7 @@ interface RocksDBP {
     tran: RocksDBTransaction,
     key: string | Buffer,
   ): Promise<void>;
+  transactionSnapshot(tran: RocksDBTransaction): RocksDBTransactionSnapshot;
 }
 
 /**
@@ -161,7 +166,7 @@ const rocksdbP: RocksDBP = {
   dbOpen: utils.promisify(rocksdb.dbOpen).bind(rocksdb),
   dbClose: utils.promisify(rocksdb.dbClose).bind(rocksdb),
   dbGet: utils.promisify(rocksdb.dbGet).bind(rocksdb),
-  dbGetMany: utils.promisify(rocksdb.dbGetMany).bind(rocksdb),
+  dbMultiGet: utils.promisify(rocksdb.dbMultiGet).bind(rocksdb),
   dbPut: utils.promisify(rocksdb.dbPut).bind(rocksdb),
   dbDel: utils.promisify(rocksdb.dbDel).bind(rocksdb),
   dbClear: utils.promisify(rocksdb.dbClear).bind(rocksdb),
@@ -170,6 +175,8 @@ const rocksdbP: RocksDBP = {
     .bind(rocksdb),
   dbCompactRange: utils.promisify(rocksdb.dbCompactRange).bind(rocksdb),
   dbGetProperty: rocksdb.dbGetProperty.bind(rocksdb),
+  snapshotInit: rocksdb.snapshotInit.bind(rocksdb),
+  snapshotRelease: utils.promisify(rocksdb.snapshotRelease).bind(rocksdb),
   destroyDb: utils.promisify(rocksdb.destroyDb).bind(rocksdb),
   repairDb: utils.promisify(rocksdb.repairDb).bind(rocksdb),
   iteratorInit: rocksdb.iteratorInit.bind(rocksdb),
@@ -189,6 +196,7 @@ const rocksdbP: RocksDBP = {
   transactionGetForUpdate: utils.promisify(rocksdb.transactionGetForUpdate).bind(rocksdb),
   transactionPut: utils.promisify(rocksdb.transactionPut).bind(rocksdb),
   transactionDel: utils.promisify(rocksdb.transactionDel).bind(rocksdb),
+  transactionSnapshot: rocksdb.transactionSnapshot.bind(rocksdb),
 };
 
 export default rocksdbP;

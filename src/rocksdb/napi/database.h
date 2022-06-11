@@ -4,7 +4,9 @@
 #define NAPI_VERSION 3
 #endif
 
+#include <string>
 #include <map>
+#include <vector>
 
 #include <node/node_api.h>
 #include <rocksdb/db.h>
@@ -18,6 +20,7 @@
  */
 struct Iterator;
 struct Transaction;
+struct Snapshot;
 struct BaseWorker;
 
 /**
@@ -37,6 +40,10 @@ struct Database {
 
   rocksdb::Status Get(const rocksdb::ReadOptions& options, rocksdb::Slice key,
                       std::string& value);
+
+  std::vector<rocksdb::Status> MultiGet(const rocksdb::ReadOptions& options,
+                                        const std::vector<rocksdb::Slice>& keys,
+                                        std::vector<std::string>& values);
 
   rocksdb::Status Del(const rocksdb::WriteOptions& options, rocksdb::Slice key);
 
@@ -65,6 +72,10 @@ struct Database {
 
   void DetachTransaction(napi_env env, uint32_t id);
 
+  void AttachSnapshot(napi_env env, uint32_t id, Snapshot* snapshot);
+
+  void DetachSnapshot(napi_env, uint32_t id);
+
   void IncrementPriorityWork(napi_env env);
 
   void DecrementPriorityWork(napi_env env);
@@ -74,9 +85,11 @@ struct Database {
   rocksdb::OptimisticTransactionDB* db_;
   uint32_t currentIteratorId_;
   uint32_t currentTransactionId_;
+  uint32_t currentSnapshotId_;
   BaseWorker* pendingCloseWorker_;
   std::map<uint32_t, Iterator*> iterators_;
   std::map<uint32_t, Transaction*> transactions_;
+  std::map<uint32_t, Snapshot*> snapshots_;
   napi_ref ref_;
 
  private:

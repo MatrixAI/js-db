@@ -26,6 +26,24 @@ bool IsObject(napi_env env, napi_value value) {
   return type == napi_object;
 }
 
+bool IsUndefined(napi_env env, napi_value value) {
+  napi_valuetype type;
+  napi_typeof(env, value, &type);
+  return type == napi_undefined;
+}
+
+bool IsNull(napi_env env, napi_value value) {
+  napi_valuetype type;
+  napi_typeof(env, value, &type);
+  return type == napi_null;
+}
+
+bool IsExternal(napi_env env, napi_value value) {
+  napi_valuetype type;
+  napi_typeof(env, value, &type);
+  return type == napi_external;
+}
+
 napi_value CreateError(napi_env env, const char* str) {
   napi_value msg;
   napi_create_string_utf8(env, str, strlen(str), &msg);
@@ -124,6 +142,41 @@ std::string StringProperty(napi_env env, napi_value obj, const char* key) {
   return "";
 }
 
+const Snapshot* SnapshotProperty(napi_env env, napi_value obj,
+                                 const char* key) {
+  if (!HasProperty(env, obj, key)) {
+    return nullptr;
+  }
+  napi_value value = GetProperty(env, obj, key);
+  if (!IsExternal(env, value)) {
+    return nullptr;
+  }
+  Snapshot* snapshot = NULL;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, value, (void**)&snapshot));
+  if (!dynamic_cast<Snapshot*>(snapshot)) {
+    return nullptr;
+  }
+  return snapshot;
+}
+
+const TransactionSnapshot* TransactionSnapshotProperty(napi_env env,
+                                                       napi_value obj,
+                                                       const char* key) {
+  if (!HasProperty(env, obj, key)) {
+    return nullptr;
+  }
+  napi_value value = GetProperty(env, obj, key);
+  if (!IsExternal(env, value)) {
+    return nullptr;
+  }
+  TransactionSnapshot* snapshot = NULL;
+  NAPI_STATUS_THROWS(napi_get_value_external(env, value, (void**)&snapshot));
+  if (!dynamic_cast<TransactionSnapshot*>(snapshot)) {
+    return nullptr;
+  }
+  return snapshot;
+}
+
 void DisposeSliceBuffer(rocksdb::Slice slice) {
   if (!slice.empty()) delete[] slice.data();
 }
@@ -158,24 +211,19 @@ std::string* RangeOption(napi_env env, napi_value opts, const char* name) {
   return NULL;
 }
 
-std::vector<std::string>* KeyArray(napi_env env, napi_value arr) {
+std::vector<rocksdb::Slice>* KeyArray(napi_env env, napi_value arr) {
   uint32_t length;
-  std::vector<std::string>* result = new std::vector<std::string>();
-
+  std::vector<rocksdb::Slice>* result = new std::vector<rocksdb::Slice>();
   if (napi_get_array_length(env, arr, &length) == napi_ok) {
     result->reserve(length);
-
     for (uint32_t i = 0; i < length; i++) {
       napi_value element;
-
       if (napi_get_element(env, arr, i, &element) == napi_ok) {
-        LD_STRING_OR_BUFFER_TO_COPY(env, element, to);
-        result->emplace_back(toCh_, toSz_);
-        delete[] toCh_;
+        rocksdb::Slice slice = ToSlice(env, element);
+        result->emplace_back(slice);
       }
     }
   }
-
   return result;
 }
 

@@ -3,6 +3,8 @@ import type {
   RocksDBDatabase,
   RocksDBIterator,
   RocksDBTransaction,
+  RocksDBSnapshot,
+  RocksDBTransactionSnapshot,
   RocksDBBatch,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
@@ -40,13 +42,13 @@ interface RocksDB {
     options: RocksDBGetOptions & { valueEncoding: 'buffer' },
     callback: Callback<[Buffer], void>,
   ): void;
-  dbGetMany(
+  dbMultiGet(
     database: RocksDBDatabase,
     keys: Array<string | Buffer>,
     options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
     callback: Callback<[Array<string>], void>,
   ): void;
-  dbGetMany(
+  dbMultiGet(
     database: RocksDBDatabase,
     keys: Array<string | Buffer>,
     options: RocksDBGetOptions & { valueEncoding: 'buffer' },
@@ -83,6 +85,11 @@ interface RocksDB {
     callback: Callback<[], void>,
   ): void;
   dbGetProperty(database: RocksDBDatabase, property: string): string;
+  snapshotInit(database: RocksDBDatabase): RocksDBSnapshot;
+  snapshotRelease(
+    snap: RocksDBSnapshot,
+    callback: Callback<[], void>,
+  ): void;
   destroyDb(location: string, callback: Callback<[], void>): void;
   repairDb(location: string, callback: Callback<[], void>): void;
   iteratorInit(
@@ -148,25 +155,25 @@ interface RocksDB {
   transactionGet(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetOptions & { valueEncoding?: 'utf8' },
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
     callback: Callback<[string], void>,
   ): void;
   transactionGet(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetOptions & { valueEncoding: 'buffer' },
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
     callback: Callback<[Buffer], void>,
   ): void;
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions & { valueEncoding?: 'utf8' },
+    options: RocksDBGetForUpdateOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
     callback: Callback<[string], void>,
   ): void;
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions & { valueEncoding: 'buffer' },
+    options: RocksDBGetForUpdateOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
     callback: Callback<[Buffer], void>,
   ): void;
   transactionPut(
@@ -180,6 +187,9 @@ interface RocksDB {
     key: string | Buffer,
     callback: Callback<[], void>,
   ): void;
+  transactionSnapshot(
+    tran: RocksDBTransaction,
+  ): RocksDBTransactionSnapshot;
 }
 
 const rocksdb: RocksDB = nodeGypBuild(path.join(__dirname, '../../'));

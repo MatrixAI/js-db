@@ -7,14 +7,16 @@
 #include <node/node_api.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
+#include <rocksdb/snapshot.h>
 
 #include "../worker.h"
 #include "../transaction.h"
+#include "../snapshot.h"
 
 /**
  * Transaction commit worker
  */
-struct TransactionCommitWorker final : public PriorityWorker {
+struct TransactionCommitWorker final : public BaseWorker {
   TransactionCommitWorker(napi_env env, Transaction* tran, napi_value callback);
 
   ~TransactionCommitWorker();
@@ -22,15 +24,12 @@ struct TransactionCommitWorker final : public PriorityWorker {
   void DoExecute() override;
 
   void DoFinally(napi_env env) override;
-
- private:
-  Transaction* tran_;
 };
 
 /**
  * Rollback commit worker
  */
-struct TransactionRollbackWorker final : public PriorityWorker {
+struct TransactionRollbackWorker final : public BaseWorker {
   TransactionRollbackWorker(napi_env env, Transaction* tran,
                             napi_value callback);
 
@@ -39,9 +38,6 @@ struct TransactionRollbackWorker final : public PriorityWorker {
   void DoExecute() override;
 
   void DoFinally(napi_env env) override;
-
- private:
-  Transaction* tran_;
 };
 
 /**
@@ -50,7 +46,8 @@ struct TransactionRollbackWorker final : public PriorityWorker {
 struct TransactionGetWorker final : public PriorityWorker {
   TransactionGetWorker(napi_env env, Transaction* tran, napi_value callback,
                        rocksdb::Slice key, const bool asBuffer,
-                       const bool fillCache);
+                       const bool fillCache,
+                       const TransactionSnapshot* snapshot = nullptr);
 
   ~TransactionGetWorker();
 
@@ -59,7 +56,6 @@ struct TransactionGetWorker final : public PriorityWorker {
   void HandleOKCallback(napi_env env, napi_value callback) override;
 
  private:
-  Transaction* tran_;
   rocksdb::ReadOptions options_;
   rocksdb::Slice key_;
   std::string value_;
@@ -73,6 +69,7 @@ struct TransactionGetForUpdateWorker final : public PriorityWorker {
   TransactionGetForUpdateWorker(napi_env env, Transaction* tran,
                                 napi_value callback, rocksdb::Slice key,
                                 const bool asBuffer, const bool fillCache,
+                                const TransactionSnapshot* snapshot = nullptr,
                                 const bool exclusive = true);
 
   ~TransactionGetForUpdateWorker();
@@ -82,7 +79,6 @@ struct TransactionGetForUpdateWorker final : public PriorityWorker {
   void HandleOKCallback(napi_env env, napi_value callback) override;
 
  private:
-  Transaction* tran_;
   rocksdb::ReadOptions options_;
   rocksdb::Slice key_;
   std::string value_;
@@ -102,7 +98,6 @@ struct TransactionPutWorker final : public PriorityWorker {
   void DoExecute() override;
 
  private:
-  Transaction* tran_;
   rocksdb::Slice key_;
   rocksdb::Slice value_;
 };
@@ -119,6 +114,5 @@ struct TransactionDelWorker final : public PriorityWorker {
   void DoExecute() override;
 
  private:
-  Transaction* tran_;
   rocksdb::Slice key_;
 };

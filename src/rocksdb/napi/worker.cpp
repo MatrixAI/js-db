@@ -11,7 +11,22 @@
 
 BaseWorker::BaseWorker(napi_env env, Database* database, napi_value callback,
                        const char* resourceName)
-    : database_(database), errMsg_(nullptr) {
+    : database_(database), transaction_(nullptr), errMsg_(nullptr) {
+  NAPI_STATUS_THROWS_VOID(
+      napi_create_reference(env, callback, 1, &callbackRef_));
+  napi_value asyncResourceName;
+  NAPI_STATUS_THROWS_VOID(napi_create_string_utf8(
+      env, resourceName, NAPI_AUTO_LENGTH, &asyncResourceName));
+  NAPI_STATUS_THROWS_VOID(napi_create_async_work(
+      env, callback, asyncResourceName, BaseWorker::Execute,
+      BaseWorker::Complete, this, &asyncWork_));
+}
+
+BaseWorker::BaseWorker(napi_env env, Transaction* transaction,
+                       napi_value callback, const char* resourceName)
+    : database_(transaction->database_),
+      transaction_(transaction),
+      errMsg_(nullptr) {
   NAPI_STATUS_THROWS_VOID(
       napi_create_reference(env, callback, 1, &callbackRef_));
   napi_value asyncResourceName;
@@ -114,9 +129,19 @@ PriorityWorker::PriorityWorker(napi_env env, Database* database,
   database_->IncrementPriorityWork(env);
 }
 
+PriorityWorker::PriorityWorker(napi_env env, Transaction* transaction,
+                               napi_value callback, const char* resourceName)
+    : BaseWorker(env, transaction, callback, resourceName) {
+  transaction_->IncrementPriorityWork(env);
+}
+
 PriorityWorker::~PriorityWorker() = default;
 
 void PriorityWorker::DoFinally(napi_env env) {
-  database_->DecrementPriorityWork(env);
+  if (transaction_ != nullptr) {
+    transaction_->DecrementPriorityWork(env);
+  } else {
+    database_->DecrementPriorityWork(env);
+  }
   BaseWorker::DoFinally(env);
 }

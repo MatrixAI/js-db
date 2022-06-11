@@ -2,21 +2,25 @@
 
 #include "database.h"
 
+#include <string>
+#include <vector>
+
 #include <node/node_api.h>
 #include <rocksdb/db.h>
 #include <rocksdb/status.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/options.h>
+#include <rocksdb/snapshot.h>
 #include <rocksdb/utilities/optimistic_transaction_db.h>
 
 #include "worker.h"
 
 Database::Database()
-    : db_(NULL),
+    : db_(nullptr),
       currentIteratorId_(0),
       currentTransactionId_(0),
-      pendingCloseWorker_(NULL),
-      ref_(NULL),
+      pendingCloseWorker_(nullptr),
+      ref_(nullptr),
       priorityWork_(0) {}
 
 Database::~Database() {
@@ -44,6 +48,12 @@ rocksdb::Status Database::Put(const rocksdb::WriteOptions& options,
 rocksdb::Status Database::Get(const rocksdb::ReadOptions& options,
                               rocksdb::Slice key, std::string& value) {
   return db_->Get(options, key, &value);
+}
+
+std::vector<rocksdb::Status> Database::MultiGet(
+    const rocksdb::ReadOptions& options,
+    const std::vector<rocksdb::Slice>& keys, std::vector<std::string>& values) {
+  return db_->MultiGet(options, keys, &values);
 }
 
 rocksdb::Status Database::Del(const rocksdb::WriteOptions& options,
@@ -104,6 +114,16 @@ void Database::AttachTransaction(napi_env env, uint32_t id,
 
 void Database::DetachTransaction(napi_env env, uint32_t id) {
   transactions_.erase(id);
+  DecrementPriorityWork(env);
+}
+
+void Database::AttachSnapshot(napi_env env, uint32_t id, Snapshot* snapshot) {
+  snapshots_[id] = snapshot;
+  IncrementPriorityWork(env);
+}
+
+void Database::DetachSnapshot(napi_env env, uint32_t id) {
+  snapshots_.erase(id);
   DecrementPriorityWork(env);
 }
 
