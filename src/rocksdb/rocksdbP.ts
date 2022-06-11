@@ -135,7 +135,7 @@ interface RocksDBP {
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions & { valueEncoding: 'utf8' },
+    options: RocksDBGetForUpdateOptions & { valueEncoding?: 'utf8' },
   ): Promise<string>;
   transactionGetForUpdate(
     tran: RocksDBTransaction,

@@ -160,7 +160,7 @@ interface RocksDB {
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions & { valueEncoding: 'utf8' },
+    options: RocksDBGetForUpdateOptions & { valueEncoding?: 'utf8' },
     callback: Callback<[string], void>,
   ): void;
   transactionGetForUpdate(
