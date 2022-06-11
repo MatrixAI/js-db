@@ -1,27 +1,24 @@
 #define NAPI_VERSION 3
 
 #include "iterator.h"
-#include <assert.h>
+
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <node_api.h>
+
+#include <node/node_api.h>
 #include <rocksdb/status.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
+
 #include "database.h"
 
-Entry::Entry(const rocksdb::Slice* key, const rocksdb::Slice* value):
-  key_(key->data(), key->size()),
-  value_(value->data(), value->size()) {}
+Entry::Entry(const rocksdb::Slice* key, const rocksdb::Slice* value)
+    : key_(key->data(), key->size()), value_(value->data(), value->size()) {}
 
-void Entry::ConvertByMode(
-  napi_env env,
-  Mode mode,
-  const bool keyAsBuffer,
-  const bool valueAsBuffer,
-  napi_value* result
-) {
+void Entry::ConvertByMode(napi_env env, Mode mode, const bool keyAsBuffer,
+                          const bool valueAsBuffer, napi_value* result) {
   if (mode == Mode::entries) {
     napi_create_array_with_length(env, 2, result);
 
@@ -40,12 +37,8 @@ void Entry::ConvertByMode(
   }
 }
 
-void Entry::Convert(
-  napi_env env,
-  const std::string* s,
-  const bool asBuffer,
-  napi_value* result
-) {
+void Entry::Convert(napi_env env, const std::string* s, const bool asBuffer,
+                    napi_value* result) {
   if (s == NULL) {
     napi_get_undefined(env, result);
   } else if (asBuffer) {
@@ -55,27 +48,20 @@ void Entry::Convert(
   }
 }
 
-BaseIterator::BaseIterator(
-  Database* database,
-  const bool reverse,
-  std::string* lt,
-  std::string* lte,
-  std::string* gt,
-  std::string* gte,
-  const int limit,
-  const bool fillCache
-):
-  database_(database),
-  hasClosed_(false),
-  didSeek_(false),
-  reverse_(reverse),
-  lt_(lt),
-  lte_(lte),
-  gt_(gt),
-  gte_(gte),
-  limit_(limit),
-  count_(0)
-{
+BaseIterator::BaseIterator(Database* database, const bool reverse,
+                           std::string* lt, std::string* lte, std::string* gt,
+                           std::string* gte, const int limit,
+                           const bool fillCache)
+    : database_(database),
+      hasClosed_(false),
+      didSeek_(false),
+      reverse_(reverse),
+      lt_(lt),
+      lte_(lte),
+      gt_(gt),
+      gte_(gte),
+      limit_(limit),
+      count_(0) {
   options_ = new rocksdb::ReadOptions();
   options_->fill_cache = fillCache;
   options_->verify_checksums = false;
@@ -94,11 +80,9 @@ BaseIterator::~BaseIterator() {
   delete options_;
 }
 
-bool BaseIterator::DidSeek () const {
-  return didSeek_;
-}
+bool BaseIterator::DidSeek() const { return didSeek_; }
 
-void BaseIterator::SeekToRange () {
+void BaseIterator::SeekToRange() {
   didSeek_ = true;
 
   if (!reverse_ && gte_ != NULL) {
@@ -132,7 +116,7 @@ void BaseIterator::SeekToRange () {
   }
 }
 
-void BaseIterator::Seek (rocksdb::Slice& target) {
+void BaseIterator::Seek(rocksdb::Slice& target) {
   didSeek_ = true;
 
   if (OutOfRange(target)) {
@@ -157,7 +141,7 @@ void BaseIterator::Seek (rocksdb::Slice& target) {
   }
 }
 
-void BaseIterator::Close () {
+void BaseIterator::Close() {
   if (!hasClosed_) {
     hasClosed_ = true;
     delete dbIterator_;
@@ -166,47 +150,47 @@ void BaseIterator::Close () {
   }
 }
 
-bool BaseIterator::Valid () const {
+bool BaseIterator::Valid() const {
   return dbIterator_->Valid() && !OutOfRange(dbIterator_->key());
 }
 
-bool BaseIterator::Increment () {
-  return limit_ < 0 || ++count_ <= limit_;
+bool BaseIterator::Increment() { return limit_ < 0 || ++count_ <= limit_; }
+
+void BaseIterator::Next() {
+  if (reverse_)
+    dbIterator_->Prev();
+  else
+    dbIterator_->Next();
 }
 
-void BaseIterator::Next () {
-  if (reverse_) dbIterator_->Prev();
-  else dbIterator_->Next();
+void BaseIterator::SeekToFirst() {
+  if (reverse_)
+    dbIterator_->SeekToLast();
+  else
+    dbIterator_->SeekToFirst();
 }
 
-void BaseIterator::SeekToFirst () {
-  if (reverse_) dbIterator_->SeekToLast();
-  else dbIterator_->SeekToFirst();
+void BaseIterator::SeekToLast() {
+  if (reverse_)
+    dbIterator_->SeekToFirst();
+  else
+    dbIterator_->SeekToLast();
 }
 
-void BaseIterator::SeekToLast () {
-  if (reverse_) dbIterator_->SeekToFirst();
-  else dbIterator_->SeekToLast();
-}
-
-void BaseIterator::SeekToEnd () {
+void BaseIterator::SeekToEnd() {
   SeekToLast();
   Next();
 }
 
-rocksdb::Slice BaseIterator::CurrentKey () const {
-  return dbIterator_->key();
-}
+rocksdb::Slice BaseIterator::CurrentKey() const { return dbIterator_->key(); }
 
-rocksdb::Slice BaseIterator::CurrentValue () const {
+rocksdb::Slice BaseIterator::CurrentValue() const {
   return dbIterator_->value();
 }
 
-rocksdb::Status BaseIterator::Status () const {
-  return dbIterator_->status();
-}
+rocksdb::Status BaseIterator::Status() const { return dbIterator_->status(); }
 
-bool BaseIterator::OutOfRange (const rocksdb::Slice& target) const {
+bool BaseIterator::OutOfRange(const rocksdb::Slice& target) const {
   // TODO: benchmark to see if this is worth it
   // if (upperBoundOnly && !reverse_) {
   //   return ((lt_  != NULL && target.compare(*lt_) >= 0) ||
@@ -229,59 +213,51 @@ bool BaseIterator::OutOfRange (const rocksdb::Slice& target) const {
   return false;
 }
 
-
 /**
  * Extends BaseIterator for reading it from JS land.
  */
-Iterator::Iterator (Database* database,
-          const uint32_t id,
-          const bool reverse,
-          const bool keys,
-          const bool values,
-          const int limit,
-          std::string* lt,
-          std::string* lte,
-          std::string* gt,
-          std::string* gte,
-          const bool fillCache,
-          const bool keyAsBuffer,
-          const bool valueAsBuffer,
-          const uint32_t highWaterMarkBytes)
-  : BaseIterator(database, reverse, lt, lte, gt, gte, limit, fillCache),
-    id_(id),
-    keys_(keys),
-    values_(values),
-    keyAsBuffer_(keyAsBuffer),
-    valueAsBuffer_(valueAsBuffer),
-    highWaterMarkBytes_(highWaterMarkBytes),
-    first_(true),
-    nexting_(false),
-    isClosing_(false),
-    closeWorker_(NULL),
-    ref_(NULL) {
-}
+Iterator::Iterator(Database* database, const uint32_t id, const bool reverse,
+                   const bool keys, const bool values, const int limit,
+                   std::string* lt, std::string* lte, std::string* gt,
+                   std::string* gte, const bool fillCache,
+                   const bool keyAsBuffer, const bool valueAsBuffer,
+                   const uint32_t highWaterMarkBytes)
+    : BaseIterator(database, reverse, lt, lte, gt, gte, limit, fillCache),
+      id_(id),
+      keys_(keys),
+      values_(values),
+      keyAsBuffer_(keyAsBuffer),
+      valueAsBuffer_(valueAsBuffer),
+      highWaterMarkBytes_(highWaterMarkBytes),
+      first_(true),
+      nexting_(false),
+      isClosing_(false),
+      closeWorker_(NULL),
+      ref_(NULL) {}
 
-Iterator::~Iterator () = default;
+Iterator::~Iterator() = default;
 
-void Iterator::Attach (napi_env env, napi_value context) {
+void Iterator::Attach(napi_env env, napi_value context) {
   napi_create_reference(env, context, 1, &ref_);
   database_->AttachIterator(env, id_, this);
 }
 
-void Iterator::Detach (napi_env env) {
+void Iterator::Detach(napi_env env) {
   database_->DetachIterator(env, id_);
   if (ref_ != NULL) napi_delete_reference(env, ref_);
 }
 
-bool Iterator::ReadMany (uint32_t size) {
+bool Iterator::ReadMany(uint32_t size) {
   cache_.clear();
   cache_.reserve(size);
   size_t bytesRead = 0;
   rocksdb::Slice empty;
 
   while (true) {
-    if (!first_) Next();
-    else first_ = false;
+    if (!first_)
+      Next();
+    else
+      first_ = false;
 
     if (!Valid() || !Increment()) break;
 

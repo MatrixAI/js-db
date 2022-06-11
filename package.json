@@ -21,6 +21,8 @@
     "test": "jest",
     "lint": "eslint '{src,tests,benches}/**/*.{js,ts}'",
     "lintfix": "eslint '{src,tests,benches}/**/*.{js,ts}' --fix",
+    "lintnative": "find ./src -type f -regextype posix-extended -regex '.*\\.(c|cc|cpp|h|hh|hpp)' -exec clang-format --dry-run -Werror {} +",
+    "lintnativefix": "find ./src -type f -regextype posix-extended -regex '.*\\.(c|cc|cpp|h|hh|hpp)' -exec clang-format -i {} +",
     "docs": "rimraf ./docs && typedoc --gitRevision master --tsconfig ./tsconfig.build.json --out ./docs src",
     "bench": "rimraf ./benches/results && ts-node -r tsconfig-paths/register ./benches"
   },

@@ -1,33 +1,32 @@
 #define NAPI_VERSION 3
 
 #include "utils.h"
+
 #include <rocksdb/env.h>
 
 void NullLogger::Logv(const char* format, va_list ap) {}
 
-size_t NullLogger::GetLogFileSize() const {
-  return 0;
-}
+size_t NullLogger::GetLogFileSize() const { return 0; }
 
-bool IsString (napi_env env, napi_value value) {
+bool IsString(napi_env env, napi_value value) {
   napi_valuetype type;
   napi_typeof(env, value, &type);
   return type == napi_string;
 }
 
-bool IsBuffer (napi_env env, napi_value value) {
+bool IsBuffer(napi_env env, napi_value value) {
   bool isBuffer;
   napi_is_buffer(env, value, &isBuffer);
   return isBuffer;
 }
 
-bool IsObject (napi_env env, napi_value value) {
+bool IsObject(napi_env env, napi_value value) {
   napi_valuetype type;
   napi_typeof(env, value, &type);
   return type == napi_object;
 }
 
-napi_value CreateError (napi_env env, const char* str) {
+napi_value CreateError(napi_env env, const char* str) {
   napi_value msg;
   napi_create_string_utf8(env, str, strlen(str), &msg);
   napi_value error;
@@ -35,7 +34,7 @@ napi_value CreateError (napi_env env, const char* str) {
   return error;
 }
 
-napi_value CreateCodeError (napi_env env, const char* code, const char* msg) {
+napi_value CreateCodeError(napi_env env, const char* code, const char* msg) {
   napi_value codeValue;
   napi_create_string_utf8(env, code, strlen(code), &codeValue);
   napi_value msgValue;
@@ -45,20 +44,20 @@ napi_value CreateCodeError (napi_env env, const char* code, const char* msg) {
   return error;
 }
 
-bool HasProperty (napi_env env, napi_value obj, const char* key) {
+bool HasProperty(napi_env env, napi_value obj, const char* key) {
   bool has = false;
   napi_has_named_property(env, obj, key, &has);
   return has;
 }
 
-napi_value GetProperty (napi_env env, napi_value obj, const char* key) {
+napi_value GetProperty(napi_env env, napi_value obj, const char* key) {
   napi_value value;
   napi_get_named_property(env, obj, key, &value);
   return value;
 }
 
-bool BooleanProperty (napi_env env, napi_value obj, const char* key,
-                             bool DEFAULT) {
+bool BooleanProperty(napi_env env, napi_value obj, const char* key,
+                     bool DEFAULT) {
   if (HasProperty(env, obj, key)) {
     napi_value value = GetProperty(env, obj, key);
     bool result;
@@ -69,12 +68,12 @@ bool BooleanProperty (napi_env env, napi_value obj, const char* key,
   return DEFAULT;
 }
 
-bool EncodingIsBuffer (napi_env env, napi_value options, const char* option) {
+bool EncodingIsBuffer(napi_env env, napi_value options, const char* option) {
   napi_value value;
   size_t size;
 
   if (napi_get_named_property(env, options, option, &value) == napi_ok &&
-    napi_get_value_string_utf8(env, value, NULL, 0, &size) == napi_ok) {
+      napi_get_value_string_utf8(env, value, NULL, 0, &size) == napi_ok) {
     // Value is either "buffer" or "utf8" so we can tell them apart just by size
     return size == 6;
   }
@@ -82,8 +81,8 @@ bool EncodingIsBuffer (napi_env env, napi_value options, const char* option) {
   return false;
 }
 
-uint32_t Uint32Property (napi_env env, napi_value obj, const char* key,
-                                uint32_t DEFAULT) {
+uint32_t Uint32Property(napi_env env, napi_value obj, const char* key,
+                        uint32_t DEFAULT) {
   if (HasProperty(env, obj, key)) {
     napi_value value = GetProperty(env, obj, key);
     uint32_t result;
@@ -94,8 +93,7 @@ uint32_t Uint32Property (napi_env env, napi_value obj, const char* key,
   return DEFAULT;
 }
 
-int Int32Property (napi_env env, napi_value obj, const char* key,
-                          int DEFAULT) {
+int Int32Property(napi_env env, napi_value obj, const char* key, int DEFAULT) {
   if (HasProperty(env, obj, key)) {
     napi_value value = GetProperty(env, obj, key);
     int result;
@@ -106,7 +104,7 @@ int Int32Property (napi_env env, napi_value obj, const char* key,
   return DEFAULT;
 }
 
-std::string StringProperty (napi_env env, napi_value obj, const char* key) {
+std::string StringProperty(napi_env env, napi_value obj, const char* key) {
   if (HasProperty(env, obj, key)) {
     napi_value value = GetProperty(env, obj, key);
     if (IsString(env, value)) {
@@ -118,7 +116,7 @@ std::string StringProperty (napi_env env, napi_value obj, const char* key) {
       buf[size] = '\0';
 
       std::string result = buf;
-      delete [] buf;
+      delete[] buf;
       return result;
     }
   }
@@ -126,41 +124,41 @@ std::string StringProperty (napi_env env, napi_value obj, const char* key) {
   return "";
 }
 
-void DisposeSliceBuffer (rocksdb::Slice slice) {
-  if (!slice.empty()) delete [] slice.data();
+void DisposeSliceBuffer(rocksdb::Slice slice) {
+  if (!slice.empty()) delete[] slice.data();
 }
 
-rocksdb::Slice ToSlice (napi_env env, napi_value from) {
+rocksdb::Slice ToSlice(napi_env env, napi_value from) {
   LD_STRING_OR_BUFFER_TO_COPY(env, from, to);
   return rocksdb::Slice(toCh_, toSz_);
 }
 
-size_t StringOrBufferLength (napi_env env, napi_value value) {
+size_t StringOrBufferLength(napi_env env, napi_value value) {
   size_t size = 0;
 
   if (IsString(env, value)) {
     napi_get_value_string_utf8(env, value, NULL, 0, &size);
   } else if (IsBuffer(env, value)) {
     char* buf;
-    napi_get_buffer_info(env, value, (void **)&buf, &size);
+    napi_get_buffer_info(env, value, (void**)&buf, &size);
   }
 
   return size;
 }
 
-std::string* RangeOption (napi_env env, napi_value opts, const char* name) {
+std::string* RangeOption(napi_env env, napi_value opts, const char* name) {
   if (HasProperty(env, opts, name)) {
     napi_value value = GetProperty(env, opts, name);
     LD_STRING_OR_BUFFER_TO_COPY(env, value, to);
     std::string* result = new std::string(toCh_, toSz_);
-    delete [] toCh_;
+    delete[] toCh_;
     return result;
   }
 
   return NULL;
 }
 
-std::vector<std::string>* KeyArray (napi_env env, napi_value arr) {
+std::vector<std::string>* KeyArray(napi_env env, napi_value arr) {
   uint32_t length;
   std::vector<std::string>* result = new std::vector<std::string>();
 
@@ -173,7 +171,7 @@ std::vector<std::string>* KeyArray (napi_env env, napi_value arr) {
       if (napi_get_element(env, arr, i, &element) == napi_ok) {
         LD_STRING_OR_BUFFER_TO_COPY(env, element, to);
         result->emplace_back(toCh_, toSz_);
-        delete [] toCh_;
+        delete[] toCh_;
       }
     }
   }
@@ -181,17 +179,11 @@ std::vector<std::string>* KeyArray (napi_env env, napi_value arr) {
   return result;
 }
 
-napi_status CallFunction (
-  napi_env env,
-  napi_value callback,
-  const int argc,
-  napi_value* argv
-) {
+napi_status CallFunction(napi_env env, napi_value callback, const int argc,
+                         napi_value* argv) {
   napi_value global;
   napi_get_global(env, &global);
   return napi_call_function(env, global, callback, argc, argv, NULL);
 }
 
-napi_value noop_callback (napi_env env, napi_callback_info info) {
-  return 0;
-}
+napi_value noop_callback(napi_env env, napi_callback_info info) { return 0; }

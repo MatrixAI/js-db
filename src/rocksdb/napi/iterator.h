@@ -6,21 +6,19 @@
 
 #include <cstdint>
 #include <string>
-#include <node_api.h>
+
+#include <node/node_api.h>
 #include <rocksdb/status.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/iterator.h>
+
 #include "database.h"
 
 /**
  * Whether to yield entries, keys or values.
  */
-enum Mode {
-  entries,
-  keys,
-  values
-};
+enum Mode { entries, keys, values };
 
 /**
  * Helper struct for caching and converting a key-value pair to napi_values.
@@ -28,11 +26,13 @@ enum Mode {
 struct Entry {
   Entry(const rocksdb::Slice* key, const rocksdb::Slice* value);
 
-  void ConvertByMode(napi_env env, Mode mode, const bool keyAsBuffer, const bool valueAsBuffer, napi_value* result);
+  void ConvertByMode(napi_env env, Mode mode, const bool keyAsBuffer,
+                     const bool valueAsBuffer, napi_value* result);
 
-  static void Convert(napi_env env, const std::string* s, const bool asBuffer, napi_value* result);
+  static void Convert(napi_env env, const std::string* s, const bool asBuffer,
+                      napi_value* result);
 
-private:
+ private:
   std::string key_;
   std::string value_;
 };
@@ -41,57 +41,50 @@ private:
  * Owns a rocksdb iterator.
  */
 struct BaseIterator {
-  BaseIterator(
-    Database* database,
-    const bool reverse,
-    std::string* lt,
-    std::string* lte,
-    std::string* gt,
-    std::string* gte,
-    const int limit,
-    const bool fillCache
-  );
+  BaseIterator(Database* database, const bool reverse, std::string* lt,
+               std::string* lte, std::string* gt, std::string* gte,
+               const int limit, const bool fillCache);
 
-  virtual ~BaseIterator ();
+  virtual ~BaseIterator();
 
-  bool DidSeek () const;
+  bool DidSeek() const;
 
   /**
    * Seek to the first relevant key based on range options.
    */
-  void SeekToRange ();
+  void SeekToRange();
 
   /**
    * Seek manually (during iteration).
    */
-  void Seek (rocksdb::Slice& target);
+  void Seek(rocksdb::Slice& target);
 
-  void Close ();
+  void Close();
 
-  bool Valid () const;
+  bool Valid() const;
 
-  bool Increment ();
+  bool Increment();
 
-  void Next ();
+  void Next();
 
-  void SeekToFirst ();
+  void SeekToFirst();
 
-  void SeekToLast ();
+  void SeekToLast();
 
-  void SeekToEnd ();
+  void SeekToEnd();
 
-  rocksdb::Slice CurrentKey () const;
+  rocksdb::Slice CurrentKey() const;
 
-  rocksdb::Slice CurrentValue () const;
+  rocksdb::Slice CurrentValue() const;
 
-  rocksdb::Status Status () const;
+  rocksdb::Status Status() const;
 
-  bool OutOfRange (const rocksdb::Slice& target) const;
+  bool OutOfRange(const rocksdb::Slice& target) const;
 
   Database* database_;
   bool hasClosed_;
 
-private:
+ private:
   rocksdb::Iterator* dbIterator_;
   bool didSeek_;
   const bool reverse_;
@@ -108,28 +101,19 @@ private:
  * Extends BaseIterator for reading it from JS land.
  */
 struct Iterator final : public BaseIterator {
-  Iterator (Database* database,
-            const uint32_t id,
-            const bool reverse,
-            const bool keys,
-            const bool values,
-            const int limit,
-            std::string* lt,
-            std::string* lte,
-            std::string* gt,
-            std::string* gte,
-            const bool fillCache,
-            const bool keyAsBuffer,
-            const bool valueAsBuffer,
-            const uint32_t highWaterMarkBytes);
+  Iterator(Database* database, const uint32_t id, const bool reverse,
+           const bool keys, const bool values, const int limit, std::string* lt,
+           std::string* lte, std::string* gt, std::string* gte,
+           const bool fillCache, const bool keyAsBuffer,
+           const bool valueAsBuffer, const uint32_t highWaterMarkBytes);
 
-  ~Iterator ();
+  ~Iterator();
 
-  void Attach (napi_env env, napi_value context);
+  void Attach(napi_env env, napi_value context);
 
-  void Detach (napi_env env);
+  void Detach(napi_env env);
 
-  bool ReadMany (uint32_t size);
+  bool ReadMany(uint32_t size);
 
   const uint32_t id_;
   const bool keys_;
@@ -143,6 +127,6 @@ struct Iterator final : public BaseIterator {
   BaseWorker* closeWorker_;
   std::vector<Entry> cache_;
 
-private:
+ private:
   napi_ref ref_;
 };

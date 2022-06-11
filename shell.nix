@@ -5,6 +5,7 @@ mkShell {
   nativeBuildInputs = [
     nodejs
     nodejs.python
+    clang-tools
   ];
   # Don't set rpath for native addons
   NIX_DONT_SET_RPATH = true;

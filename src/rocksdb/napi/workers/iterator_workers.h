@@ -5,7 +5,9 @@
 #endif
 
 #include <cstdint>
-#include <node_api.h>
+
+#include <node/node_api.h>
+
 #include "../worker.h"
 #include "../iterator.h"
 
@@ -13,17 +15,15 @@
  * Worker class for closing an iterator
  */
 struct CloseIteratorWorker final : public BaseWorker {
-  CloseIteratorWorker (napi_env env,
-             Iterator* iterator,
-             napi_value callback);
+  CloseIteratorWorker(napi_env env, Iterator* iterator, napi_value callback);
 
-  ~CloseIteratorWorker ();
+  ~CloseIteratorWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
-  void DoFinally (napi_env env) override;
+  void DoFinally(napi_env env) override;
 
-private:
+ private:
   Iterator* iterator_;
 };
 
@@ -31,20 +31,18 @@ private:
  * Worker class for nexting an iterator.
  */
 struct NextWorker final : public BaseWorker {
-  NextWorker (napi_env env,
-              Iterator* iterator,
-              uint32_t size,
-              napi_value callback);
+  NextWorker(napi_env env, Iterator* iterator, uint32_t size,
+             napi_value callback);
 
-  ~NextWorker ();
+  ~NextWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
-  void HandleOKCallback (napi_env env, napi_value callback) override;
+  void HandleOKCallback(napi_env env, napi_value callback) override;
 
-  void DoFinally (napi_env env) override;
+  void DoFinally(napi_env env) override;
 
-private:
+ private:
   Iterator* iterator_;
   uint32_t size_;
   bool ok_;

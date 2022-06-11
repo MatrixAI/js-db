@@ -6,10 +6,12 @@
 
 #include <cstdint>
 #include <string>
-#include <node_api.h>
+
+#include <node/node_api.h>
 #include <rocksdb/env.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
+
 #include "../worker.h"
 #include "../iterator.h"
 #include "../database.h"
@@ -19,25 +21,17 @@
  * TODO: shouldn't this be a PriorityWorker?
  */
 struct OpenWorker final : public BaseWorker {
-  OpenWorker (napi_env env,
-              Database* database,
-              napi_value callback,
-              const std::string& location,
-              const bool createIfMissing,
-              const bool errorIfExists,
-              const bool compression,
-              const uint32_t writeBufferSize,
-              const uint32_t blockSize,
-              const uint32_t maxOpenFiles,
-              const uint32_t blockRestartInterval,
-              const uint32_t maxFileSize,
-              const uint32_t cacheSize,
-              const rocksdb::InfoLogLevel log_level,
-              rocksdb::Logger* logger);
+  OpenWorker(napi_env env, Database* database, napi_value callback,
+             const std::string& location, const bool createIfMissing,
+             const bool errorIfExists, const bool compression,
+             const uint32_t writeBufferSize, const uint32_t blockSize,
+             const uint32_t maxOpenFiles, const uint32_t blockRestartInterval,
+             const uint32_t maxFileSize, const uint32_t cacheSize,
+             const rocksdb::InfoLogLevel log_level, rocksdb::Logger* logger);
 
-  ~OpenWorker ();
+  ~OpenWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
   rocksdb::Options options_;
   std::string location_;
@@ -47,33 +41,27 @@ struct OpenWorker final : public BaseWorker {
  * Worker class for closing a database
  */
 struct CloseWorker final : public BaseWorker {
-  CloseWorker (napi_env env,
-               Database* database,
-               napi_value callback);
+  CloseWorker(napi_env env, Database* database, napi_value callback);
 
-  ~CloseWorker ();
+  ~CloseWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 };
 
 /**
  * Worker class for getting a value from a database.
  */
 struct GetWorker final : public PriorityWorker {
-  GetWorker (napi_env env,
-             Database* database,
-             napi_value callback,
-             rocksdb::Slice key,
-             const bool asBuffer,
-             const bool fillCache);
+  GetWorker(napi_env env, Database* database, napi_value callback,
+            rocksdb::Slice key, const bool asBuffer, const bool fillCache);
 
-  ~GetWorker ();
+  ~GetWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
-  void HandleOKCallback (napi_env env, napi_value callback) override;
+  void HandleOKCallback(napi_env env, napi_value callback) override;
 
-private:
+ private:
   rocksdb::ReadOptions options_;
   rocksdb::Slice key_;
   std::string value_;
@@ -84,20 +72,17 @@ private:
  * Worker class for getting many values.
  */
 struct GetManyWorker final : public PriorityWorker {
-  GetManyWorker (napi_env env,
-                 Database* database,
-                 const std::vector<std::string>* keys,
-                 napi_value callback,
-                 const bool valueAsBuffer,
-                 const bool fillCache);
+  GetManyWorker(napi_env env, Database* database,
+                const std::vector<std::string>* keys, napi_value callback,
+                const bool valueAsBuffer, const bool fillCache);
 
   ~GetManyWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
-  void HandleOKCallback (napi_env env, napi_value callback) override;
+  void HandleOKCallback(napi_env env, napi_value callback) override;
 
-private:
+ private:
   rocksdb::ReadOptions options_;
   const std::vector<std::string>* keys_;
   const bool valueAsBuffer_;
@@ -108,16 +93,12 @@ private:
  * Worker class for putting key/value to the database
  */
 struct PutWorker final : public PriorityWorker {
-  PutWorker (napi_env env,
-             Database* database,
-             napi_value callback,
-             rocksdb::Slice key,
-             rocksdb::Slice value,
-             bool sync);
+  PutWorker(napi_env env, Database* database, napi_value callback,
+            rocksdb::Slice key, rocksdb::Slice value, bool sync);
 
-  ~PutWorker ();
+  ~PutWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
   rocksdb::WriteOptions options_;
   rocksdb::Slice key_;
@@ -128,15 +109,12 @@ struct PutWorker final : public PriorityWorker {
  * Worker class for deleting a value from a database.
  */
 struct DelWorker final : public PriorityWorker {
-  DelWorker (napi_env env,
-             Database* database,
-             napi_value callback,
-             rocksdb::Slice key,
-             bool sync);
+  DelWorker(napi_env env, Database* database, napi_value callback,
+            rocksdb::Slice key, bool sync);
 
-  ~DelWorker ();
+  ~DelWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
   rocksdb::WriteOptions options_;
   rocksdb::Slice key_;
@@ -146,21 +124,15 @@ struct DelWorker final : public PriorityWorker {
  * Worker class for deleting a range from a database.
  */
 struct ClearWorker final : public PriorityWorker {
-  ClearWorker (napi_env env,
-               Database* database,
-               napi_value callback,
-               const bool reverse,
-               const int limit,
-               std::string* lt,
-               std::string* lte,
-               std::string* gt,
-               std::string* gte);
+  ClearWorker(napi_env env, Database* database, napi_value callback,
+              const bool reverse, const int limit, std::string* lt,
+              std::string* lte, std::string* gt, std::string* gte);
 
-  ~ClearWorker ();
+  ~ClearWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
-private:
+ private:
   BaseIterator* iterator_;
   rocksdb::WriteOptions* writeOptions_;
 };
@@ -169,17 +141,14 @@ private:
  * Worker class for calculating the size of a range.
  */
 struct ApproximateSizeWorker final : public PriorityWorker {
-  ApproximateSizeWorker (napi_env env,
-                         Database* database,
-                         napi_value callback,
-                         rocksdb::Slice start,
-                         rocksdb::Slice end);
+  ApproximateSizeWorker(napi_env env, Database* database, napi_value callback,
+                        rocksdb::Slice start, rocksdb::Slice end);
 
-  ~ApproximateSizeWorker ();
+  ~ApproximateSizeWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
-  void HandleOKCallback (napi_env env, napi_value callback) override;
+  void HandleOKCallback(napi_env env, napi_value callback) override;
 
   rocksdb::Slice start_;
   rocksdb::Slice end_;
@@ -190,15 +159,12 @@ struct ApproximateSizeWorker final : public PriorityWorker {
  * Worker class for compacting a range in a database.
  */
 struct CompactRangeWorker final : public PriorityWorker {
-  CompactRangeWorker (napi_env env,
-                      Database* database,
-                      napi_value callback,
-                      rocksdb::Slice start,
-                      rocksdb::Slice end);
+  CompactRangeWorker(napi_env env, Database* database, napi_value callback,
+                     rocksdb::Slice start, rocksdb::Slice end);
 
-  ~CompactRangeWorker ();
+  ~CompactRangeWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
   rocksdb::Slice start_;
   rocksdb::Slice end_;
@@ -208,13 +174,11 @@ struct CompactRangeWorker final : public PriorityWorker {
  * Worker class for destroying a database.
  */
 struct DestroyWorker final : public BaseWorker {
-  DestroyWorker (napi_env env,
-                 const std::string& location,
-                 napi_value callback);
+  DestroyWorker(napi_env env, const std::string& location, napi_value callback);
 
-  ~DestroyWorker ();
+  ~DestroyWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
   std::string location_;
 };
@@ -223,13 +187,11 @@ struct DestroyWorker final : public BaseWorker {
  * Worker class for repairing a database.
  */
 struct RepairWorker final : public BaseWorker {
-  RepairWorker (napi_env env,
-                const std::string& location,
-                napi_value callback);
+  RepairWorker(napi_env env, const std::string& location, napi_value callback);
 
-  ~RepairWorker ();
+  ~RepairWorker();
 
-  void DoExecute () override;
+  void DoExecute() override;
 
   std::string location_;
 };

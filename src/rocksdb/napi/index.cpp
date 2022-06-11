@@ -4,10 +4,12 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <node_api.h>
+
+#include <node/node_api.h>
 #include <napi-macros.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/write_batch.h>
+
 #include "database.h"
 #include "batch.h"
 #include "iterator.h"
@@ -23,20 +25,22 @@
  * already-scheduled napi_async_work items have finished, which gives us
  * the guarantee that no db operations will be in-flight at this time.
  */
-static void env_cleanup_hook (void* arg) {
+static void env_cleanup_hook(void* arg) {
   Database* database = (Database*)arg;
 
-  // Do everything that dbClose() does but synchronously. We're expecting that GC
-  // did not (yet) collect the database because that would be a user mistake (not
-  // closing their db) made during the lifetime of the environment. That's different
-  // from an environment being torn down (like the main process or a worker thread)
-  // where it's our responsibility to clean up. Note also, the following code must
-  // be a safe noop if called before dbOpen() or after dbClose().
+  // Do everything that dbClose() does but synchronously. We're expecting that
+  // GC did not (yet) collect the database because that would be a user mistake
+  // (not closing their db) made during the lifetime of the environment. That's
+  // different from an environment being torn down (like the main process or a
+  // worker thread) where it's our responsibility to clean up. Note also, the
+  // following code must be a safe noop if called before dbOpen() or after
+  // dbClose().
   if (database && database->db_ != NULL) {
     std::map<uint32_t, Iterator*> iterators = database->iterators_;
     std::map<uint32_t, Iterator*>::iterator iterator_it;
     // TODO: does not do `napi_delete_reference(env, iterator->ref_)`. Problem?
-    for (iterator_it = iterators.begin(); iterator_it != iterators.end(); ++iterator_it) {
+    for (iterator_it = iterators.begin(); iterator_it != iterators.end();
+         ++iterator_it) {
       iterator_it->second->Close();
     }
 
@@ -56,7 +60,7 @@ static void env_cleanup_hook (void* arg) {
  * Called by NAPI_METHOD(iteratorClose) and also when closing
  * open iterators during NAPI_METHOD(dbClose).
  */
-static void iterator_close_do (napi_env env, Iterator* iterator, napi_value cb) {
+static void iterator_close_do(napi_env env, Iterator* iterator, napi_value cb) {
   CloseIteratorWorker* worker = new CloseIteratorWorker(env, iterator, cb);
   iterator->isClosing_ = true;
   if (iterator->nexting_) {
@@ -70,16 +74,10 @@ static void iterator_close_do (napi_env env, Iterator* iterator, napi_value cb) 
  * Called by NAPI_METHOD(transactionRollback) and also when closing
  * open transactions during NAPI_METHOD(dbClose)
  */
-static void transaction_rollback_do (
-  napi_env env,
-  Transaction* transaction,
-  napi_value cb
-) {
-  TransactionRollbackWorker* worker = new TransactionRollbackWorker(
-    env,
-    transaction,
-    cb
-  );
+static void transaction_rollback_do(napi_env env, Transaction* transaction,
+                                    napi_value cb) {
+  TransactionRollbackWorker* worker =
+      new TransactionRollbackWorker(env, transaction, cb);
   transaction->isRollbacking_ = true;
   // TODO:
   // if other async ops, delay this operation
@@ -89,7 +87,7 @@ static void transaction_rollback_do (
 /**
  * Runs when a Database is garbage collected.
  */
-static void FinalizeDatabase (napi_env env, void* data, void* hint) {
+static void FinalizeDatabase(napi_env env, void* data, void* hint) {
   if (data) {
     Database* database = (Database*)data;
     napi_remove_env_cleanup_hook(env, env_cleanup_hook, database);
@@ -101,7 +99,7 @@ static void FinalizeDatabase (napi_env env, void* data, void* hint) {
 /**
  * Runs when a Batch is garbage collected.
  */
-static void FinalizeBatch (napi_env env, void* data, void* hint) {
+static void FinalizeBatch(napi_env env, void* data, void* hint) {
   if (data) {
     delete (Batch*)data;
   }
@@ -110,7 +108,7 @@ static void FinalizeBatch (napi_env env, void* data, void* hint) {
 /**
  * Runs when an Iterator is garbage collected.
  */
-static void FinalizeIterator (napi_env env, void* data, void* hint) {
+static void FinalizeIterator(napi_env env, void* data, void* hint) {
   if (data) {
     delete (Iterator*)data;
   }
@@ -119,7 +117,7 @@ static void FinalizeIterator (napi_env env, void* data, void* hint) {
 /**
  * Runs when a Transaction is garbage collected.
  */
-static void FinalizeTransaction (napi_env env, void* data, void* hint) {
+static void FinalizeTransaction(napi_env env, void* data, void* hint) {
   if (data) {
     delete (Transaction*)data;
   }
@@ -133,11 +131,11 @@ NAPI_METHOD(dbInit) {
   napi_add_env_cleanup_hook(env, env_cleanup_hook, database);
 
   napi_value result;
-  NAPI_STATUS_THROWS(napi_create_external(env, database,
-                                          FinalizeDatabase,
-                                          NULL, &result));
+  NAPI_STATUS_THROWS(
+      napi_create_external(env, database, FinalizeDatabase, NULL, &result));
 
-  // Reference counter to prevent GC of database while priority workers are active
+  // Reference counter to prevent GC of database while priority workers are
+  // active
   NAPI_STATUS_THROWS(napi_create_reference(env, result, 0, &database->ref_));
 
   return result;
@@ -152,37 +150,45 @@ NAPI_METHOD(dbOpen) {
   NAPI_ARGV_UTF8_NEW(location, 1);
 
   napi_value options = argv[2];
-  const bool createIfMissing = BooleanProperty(env, options, "createIfMissing", true);
-  const bool errorIfExists = BooleanProperty(env, options, "errorIfExists", false);
+  const bool createIfMissing =
+      BooleanProperty(env, options, "createIfMissing", true);
+  const bool errorIfExists =
+      BooleanProperty(env, options, "errorIfExists", false);
   const bool compression = BooleanProperty(env, options, "compression", true);
 
   const std::string infoLogLevel = StringProperty(env, options, "infoLogLevel");
 
   const uint32_t cacheSize = Uint32Property(env, options, "cacheSize", 8 << 20);
-  const uint32_t writeBufferSize = Uint32Property(env, options , "writeBufferSize" , 4 << 20);
+  const uint32_t writeBufferSize =
+      Uint32Property(env, options, "writeBufferSize", 4 << 20);
   const uint32_t blockSize = Uint32Property(env, options, "blockSize", 4096);
-  const uint32_t maxOpenFiles = Uint32Property(env, options, "maxOpenFiles", 1000);
-  const uint32_t blockRestartInterval = Uint32Property(env, options,
-                                                 "blockRestartInterval", 16);
-  const uint32_t maxFileSize = Uint32Property(env, options, "maxFileSize", 2 << 20);
+  const uint32_t maxOpenFiles =
+      Uint32Property(env, options, "maxOpenFiles", 1000);
+  const uint32_t blockRestartInterval =
+      Uint32Property(env, options, "blockRestartInterval", 16);
+  const uint32_t maxFileSize =
+      Uint32Property(env, options, "maxFileSize", 2 << 20);
 
   napi_value callback = argv[3];
 
   rocksdb::InfoLogLevel log_level;
   rocksdb::Logger* logger;
   if (infoLogLevel.size() > 0) {
-    if (infoLogLevel == "debug") log_level = rocksdb::InfoLogLevel::DEBUG_LEVEL;
-    else if (infoLogLevel == "info") log_level = rocksdb::InfoLogLevel::INFO_LEVEL;
-    else if (infoLogLevel == "warn") log_level = rocksdb::InfoLogLevel::WARN_LEVEL;
-    else if (infoLogLevel == "error") log_level = rocksdb::InfoLogLevel::ERROR_LEVEL;
-    else if (infoLogLevel == "fatal") log_level = rocksdb::InfoLogLevel::FATAL_LEVEL;
-    else if (infoLogLevel == "header") log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
+    if (infoLogLevel == "debug")
+      log_level = rocksdb::InfoLogLevel::DEBUG_LEVEL;
+    else if (infoLogLevel == "info")
+      log_level = rocksdb::InfoLogLevel::INFO_LEVEL;
+    else if (infoLogLevel == "warn")
+      log_level = rocksdb::InfoLogLevel::WARN_LEVEL;
+    else if (infoLogLevel == "error")
+      log_level = rocksdb::InfoLogLevel::ERROR_LEVEL;
+    else if (infoLogLevel == "fatal")
+      log_level = rocksdb::InfoLogLevel::FATAL_LEVEL;
+    else if (infoLogLevel == "header")
+      log_level = rocksdb::InfoLogLevel::HEADER_LEVEL;
     else {
-      napi_value callback_error = CreateCodeError(
-        env,
-        "DB_OPEN",
-        "Invalid log level"
-      );
+      napi_value callback_error =
+          CreateCodeError(env, "DB_OPEN", "Invalid log level");
       NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
       NAPI_RETURN_UNDEFINED();
     }
@@ -194,14 +200,12 @@ NAPI_METHOD(dbOpen) {
     logger = new NullLogger();
   }
 
-  OpenWorker* worker = new OpenWorker(env, database, callback, location,
-                                      createIfMissing, errorIfExists,
-                                      compression, writeBufferSize, blockSize,
-                                      maxOpenFiles, blockRestartInterval,
-                                      maxFileSize, cacheSize,
-                                      log_level, logger);
+  OpenWorker* worker = new OpenWorker(
+      env, database, callback, location, createIfMissing, errorIfExists,
+      compression, writeBufferSize, blockSize, maxOpenFiles,
+      blockRestartInterval, maxFileSize, cacheSize, log_level, logger);
   worker->Queue(env);
-  delete [] location;
+  delete[] location;
 
   NAPI_RETURN_UNDEFINED();
 }
@@ -229,7 +233,8 @@ NAPI_METHOD(dbClose) {
   // Close all iterators
   std::map<uint32_t, Iterator*> iterators = database->iterators_;
   std::map<uint32_t, Iterator*>::iterator iterator_it;
-  for (iterator_it = iterators.begin(); iterator_it != iterators.end(); ++iterator_it) {
+  for (iterator_it = iterators.begin(); iterator_it != iterators.end();
+       ++iterator_it) {
     Iterator* iterator = iterator_it->second;
     if (!iterator->isClosing_ && !iterator->hasClosed_) {
       iterator_close_do(env, iterator, noop);
@@ -241,12 +246,8 @@ NAPI_METHOD(dbClose) {
   std::map<uint32_t, Transaction*>::iterator tran_it;
   for (tran_it = trans.begin(); tran_it != trans.end(); ++tran_it) {
     Transaction* tran = tran_it->second;
-    if (
-      tran->isCommitting_ ||
-      tran->hasCommitted_ ||
-      tran->isRollbacking_ ||
-      tran->hasRollbacked_
-    ) {
+    if (tran->isCommitting_ || tran->hasCommitted_ || tran->isRollbacking_ ||
+        tran->hasRollbacked_) {
       continue;
     }
     transaction_rollback_do(env, tran, noop);
@@ -268,8 +269,8 @@ NAPI_METHOD(dbGet) {
   const bool fillCache = BooleanProperty(env, options, "fillCache", true);
   napi_value callback = argv[3];
 
-  GetWorker* worker = new GetWorker(env, database, callback, key, asBuffer,
-                                    fillCache);
+  GetWorker* worker =
+      new GetWorker(env, database, callback, key, asBuffer, fillCache);
   worker->Queue(env);
 
   NAPI_RETURN_UNDEFINED();
@@ -288,14 +289,12 @@ NAPI_METHOD(dbGetMany) {
   const bool fillCache = BooleanProperty(env, options, "fillCache", true);
   napi_value callback = argv[3];
 
-  GetManyWorker* worker = new GetManyWorker(
-    env, database, keys, callback, asBuffer, fillCache
-  );
+  GetManyWorker* worker =
+      new GetManyWorker(env, database, keys, callback, asBuffer, fillCache);
 
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
-
 
 /**
  * Puts a key and a value to a database.
@@ -350,7 +349,8 @@ NAPI_METHOD(dbClear) {
   std::string* gt = RangeOption(env, options, "gt");
   std::string* gte = RangeOption(env, options, "gte");
 
-  ClearWorker* worker = new ClearWorker(env, database, callback, reverse, limit, lt, lte, gt, gte);
+  ClearWorker* worker = new ClearWorker(env, database, callback, reverse, limit,
+                                        lt, lte, gt, gte);
   worker->Queue(env);
 
   NAPI_RETURN_UNDEFINED();
@@ -368,9 +368,8 @@ NAPI_METHOD(dbApproximateSize) {
 
   napi_value callback = argv[3];
 
-  ApproximateSizeWorker* worker  = new ApproximateSizeWorker(env, database,
-                                                             callback, start,
-                                                             end);
+  ApproximateSizeWorker* worker =
+      new ApproximateSizeWorker(env, database, callback, start, end);
   worker->Queue(env);
 
   NAPI_RETURN_UNDEFINED();
@@ -387,8 +386,8 @@ NAPI_METHOD(dbCompactRange) {
   rocksdb::Slice end = ToSlice(env, argv[2]);
   napi_value callback = argv[3];
 
-  CompactRangeWorker* worker  = new CompactRangeWorker(env, database, callback,
-                                                       start, end);
+  CompactRangeWorker* worker =
+      new CompactRangeWorker(env, database, callback, start, end);
   worker->Queue(env);
 
   NAPI_RETURN_UNDEFINED();
@@ -425,7 +424,7 @@ NAPI_METHOD(destroyDb) {
   DestroyWorker* worker = new DestroyWorker(env, location, callback);
   worker->Queue(env);
 
-  delete [] location;
+  delete[] location;
 
   NAPI_RETURN_UNDEFINED();
 }
@@ -441,7 +440,7 @@ NAPI_METHOD(repairDb) {
   RepairWorker* worker = new RepairWorker(env, location, callback);
   worker->Queue(env);
 
-  delete [] location;
+  delete[] location;
 
   NAPI_RETURN_UNDEFINED();
 }
@@ -461,7 +460,8 @@ NAPI_METHOD(iteratorInit) {
   const bool keyAsBuffer = EncodingIsBuffer(env, options, "keyEncoding");
   const bool valueAsBuffer = EncodingIsBuffer(env, options, "valueEncoding");
   const int limit = Int32Property(env, options, "limit", -1);
-  const uint32_t highWaterMarkBytes = Uint32Property(env, options, "highWaterMarkBytes", 16 * 1024);
+  const uint32_t highWaterMarkBytes =
+      Uint32Property(env, options, "highWaterMarkBytes", 16 * 1024);
 
   std::string* lt = RangeOption(env, options, "lt");
   std::string* lte = RangeOption(env, options, "lte");
@@ -469,14 +469,13 @@ NAPI_METHOD(iteratorInit) {
   std::string* gte = RangeOption(env, options, "gte");
 
   const uint32_t id = database->currentIteratorId_++;
-  Iterator* iterator = new Iterator(database, id, reverse, keys,
-                                    values, limit, lt, lte, gt, gte, fillCache,
-                                    keyAsBuffer, valueAsBuffer, highWaterMarkBytes);
+  Iterator* iterator =
+      new Iterator(database, id, reverse, keys, values, limit, lt, lte, gt, gte,
+                   fillCache, keyAsBuffer, valueAsBuffer, highWaterMarkBytes);
   napi_value result;
 
-  NAPI_STATUS_THROWS(napi_create_external(env, iterator,
-                                          FinalizeIterator,
-                                          NULL, &result));
+  NAPI_STATUS_THROWS(
+      napi_create_external(env, iterator, FinalizeIterator, NULL, &result));
 
   // Prevent GC of JS object before the iterator is closed (explicitly or on
   // db close) and keep track of non-closed iterators to close them on db close.
@@ -535,7 +534,8 @@ NAPI_METHOD(iteratorNextv) {
   napi_value callback = argv[2];
 
   if (iterator->isClosing_ || iterator->hasClosed_) {
-    napi_value argv = CreateCodeError(env, "ITERATOR_NOT_OPEN", "Iterator is not open");
+    napi_value argv =
+        CreateCodeError(env, "ITERATOR_NOT_OPEN", "Iterator is not open");
     NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &argv));
     NAPI_RETURN_UNDEFINED();
   }
@@ -595,7 +595,8 @@ NAPI_METHOD(batchDo) {
     }
   }
 
-  BatchWorker* worker = new BatchWorker(env, database, callback, batch, sync, hasData);
+  BatchWorker* worker =
+      new BatchWorker(env, database, callback, batch, sync, hasData);
   worker->Queue(env);
 
   NAPI_RETURN_UNDEFINED();
@@ -611,9 +612,8 @@ NAPI_METHOD(batchInit) {
   Batch* batch = new Batch(database);
 
   napi_value result;
-  NAPI_STATUS_THROWS(napi_create_external(env, batch,
-                                          FinalizeBatch,
-                                          NULL, &result));
+  NAPI_STATUS_THROWS(
+      napi_create_external(env, batch, FinalizeBatch, NULL, &result));
   return result;
 }
 
@@ -670,7 +670,8 @@ NAPI_METHOD(batchWrite) {
   const bool sync = BooleanProperty(env, options, "sync", false);
   napi_value callback = argv[2];
 
-  BatchWriteWorker* worker  = new BatchWriteWorker(env, argv[0], batch, callback, sync);
+  BatchWriteWorker* worker =
+      new BatchWriteWorker(env, argv[0], batch, callback, sync);
   worker->Queue(env);
 
   NAPI_RETURN_UNDEFINED();
@@ -694,13 +695,8 @@ NAPI_METHOD(transactionInit) {
   // Opaque JS value acting as a reference to `Transaction`
   napi_value tran_ref;
 
-  NAPI_STATUS_THROWS(napi_create_external(
-    env,
-    tran,
-    FinalizeTransaction,
-    NULL,
-    &tran_ref
-  ));
+  NAPI_STATUS_THROWS(
+      napi_create_external(env, tran, FinalizeTransaction, NULL, &tran_ref));
 
   tran->Attach(env, tran_ref);
 
@@ -717,10 +713,7 @@ NAPI_METHOD(transactionCommit) {
   napi_value callback = argv[1];
   if (transaction->isRollbacking_ || transaction->hasRollbacked_) {
     napi_value callback_error = CreateCodeError(
-      env,
-      "TRANSACTION_ROLLBACKED",
-      "Transaction is already rollbacked"
-    );
+        env, "TRANSACTION_ROLLBACKED", "Transaction is already rollbacked");
     NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
     NAPI_RETURN_UNDEFINED();
   }
@@ -730,11 +723,8 @@ NAPI_METHOD(transactionCommit) {
     NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
     NAPI_RETURN_UNDEFINED();
   }
-  TransactionCommitWorker* worker = new TransactionCommitWorker(
-    env,
-    transaction,
-    callback
-  );
+  TransactionCommitWorker* worker =
+      new TransactionCommitWorker(env, transaction, callback);
   transaction->isCommitting_ = true;
   // TODO:
   // if other async ops, delay this operation
@@ -751,10 +741,7 @@ NAPI_METHOD(transactionRollback) {
   napi_value callback = argv[1];
   if (transaction->isCommitting_ || transaction->hasCommitted_) {
     napi_value callback_error = CreateCodeError(
-      env,
-      "TRANSACTION_COMMITTED",
-      "Transaction is already committed"
-    );
+        env, "TRANSACTION_COMMITTED", "Transaction is already committed");
     NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
     NAPI_RETURN_UNDEFINED();
   }
@@ -780,13 +767,7 @@ NAPI_METHOD(transactionGet) {
   const bool fillCache = BooleanProperty(env, options, "fillCache", true);
   napi_value callback = argv[3];
   TransactionGetWorker* worker = new TransactionGetWorker(
-    env,
-    transaction,
-    callback,
-    key,
-    asBuffer,
-    fillCache
-  );
+      env, transaction, callback, key, asBuffer, fillCache);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
@@ -804,14 +785,7 @@ NAPI_METHOD(transactionGetForUpdate) {
   const bool exclusive = BooleanProperty(env, options, "exclusive", true);
   napi_value callback = argv[3];
   TransactionGetForUpdateWorker* worker = new TransactionGetForUpdateWorker(
-    env,
-    transaction,
-    callback,
-    key,
-    asBuffer,
-    fillCache,
-    exclusive
-  );
+      env, transaction, callback, key, asBuffer, fillCache, exclusive);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
@@ -825,13 +799,8 @@ NAPI_METHOD(transactionPut) {
   rocksdb::Slice key = ToSlice(env, argv[1]);
   rocksdb::Slice value = ToSlice(env, argv[2]);
   napi_value callback = argv[3];
-  TransactionPutWorker* worker = new TransactionPutWorker(
-    env,
-    transaction,
-    callback,
-    key,
-    value
-  );
+  TransactionPutWorker* worker =
+      new TransactionPutWorker(env, transaction, callback, key, value);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
@@ -844,12 +813,8 @@ NAPI_METHOD(transactionDel) {
   NAPI_TRANSACTION_CONTEXT();
   rocksdb::Slice key = ToSlice(env, argv[1]);
   napi_value callback = argv[2];
-  TransactionDelWorker* worker = new TransactionDelWorker(
-    env,
-    transaction,
-    callback,
-    key
-  );
+  TransactionDelWorker* worker =
+      new TransactionDelWorker(env, transaction, callback, key);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }

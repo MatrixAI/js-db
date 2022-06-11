@@ -1,41 +1,40 @@
 #define NAPI_VERSION 3
 
 #include "iterator_workers.h"
+
 #include <cstddef>
 #include <cstdint>
-#include <node_api.h>
+
+#include <node/node_api.h>
+
 #include "../worker.h"
 #include "../iterator.h"
 #include "../utils.h"
 
-CloseIteratorWorker::CloseIteratorWorker (napi_env env,
-            Iterator* iterator,
-            napi_value callback)
-  : BaseWorker(env, iterator->database_, callback, "rocksdb.iterator.close"),
-    iterator_(iterator) {}
+CloseIteratorWorker::CloseIteratorWorker(napi_env env, Iterator* iterator,
+                                         napi_value callback)
+    : BaseWorker(env, iterator->database_, callback, "rocksdb.iterator.close"),
+      iterator_(iterator) {}
 
-CloseIteratorWorker::~CloseIteratorWorker () {}
+CloseIteratorWorker::~CloseIteratorWorker() {}
 
-void CloseIteratorWorker::DoExecute () {
-  iterator_->Close();
-}
+void CloseIteratorWorker::DoExecute() { iterator_->Close(); }
 
-void CloseIteratorWorker::DoFinally (napi_env env) {
+void CloseIteratorWorker::DoFinally(napi_env env) {
   iterator_->Detach(env);
   BaseWorker::DoFinally(env);
 }
 
-NextWorker::NextWorker (napi_env env,
-            Iterator* iterator,
-            uint32_t size,
-            napi_value callback)
-  : BaseWorker(env, iterator->database_, callback,
-                "rocksdb.iterator.next"),
-    iterator_(iterator), size_(size), ok_() {}
+NextWorker::NextWorker(napi_env env, Iterator* iterator, uint32_t size,
+                       napi_value callback)
+    : BaseWorker(env, iterator->database_, callback, "rocksdb.iterator.next"),
+      iterator_(iterator),
+      size_(size),
+      ok_() {}
 
-NextWorker::~NextWorker () {}
+NextWorker::~NextWorker() {}
 
-void NextWorker::DoExecute () {
+void NextWorker::DoExecute() {
   if (!iterator_->DidSeek()) {
     iterator_->SeekToRange();
   }
@@ -47,7 +46,7 @@ void NextWorker::DoExecute () {
   }
 }
 
-void NextWorker::HandleOKCallback (napi_env env, napi_value callback) {
+void NextWorker::HandleOKCallback(napi_env env, napi_value callback) {
   size_t size = iterator_->cache_.size();
   napi_value jsArray;
   napi_create_array_with_length(env, size, &jsArray);
@@ -57,7 +56,8 @@ void NextWorker::HandleOKCallback (napi_env env, napi_value callback) {
 
   for (uint32_t idx = 0; idx < size; idx++) {
     napi_value element;
-    iterator_->cache_[idx].ConvertByMode(env, Mode::entries, kab, vab, &element);
+    iterator_->cache_[idx].ConvertByMode(env, Mode::entries, kab, vab,
+                                         &element);
     napi_set_element(env, jsArray, idx, element);
   }
 
@@ -68,7 +68,7 @@ void NextWorker::HandleOKCallback (napi_env env, napi_value callback) {
   CallFunction(env, callback, 3, argv);
 }
 
-void NextWorker::DoFinally (napi_env env) {
+void NextWorker::DoFinally(napi_env env) {
   // clean up & handle the next/close state
   iterator_->nexting_ = false;
 

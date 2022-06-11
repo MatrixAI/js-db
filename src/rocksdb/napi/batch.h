@@ -7,23 +7,24 @@
 #include <rocksdb/status.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/write_batch.h>
+
 #include "database.h"
 
 /**
  * Owns a WriteBatch.
  */
 struct Batch {
-  Batch (Database* database);
+  Batch(Database* database);
 
-  ~Batch ();
+  ~Batch();
 
-  void Put (rocksdb::Slice key, rocksdb::Slice value);
+  void Put(rocksdb::Slice key, rocksdb::Slice value);
 
-  void Del (rocksdb::Slice key);
+  void Del(rocksdb::Slice key);
 
-  void Clear ();
+  void Clear();
 
-  rocksdb::Status Write (bool sync);
+  rocksdb::Status Write(bool sync);
 
   Database* database_;
   rocksdb::WriteBatch* batch_;
