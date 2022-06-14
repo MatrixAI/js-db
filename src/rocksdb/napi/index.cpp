@@ -1,5 +1,6 @@
 #define NAPI_VERSION 3
 
+#include <cassert>
 #include <cstdint>
 #include <string>
 #include <map>
@@ -11,6 +12,7 @@
 #include <rocksdb/write_batch.h>
 #include <rocksdb/snapshot.h>
 
+#include "debug.h"
 #include "database.h"
 #include "batch.h"
 #include "iterator.h"
@@ -24,79 +26,103 @@
 #include "workers/snapshot_workers.h"
 
 /**
- * Hook for when the environment exits. This hook will be called after
- * already-scheduled napi_async_work items have finished, which gives us
- * the guarantee that no db operations will be in-flight at this time.
- * At this point, the `napi_env` is already invalid, any napi references
- * are automatically deleted.
+ * Hook for when napi environment exits
+ * The `napi_env` cannot be accessed at this point in time
+ * All napi references are already automatically deleted
+ * It is guaranteed that already-scheduled `napi_async_work` items are finished
+ * Cleanup operations here have to be synchronous
+ * When the napi environment exits, the GC callbacks of live references will
+ * run after this hook is called
  */
 static void env_cleanup_hook(void* arg) {
-  Database* database = (Database*)arg;
-  // Do everything that dbClose() does but synchronously. We're expecting that
-  // GC did not (yet) collect the database because that would be a user mistake
-  // (not closing their db) made during the lifetime of the environment. That's
-  // different from an environment being torn down (like the main process or a
-  // worker thread) where it's our responsibility to clean up. Note also, the
-  // following code must be a safe noop if called before dbOpen() or after
-  // dbClose().
-  if (database && database->db_ != nullptr) {
+  LOG_DEBUG("Cleaning NAPI Environment\n");
+  auto database = static_cast<Database*>(arg);
+  // Do everything that `dbClose`  does but synchronously
+  // This may execute when the database hasn't been opened
+  // or when the database hasn't been closed
+  // If it hasn't been opened, it means only `dbInit` was caled
+  // If it hasn't been closed, then `GCDatabase` did not yet run
+  // Therefore this must also check if the `db_` is still set
+  if (!database->hasClosed_ && database->db_ != nullptr) {
     std::map<uint32_t, Iterator*> iterators = database->iterators_;
     std::map<uint32_t, Iterator*>::iterator iterator_it;
     for (iterator_it = iterators.begin(); iterator_it != iterators.end();
          ++iterator_it) {
       iterator_it->second->Close();
     }
-
-    std::map<uint32_t, Transaction*> trans = database->transactions_;
-    std::map<uint32_t, Transaction*>::iterator tran_it;
-    for (tran_it = trans.begin(); tran_it != trans.end(); ++tran_it) {
-      tran_it->second->Rollback();
+    std::map<uint32_t, Transaction*> transactions = database->transactions_;
+    std::map<uint32_t, Transaction*>::iterator transaction_it;
+    for (transaction_it = transactions.begin();
+         transaction_it != transactions.end(); ++transaction_it) {
+      auto transaction = transaction_it->second;
+      // Close transaction iterators too
+      std::map<uint32_t, Iterator*> iterators = transaction->iterators_;
+      std::map<uint32_t, Iterator*>::iterator iterator_it;
+      for (iterator_it = iterators.begin(); iterator_it != iterators.end();
+           ++iterator_it) {
+        auto iterator = iterator_it->second;
+        iterator->Close();
+      }
+      transaction->Rollback();
     }
-
-    std::map<uint32_t, Snapshot*> snaps = database->snapshots_;
-    std::map<uint32_t, Snapshot*>::iterator snap_it;
-    for (snap_it = snaps.begin(); snap_it != snaps.end(); ++snap_it) {
-      snap_it->second->Release();
+    std::map<uint32_t, Snapshot*> snapshots = database->snapshots_;
+    std::map<uint32_t, Snapshot*>::iterator snapshot_it;
+    for (snapshot_it = snapshots.begin(); snapshot_it != snapshots.end();
+         ++snapshot_it) {
+      snapshot_it->second->Release();
     }
-
-    // Having closed the iterators (and released snapshots) we can safely close.
-    database->CloseDatabase();
+    database->Close();
   }
+  LOG_DEBUG("Cleaned NAPI Environment\n");
 }
 
 /**
- * Called by NAPI_METHOD(iteratorClose) and also when closing
- * open iterators during NAPI_METHOD(dbClose).
+ * Used by:
+ *   - `iteratorClose`
+ *   - `dbClose`
+ *   - `transactionCommit`
+ *   - `TransactionRollbackDo`
  */
 static void IteratorCloseDo(napi_env env, Iterator* iterator, napi_value cb) {
   CloseIteratorWorker* worker = new CloseIteratorWorker(env, iterator, cb);
   iterator->isClosing_ = true;
-  if (iterator->nexting_) {
-    iterator->closeWorker_ = worker;
-  } else {
+  // The only pending work for iterator is the `NextWorker`
+  if (!iterator->nexting_) {
     worker->Queue(env);
+    return;
   }
+  iterator->closeWorker_ = worker;
 }
 
 /**
- * Called by NAPI_METHOD(transactionRollback) and also when closing
- * open transactions during NAPI_METHOD(dbClose)
+ * Used by `transactionRollback` and `dbClose`
  */
 static void TransactionRollbackDo(napi_env env, Transaction* transaction,
                                   napi_value cb) {
   TransactionRollbackWorker* worker =
       new TransactionRollbackWorker(env, transaction, cb);
   transaction->isRollbacking_ = true;
-  if (transaction->HasPriorityWork()) {
-    transaction->pendingCloseWorker_ = worker;
-  } else {
+  if (!transaction->HasPendingWork()) {
     worker->Queue(env);
+    return;
+  }
+  transaction->closeWorker_ = worker;
+  napi_value noop;
+  napi_create_function(env, NULL, 0, noop_callback, NULL, &noop);
+  std::map<uint32_t, Iterator*> iterators = transaction->iterators_;
+  std::map<uint32_t, Iterator*>::iterator iterator_it;
+  for (iterator_it = iterators.begin(); iterator_it != iterators.end();
+       ++iterator_it) {
+    Iterator* iterator = iterator_it->second;
+    if (iterator->isClosing_ || iterator->hasClosed_) {
+      continue;
+    }
+    IteratorCloseDo(env, iterator, noop);
   }
 }
 
 /**
- * Called by NAPI_METHOD(snapshotRelease) and also when closing
- * open transactions during NAPI_METHOD(dbClose)
+ * Used by `snapshotRelease` and `dbClose`
  */
 static void SnapshotReleaseDo(napi_env env, Snapshot* snapshot, napi_value cb) {
   SnapshotReleaseWorker* worker = new SnapshotReleaseWorker(env, snapshot, cb);
@@ -105,82 +131,115 @@ static void SnapshotReleaseDo(napi_env env, Snapshot* snapshot, napi_value cb) {
 }
 
 /**
- * Runs when a Database is garbage collected.
+ * Garbage collection `Database`
+ * Only occurs when the object falls out of scope
+ * with no references and no concurrent workers
  */
-static void FinalizeDatabase(napi_env env, void* data, void* hint) {
-  if (data) {
-    Database* database = (Database*)data;
+static void GCDatabase(napi_env env, void* data, void* hint) {
+  LOG_DEBUG("Garbage Collecting Database\n");
+  if (data != nullptr) {
+    auto database = static_cast<Database*>(data);
     napi_remove_env_cleanup_hook(env, env_cleanup_hook, database);
-    if (database->ref_ != NULL) napi_delete_reference(env, database->ref_);
+    database->Close();
+    database->Detach(env);
     delete database;
   }
+  LOG_DEBUG("Garbage Collected Database\n");
 }
 
 /**
- * Runs when a Batch is garbage collected.
+ * Garbage collection `Batch`
+ * Only occurs when the object falls out of scope
+ * with no references and no concurrent workers
  */
-static void FinalizeBatch(napi_env env, void* data, void* hint) {
+static void GCBatch(napi_env env, void* data, void* hint) {
+  LOG_DEBUG("Garbage Collecting Batch\n");
   if (data) {
-    delete (Batch*)data;
+    auto batch = static_cast<Batch*>(data);
+    delete batch;
   }
+  LOG_DEBUG("Garbage Collected Batch\n");
 }
 
 /**
- * Runs when an Iterator is garbage collected.
+ * Garbage collection `Iterator`
+ * Only occurs when the object falls out of scope
+ * with no references and no concurrent workers
  */
-static void FinalizeIterator(napi_env env, void* data, void* hint) {
-  if (data) {
-    delete (Iterator*)data;
+static void GCIterator(napi_env env, void* data, void* hint) {
+  LOG_DEBUG("Garbage Collecting Iterator\n");
+  if (data != nullptr) {
+    auto iterator = static_cast<Iterator*>(data);
+    iterator->Close();
+    iterator->Detach(env);
+    delete iterator;
   }
+  LOG_DEBUG("Garbage Collected Iterator\n");
 }
 
 /**
- * Runs when a Transaction is garbage collected.
+ * Garbage collect `Transaction`
+ * Only occurs when the object falls out of scope
+ * with no references and no concurrent workers
  */
-static void FinalizeTransaction(napi_env env, void* data, void* hint) {
-  if (data) {
-    delete (Transaction*)data;
+static void GCTransaction(napi_env env, void* data, void* hint) {
+  LOG_DEBUG("Garbage Collecting Transaction\n");
+  if (data != nullptr) {
+    auto transaction = static_cast<Transaction*>(data);
+    if (!transaction->hasCommitted_) {
+      transaction->Rollback();
+    }
+    transaction->Detach(env);
+    delete transaction;
   }
+  LOG_DEBUG("Garbage Collected Transaction\n");
 }
 
 /**
- * Runs when a Snapshot is garbage collected
+ * Garbage collect `Snapshot`
+ * Only occurs when the object falls out of scope
+ * with no references and no concurrent workers
  */
-static void FinalizeSnapshot(napi_env env, void* data, void* hint) {
-  if (data) {
-    delete (Snapshot*)data;
+static void GCSnapshot(napi_env env, void* data, void* hint) {
+  LOG_DEBUG("Garbage Collecting Snapshot\n");
+  if (data != nullptr) {
+    auto snapshot = static_cast<Snapshot*>(data);
+    snapshot->Release();
+    snapshot->Detach(env);
+    delete snapshot;
   }
+  LOG_DEBUG("Garbage Collected Snapshot\n");
 }
 
 /**
- * Runs when a TransactionSnapshot is garbage collected
+ * Garbage collect `TransactionSnapshot`
+ * Only occurs when the object falls out of scope
+ * with no references and no concurrent workers
  */
-static void FinalizeTransactionSnapshot(napi_env env, void* data, void* hint) {
+static void GCTransactionSnapshot(napi_env env, void* data, void* hint) {
+  LOG_DEBUG("Garbage Collecting TransactionSnapshot\n");
   if (data) {
-    delete (TransactionSnapshot*)data;
+    auto snapshot = static_cast<TransactionSnapshot*>(data);
+    delete snapshot;
   }
+  LOG_DEBUG("Garbage Collected TransactionSnapshot\n");
 }
 
 /**
- * Returns a context object for a database.
+ * Creates the Database object
  */
 NAPI_METHOD(dbInit) {
   Database* database = new Database();
   napi_add_env_cleanup_hook(env, env_cleanup_hook, database);
-
-  napi_value result;
+  napi_value database_ref;
   NAPI_STATUS_THROWS(
-      napi_create_external(env, database, FinalizeDatabase, NULL, &result));
-
-  // Reference counter to prevent GC of database while priority workers are
-  // active
-  NAPI_STATUS_THROWS(napi_create_reference(env, result, 0, &database->ref_));
-
-  return result;
+      napi_create_external(env, database, GCDatabase, nullptr, &database_ref));
+  database->Attach(env, database_ref);
+  return database_ref;
 }
 
 /**
- * Open a database.
+ * Open a database
  */
 NAPI_METHOD(dbOpen) {
   NAPI_ARGV(4);
@@ -249,60 +308,52 @@ NAPI_METHOD(dbOpen) {
 }
 
 /**
- * Close a database.
+ * Close a database
+ * This is asynchronous
  */
 NAPI_METHOD(dbClose) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
-
   napi_value callback = argv[1];
   CloseWorker* worker = new CloseWorker(env, database, callback);
-
-  if (!database->HasPriorityWork()) {
+  if (!database->HasPendingWork()) {
     worker->Queue(env);
     NAPI_RETURN_UNDEFINED();
   }
-
-  database->pendingCloseWorker_ = worker;
-
+  database->closeWorker_ = worker;
   napi_value noop;
   napi_create_function(env, NULL, 0, noop_callback, NULL, &noop);
-
-  // Close all iterators
   std::map<uint32_t, Iterator*> iterators = database->iterators_;
   std::map<uint32_t, Iterator*>::iterator iterator_it;
   for (iterator_it = iterators.begin(); iterator_it != iterators.end();
        ++iterator_it) {
-    Iterator* iterator = iterator_it->second;
+    auto iterator = iterator_it->second;
     if (iterator->isClosing_ || iterator->hasClosed_) {
       continue;
     }
     IteratorCloseDo(env, iterator, noop);
   }
-
-  // Rollback all transactions
-  std::map<uint32_t, Transaction*> trans = database->transactions_;
-  std::map<uint32_t, Transaction*>::iterator tran_it;
-  for (tran_it = trans.begin(); tran_it != trans.end(); ++tran_it) {
-    Transaction* tran = tran_it->second;
-    if (tran->isCommitting_ || tran->hasCommitted_ || tran->isRollbacking_ ||
-        tran->hasRollbacked_) {
+  std::map<uint32_t, Transaction*> transactions = database->transactions_;
+  std::map<uint32_t, Transaction*>::iterator transaction_it;
+  for (transaction_it = transactions.begin();
+       transaction_it != transactions.end(); ++transaction_it) {
+    auto transaction = transaction_it->second;
+    if (transaction->isCommitting_ || transaction->hasCommitted_ ||
+        transaction->isRollbacking_ || transaction->hasRollbacked_) {
       continue;
     }
-    TransactionRollbackDo(env, tran, noop);
+    TransactionRollbackDo(env, transaction, noop);
   }
-
-  // Release all snapshots
-  std::map<uint32_t, Snapshot*> snaps = database->snapshots_;
-  std::map<uint32_t, Snapshot*>::iterator snap_it;
-  for (snap_it = snaps.begin(); snap_it != snaps.end(); ++snap_it) {
-    Snapshot* snap = snap_it->second;
-    if (snap->isReleasing_ || snap->hasReleased_) {
+  std::map<uint32_t, Snapshot*> snapshots = database->snapshots_;
+  std::map<uint32_t, Snapshot*>::iterator snapshot_it;
+  for (snapshot_it = snapshots.begin(); snapshot_it != snapshots.end();
+       ++snapshot_it) {
+    auto snapshot = snapshot_it->second;
+    if (snapshot->isReleasing_ || snapshot->hasReleased_) {
       continue;
     }
-    SnapshotReleaseDo(env, snap, noop);
+    SnapshotReleaseDo(env, snapshot, noop);
   }
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -348,15 +399,12 @@ NAPI_METHOD(dbMultiGet) {
 NAPI_METHOD(dbPut) {
   NAPI_ARGV(5);
   NAPI_DB_CONTEXT();
-
   rocksdb::Slice key = ToSlice(env, argv[1]);
   rocksdb::Slice value = ToSlice(env, argv[2]);
   bool sync = BooleanProperty(env, argv[3], "sync", false);
   napi_value callback = argv[4];
-
   PutWorker* worker = new PutWorker(env, database, callback, key, value, sync);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -366,14 +414,11 @@ NAPI_METHOD(dbPut) {
 NAPI_METHOD(dbDel) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
-
   rocksdb::Slice key = ToSlice(env, argv[1]);
   bool sync = BooleanProperty(env, argv[2], "sync", false);
   napi_value callback = argv[3];
-
   DelWorker* worker = new DelWorker(env, database, callback, key, sync);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -383,22 +428,17 @@ NAPI_METHOD(dbDel) {
 NAPI_METHOD(dbClear) {
   NAPI_ARGV(3);
   NAPI_DB_CONTEXT();
-
   napi_value options = argv[1];
   napi_value callback = argv[2];
-
   const bool reverse = BooleanProperty(env, options, "reverse", false);
   const int limit = Int32Property(env, options, "limit", -1);
-
   std::string* lt = RangeOption(env, options, "lt");
   std::string* lte = RangeOption(env, options, "lte");
   std::string* gt = RangeOption(env, options, "gt");
   std::string* gte = RangeOption(env, options, "gte");
-
   ClearWorker* worker = new ClearWorker(env, database, callback, reverse, limit,
                                         lt, lte, gt, gte);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -408,16 +448,12 @@ NAPI_METHOD(dbClear) {
 NAPI_METHOD(dbApproximateSize) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
-
   rocksdb::Slice start = ToSlice(env, argv[1]);
   rocksdb::Slice end = ToSlice(env, argv[2]);
-
   napi_value callback = argv[3];
-
   ApproximateSizeWorker* worker =
       new ApproximateSizeWorker(env, database, callback, start, end);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -427,15 +463,12 @@ NAPI_METHOD(dbApproximateSize) {
 NAPI_METHOD(dbCompactRange) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
-
   rocksdb::Slice start = ToSlice(env, argv[1]);
   rocksdb::Slice end = ToSlice(env, argv[2]);
   napi_value callback = argv[3];
-
   CompactRangeWorker* worker =
       new CompactRangeWorker(env, database, callback, start, end);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -445,17 +478,12 @@ NAPI_METHOD(dbCompactRange) {
 NAPI_METHOD(dbGetProperty) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
-
   rocksdb::Slice property = ToSlice(env, argv[1]);
-
   std::string value;
   database->GetProperty(property, &value);
-
   napi_value result;
   napi_create_string_utf8(env, value.data(), value.size(), &result);
-
   DisposeSliceBuffer(property);
-
   return result;
 }
 
@@ -469,8 +497,8 @@ NAPI_METHOD(snapshotInit) {
   Snapshot* snapshot = new Snapshot(database, id);
   // Opaque JS value acting as a reference to `rocksdb::Snapshot`
   napi_value snapshot_ref;
-  NAPI_STATUS_THROWS(napi_create_external(env, snapshot, FinalizeSnapshot,
-                                          nullptr, &snapshot_ref));
+  NAPI_STATUS_THROWS(
+      napi_create_external(env, snapshot, GCSnapshot, nullptr, &snapshot_ref));
   snapshot->Attach(env, snapshot_ref);
   return snapshot_ref;
 }
@@ -496,12 +524,9 @@ NAPI_METHOD(destroyDb) {
   NAPI_ARGV(2);
   NAPI_ARGV_UTF8_NEW(location, 0);
   napi_value callback = argv[1];
-
   DestroyWorker* worker = new DestroyWorker(env, location, callback);
   worker->Queue(env);
-
   delete[] location;
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -512,12 +537,9 @@ NAPI_METHOD(repairDb) {
   NAPI_ARGV(2);
   NAPI_ARGV_UTF8_NEW(location, 0);
   napi_value callback = argv[1];
-
   RepairWorker* worker = new RepairWorker(env, location, callback);
   worker->Queue(env);
-
   delete[] location;
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -527,7 +549,6 @@ NAPI_METHOD(repairDb) {
 NAPI_METHOD(iteratorInit) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
-
   napi_value options = argv[1];
   const bool reverse = BooleanProperty(env, options, "reverse", false);
   const bool keys = BooleanProperty(env, options, "keys", true);
@@ -538,26 +559,20 @@ NAPI_METHOD(iteratorInit) {
   const int limit = Int32Property(env, options, "limit", -1);
   const uint32_t highWaterMarkBytes =
       Uint32Property(env, options, "highWaterMarkBytes", 16 * 1024);
-
   std::string* lt = RangeOption(env, options, "lt");
   std::string* lte = RangeOption(env, options, "lte");
   std::string* gt = RangeOption(env, options, "gt");
   std::string* gte = RangeOption(env, options, "gte");
-
+  const Snapshot* snapshot = SnapshotProperty(env, options, "snapshot");
   const uint32_t id = database->currentIteratorId_++;
-  Iterator* iterator =
-      new Iterator(database, id, reverse, keys, values, limit, lt, lte, gt, gte,
-                   fillCache, keyAsBuffer, valueAsBuffer, highWaterMarkBytes);
-  napi_value result;
-
+  Iterator* iterator = new Iterator(
+      database, id, reverse, keys, values, limit, lt, lte, gt, gte, fillCache,
+      keyAsBuffer, valueAsBuffer, highWaterMarkBytes, snapshot);
+  napi_value iterator_ref;
   NAPI_STATUS_THROWS(
-      napi_create_external(env, iterator, FinalizeIterator, NULL, &result));
-
-  // Prevent GC of JS object before the iterator is closed (explicitly or on
-  // db close) and keep track of non-closed iterators to close them on db close.
-  iterator->Attach(env, result);
-
-  return result;
+      napi_create_external(env, iterator, GCIterator, NULL, &iterator_ref));
+  iterator->Attach(env, iterator_ref);
+  return iterator_ref;
 }
 
 /**
@@ -566,15 +581,12 @@ NAPI_METHOD(iteratorInit) {
 NAPI_METHOD(iteratorSeek) {
   NAPI_ARGV(2);
   NAPI_ITERATOR_CONTEXT();
-
   if (iterator->isClosing_ || iterator->hasClosed_) {
     NAPI_RETURN_UNDEFINED();
   }
-
   rocksdb::Slice target = ToSlice(env, argv[1]);
   iterator->first_ = true;
   iterator->Seek(target);
-
   DisposeSliceBuffer(target);
   NAPI_RETURN_UNDEFINED();
 }
@@ -602,24 +614,19 @@ NAPI_METHOD(iteratorClose) {
 NAPI_METHOD(iteratorNextv) {
   NAPI_ARGV(3);
   NAPI_ITERATOR_CONTEXT();
-
   uint32_t size;
   NAPI_STATUS_THROWS(napi_get_value_uint32(env, argv[1], &size));
   if (size == 0) size = 1;
-
   napi_value callback = argv[2];
-
   if (iterator->isClosing_ || iterator->hasClosed_) {
     napi_value argv =
         CreateCodeError(env, "ITERATOR_NOT_OPEN", "Iterator is not open");
     NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &argv));
     NAPI_RETURN_UNDEFINED();
   }
-
   NextWorker* worker = new NextWorker(env, iterator, size, callback);
   iterator->nexting_ = true;
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -629,52 +636,38 @@ NAPI_METHOD(iteratorNextv) {
 NAPI_METHOD(batchDo) {
   NAPI_ARGV(4);
   NAPI_DB_CONTEXT();
-
   napi_value array = argv[1];
   const bool sync = BooleanProperty(env, argv[2], "sync", false);
   napi_value callback = argv[3];
-
   uint32_t length;
   napi_get_array_length(env, array, &length);
-
   rocksdb::WriteBatch* batch = new rocksdb::WriteBatch();
   bool hasData = false;
-
   for (uint32_t i = 0; i < length; i++) {
     napi_value element;
     napi_get_element(env, array, i, &element);
-
     if (!IsObject(env, element)) continue;
-
     std::string type = StringProperty(env, element, "type");
-
     if (type == "del") {
       if (!HasProperty(env, element, "key")) continue;
       rocksdb::Slice key = ToSlice(env, GetProperty(env, element, "key"));
-
       batch->Delete(key);
       if (!hasData) hasData = true;
-
       DisposeSliceBuffer(key);
     } else if (type == "put") {
       if (!HasProperty(env, element, "key")) continue;
       if (!HasProperty(env, element, "value")) continue;
-
       rocksdb::Slice key = ToSlice(env, GetProperty(env, element, "key"));
       rocksdb::Slice value = ToSlice(env, GetProperty(env, element, "value"));
-
       batch->Put(key, value);
       if (!hasData) hasData = true;
-
       DisposeSliceBuffer(key);
       DisposeSliceBuffer(value);
     }
   }
-
   BatchWorker* worker =
       new BatchWorker(env, database, callback, batch, sync, hasData);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -684,12 +677,9 @@ NAPI_METHOD(batchDo) {
 NAPI_METHOD(batchInit) {
   NAPI_ARGV(1);
   NAPI_DB_CONTEXT();
-
   Batch* batch = new Batch(database);
-
   napi_value result;
-  NAPI_STATUS_THROWS(
-      napi_create_external(env, batch, FinalizeBatch, NULL, &result));
+  NAPI_STATUS_THROWS(napi_create_external(env, batch, GCBatch, NULL, &result));
   return result;
 }
 
@@ -699,13 +689,11 @@ NAPI_METHOD(batchInit) {
 NAPI_METHOD(batchPut) {
   NAPI_ARGV(3);
   NAPI_BATCH_CONTEXT();
-
   rocksdb::Slice key = ToSlice(env, argv[1]);
   rocksdb::Slice value = ToSlice(env, argv[2]);
   batch->Put(key, value);
   DisposeSliceBuffer(key);
   DisposeSliceBuffer(value);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -715,11 +703,9 @@ NAPI_METHOD(batchPut) {
 NAPI_METHOD(batchDel) {
   NAPI_ARGV(2);
   NAPI_BATCH_CONTEXT();
-
   rocksdb::Slice key = ToSlice(env, argv[1]);
   batch->Del(key);
   DisposeSliceBuffer(key);
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -729,9 +715,7 @@ NAPI_METHOD(batchDel) {
 NAPI_METHOD(batchClear) {
   NAPI_ARGV(1);
   NAPI_BATCH_CONTEXT();
-
   batch->Clear();
-
   NAPI_RETURN_UNDEFINED();
 }
 
@@ -741,58 +725,43 @@ NAPI_METHOD(batchClear) {
 NAPI_METHOD(batchWrite) {
   NAPI_ARGV(3);
   NAPI_BATCH_CONTEXT();
-
   napi_value options = argv[1];
   const bool sync = BooleanProperty(env, options, "sync", false);
   napi_value callback = argv[2];
-
   BatchWriteWorker* worker =
       new BatchWriteWorker(env, argv[0], batch, callback, sync);
   worker->Queue(env);
-
   NAPI_RETURN_UNDEFINED();
 }
 
 /**
  * Creates a transaction
  *
- * @returns {napi_value} This is a `napi_external` that references `Transaction`
+ * @returns {napi_value} A `napi_external` that references `Transaction`
  */
 NAPI_METHOD(transactionInit) {
   NAPI_ARGV(2);
   NAPI_DB_CONTEXT();
-
   napi_value options = argv[1];
   const bool sync = BooleanProperty(env, options, "sync", false);
-
   const uint32_t id = database->currentTransactionId_++;
-  Transaction* tran = new Transaction(database, id, sync);
-
+  Transaction* transaction = new Transaction(database, id, sync);
   // Opaque JS value acting as a reference to `Transaction`
-  napi_value tran_ref;
-
-  NAPI_STATUS_THROWS(
-      napi_create_external(env, tran, FinalizeTransaction, NULL, &tran_ref));
-
-  tran->Attach(env, tran_ref);
-
-  return tran_ref;
+  napi_value transaction_ref;
+  NAPI_STATUS_THROWS(napi_create_external(env, transaction, GCTransaction, NULL,
+                                          &transaction_ref));
+  transaction->Attach(env, transaction_ref);
+  return transaction_ref;
 }
 
 /**
  * Commit transaction
- * transactionCommit(transaction, callback)
  */
 NAPI_METHOD(transactionCommit) {
   NAPI_ARGV(2);
   NAPI_TRANSACTION_CONTEXT();
+  assert(!transaction->isRollbacking_ && !transaction->hasRollbacked_);
   napi_value callback = argv[1];
-  if (transaction->isRollbacking_ || transaction->hasRollbacked_) {
-    napi_value callback_error = CreateCodeError(
-        env, "TRANSACTION_ROLLBACKED", "Transaction is already rollbacked");
-    NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
-    NAPI_RETURN_UNDEFINED();
-  }
   if (transaction->isCommitting_ || transaction->hasCommitted_) {
     napi_value callback_error;
     napi_get_null(env, &callback_error);
@@ -802,10 +771,23 @@ NAPI_METHOD(transactionCommit) {
   TransactionCommitWorker* worker =
       new TransactionCommitWorker(env, transaction, callback);
   transaction->isCommitting_ = true;
-  if (transaction->HasPriorityWork()) {
-    transaction->pendingCloseWorker_ = worker;
-  } else {
+  if (!transaction->HasPendingWork()) {
     worker->Queue(env);
+    NAPI_RETURN_UNDEFINED();
+  }
+  transaction->closeWorker_ = worker;
+  napi_value noop;
+  napi_create_function(env, NULL, 0, noop_callback, NULL, &noop);
+  // Close transactional iterators
+  std::map<uint32_t, Iterator*> iterators = transaction->iterators_;
+  std::map<uint32_t, Iterator*>::iterator iterator_it;
+  for (iterator_it = iterators.begin(); iterator_it != iterators.end();
+       ++iterator_it) {
+    Iterator* iterator = iterator_it->second;
+    if (iterator->isClosing_ || iterator->hasClosed_) {
+      continue;
+    }
+    IteratorCloseDo(env, iterator, noop);
   }
   NAPI_RETURN_UNDEFINED();
 }
@@ -816,13 +798,8 @@ NAPI_METHOD(transactionCommit) {
 NAPI_METHOD(transactionRollback) {
   NAPI_ARGV(2);
   NAPI_TRANSACTION_CONTEXT();
+  assert(!transaction->isCommitting_ && !transaction->hasCommitted_);
   napi_value callback = argv[1];
-  if (transaction->isCommitting_ || transaction->hasCommitted_) {
-    napi_value callback_error = CreateCodeError(
-        env, "TRANSACTION_COMMITTED", "Transaction is already committed");
-    NAPI_STATUS_THROWS(CallFunction(env, callback, 1, &callback_error));
-    NAPI_RETURN_UNDEFINED();
-  }
   if (transaction->isRollbacking_ || transaction->hasRollbacked_) {
     napi_value callback_error;
     napi_get_null(env, &callback_error);
@@ -913,15 +890,49 @@ NAPI_METHOD(transactionSnapshot) {
   TransactionSnapshot* snapshot = new TransactionSnapshot(transaction);
   // Opaque JS value acting as a reference to `rocksdb::Snapshot`
   napi_value snapshot_ref;
-  NAPI_STATUS_THROWS(napi_create_external(
-      env, snapshot, FinalizeTransactionSnapshot, nullptr, &snapshot_ref));
+  NAPI_STATUS_THROWS(napi_create_external(env, snapshot, GCTransactionSnapshot,
+                                          nullptr, &snapshot_ref));
   return snapshot_ref;
+}
+
+NAPI_METHOD(transactionIteratorInit) {
+  NAPI_ARGV(2);
+  NAPI_TRANSACTION_CONTEXT();
+  ASSERT_TRANSACTION_READY(env, transaction);
+  napi_value options = argv[1];
+  const bool reverse = BooleanProperty(env, options, "reverse", false);
+  const bool keys = BooleanProperty(env, options, "keys", true);
+  const bool values = BooleanProperty(env, options, "values", true);
+  const bool fillCache = BooleanProperty(env, options, "fillCache", false);
+  const bool keyAsBuffer = EncodingIsBuffer(env, options, "keyEncoding");
+  const bool valueAsBuffer = EncodingIsBuffer(env, options, "valueEncoding");
+  const int limit = Int32Property(env, options, "limit", -1);
+  const uint32_t highWaterMarkBytes =
+      Uint32Property(env, options, "highWaterMarkBytes", 16 * 1024);
+  std::string* lt = RangeOption(env, options, "lt");
+  std::string* lte = RangeOption(env, options, "lte");
+  std::string* gt = RangeOption(env, options, "gt");
+  std::string* gte = RangeOption(env, options, "gte");
+  const TransactionSnapshot* snapshot =
+      TransactionSnapshotProperty(env, options, "snapshot");
+  const uint32_t id = transaction->currentIteratorId_++;
+  Iterator* iterator = new Iterator(
+      transaction, id, reverse, keys, values, limit, lt, lte, gt, gte,
+      fillCache, keyAsBuffer, valueAsBuffer, highWaterMarkBytes, snapshot);
+  napi_value iterator_ref;
+  NAPI_STATUS_THROWS(
+      napi_create_external(env, iterator, GCIterator, NULL, &iterator_ref));
+  iterator->Attach(env, iterator_ref);
+  return iterator_ref;
 }
 
 /**
  * All exported functions.
  */
 NAPI_INIT() {
+  // Check `NODE_DEBUG_NATIVE` environment variable
+  CheckNodeDebugNative();
+
   NAPI_EXPORT_FUNCTION(dbInit);
   NAPI_EXPORT_FUNCTION(dbOpen);
   NAPI_EXPORT_FUNCTION(dbClose);
@@ -942,8 +953,8 @@ NAPI_INIT() {
 
   NAPI_EXPORT_FUNCTION(iteratorInit);
   NAPI_EXPORT_FUNCTION(iteratorSeek);
-  NAPI_EXPORT_FUNCTION(iteratorClose);
   NAPI_EXPORT_FUNCTION(iteratorNextv);
+  NAPI_EXPORT_FUNCTION(iteratorClose);
 
   NAPI_EXPORT_FUNCTION(batchDo);
   NAPI_EXPORT_FUNCTION(batchInit);
@@ -960,4 +971,5 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(transactionPut);
   NAPI_EXPORT_FUNCTION(transactionDel);
   NAPI_EXPORT_FUNCTION(transactionSnapshot);
+  NAPI_EXPORT_FUNCTION(transactionIteratorInit);
 }

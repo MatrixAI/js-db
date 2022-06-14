@@ -156,6 +156,25 @@ interface RocksDBP {
     key: string | Buffer,
   ): Promise<void>;
   transactionSnapshot(tran: RocksDBTransaction): RocksDBTransactionSnapshot;
+  transactionIteratorInit(
+    transaction: RocksDBTransaction,
+    options: RocksDBIteratorOptions<RocksDBTransactionSnapshot> & {
+      keyEncoding: 'buffer';
+      valueEncoding: 'buffer';
+    },
+  ): RocksDBIterator<Buffer, Buffer>;
+  transactionIteratorInit(
+    transaction: RocksDBTransaction,
+    options: RocksDBIteratorOptions<RocksDBTransactionSnapshot> & { keyEncoding: 'buffer' },
+  ): RocksDBIterator<Buffer, string>;
+  transactionIteratorInit(
+    transaction: RocksDBTransaction,
+    options: RocksDBIteratorOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
+  ): RocksDBIterator<string, Buffer>;
+  transactionIteratorInit(
+    database: RocksDBTransaction,
+    options: RocksDBIteratorOptions<RocksDBTransactionSnapshot>,
+  ): RocksDBIterator<string, string>;
 }
 
 /**
@@ -197,6 +216,7 @@ const rocksdbP: RocksDBP = {
   transactionPut: utils.promisify(rocksdb.transactionPut).bind(rocksdb),
   transactionDel: utils.promisify(rocksdb.transactionDel).bind(rocksdb),
   transactionSnapshot: rocksdb.transactionSnapshot.bind(rocksdb),
+  transactionIteratorInit: rocksdb.transactionIteratorInit.bind(rocksdb),
 };
 
 export default rocksdbP;

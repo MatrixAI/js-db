@@ -5,60 +5,65 @@
 #endif
 
 #include <cstdint>
+#include <map>
 
 #include <node/node_api.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/status.h>
 #include <rocksdb/options.h>
+#include <rocksdb/iterator.h>
 #include <rocksdb/utilities/transaction.h>
 
 #include "database.h"
-#include "worker.h"
 
 /**
- * Transaction to be used from JS land.
+ * Forward declarations
+ */
+struct Iterator;
+struct BaseWorker;
+
+/**
+ * Transaction object managed from JS
  */
 struct Transaction final {
+  /**
+   * Constructs transaction from database
+   * Call `Transaction::Attach` afterwards
+   */
   Transaction(Database* database, const uint32_t id, const bool sync);
 
+  /**
+   * Destroys transaction
+   * Call `Transaction::Rollback()` or `Transaction::Commit()`
+   * then `Transaction::Detach` beforehand
+   */
   ~Transaction();
 
   /**
-   * Creates reference to `napi_external` of this `Transaction`
-   * to prevent garbage collection
-   * Tracks this `Transaction` in the `Database` for cleanup
+   * Creates JS reference count at 1 to prevent GC of this object
+   * Attaches this `Transaction` to the `Database`
+   * Repeating this call is idempotent
    */
-  void Attach(napi_env env, napi_value tran_ref);
+  void Attach(napi_env env, napi_value transaction_ref);
 
   /**
-   * Deletes references to `napi_external` of this `Transaction`
-   * to allow garbage collection
-   * Untracks this `Transaction` in the `Database` for cleanup
+   * Deletes JS reference count to allow GC of this object
+   * Detaches this `Transaction` from the `Database`
+   * Repeating this call is idempotent
    */
   void Detach(napi_env env);
 
   /**
    * Commit the transaction
-   * Synchronous operation
+   * Repeating this call is idempotent
    */
   rocksdb::Status Commit();
 
   /**
    * Rollback the transaction
-   * Synchronous operation
+   * Repeating this call is idempotent
    */
   rocksdb::Status Rollback();
-
-  rocksdb::Status Get(const rocksdb::ReadOptions& options, rocksdb::Slice key,
-                      std::string& value);
-
-  rocksdb::Status GetForUpdate(const rocksdb::ReadOptions& options,
-                               rocksdb::Slice key, std::string& value,
-                               bool exclusive = true);
-
-  rocksdb::Status Put(rocksdb::Slice key, rocksdb::Slice value);
-
-  rocksdb::Status Del(rocksdb::Slice key);
 
   /**
    * Set the snapshot for the transaction
@@ -70,26 +75,110 @@ struct Transaction final {
   /**
    * Get the snapshot that was set for the transaction
    * If you don't set the snapshot prior, this will return `nullptr`
+   * This snapshot must not be manually released, it will
+   * be automatically released when this `Transaction` is deleted
    */
   const rocksdb::Snapshot* GetSnapshot();
 
-  void IncrementPriorityWork(napi_env env);
+  /**
+   * Get an iterator for this transaction
+   * The caller is responsible for deleting the iterator
+   * By default it will read any value set in the transaction overlay
+   * before default to the underlying DB value, this includes deleted values
+   * Setting a read snapshot only affects what is read from the DB
+   */
+  rocksdb::Iterator* GetIterator(const rocksdb::ReadOptions& options);
 
-  void DecrementPriorityWork(napi_env env);
+  /**
+   * Get a value
+   * This will read from the transaction overlay and default to the underlying
+   * db Use a snapshot for consistent reads
+   */
+  rocksdb::Status Get(const rocksdb::ReadOptions& options, rocksdb::Slice key,
+                      std::string& value);
 
-  bool HasPriorityWork() const;
+  /**
+   * Get a value for update
+   * This will read from the transaction overlay and default to the underlying
+   * db Use this to solve write skews, and to for read-write conflicts Use a
+   * snapshot for consistent reads
+   */
+  rocksdb::Status GetForUpdate(const rocksdb::ReadOptions& options,
+                               rocksdb::Slice key, std::string& value,
+                               bool exclusive = true);
+
+  /**
+   * Put a key value
+   * This will write to the transaction overlay
+   * Writing to the same key after this put operation will cause a conflict
+   * If a snapshot is applied to the transaction, writing to keys after the
+   * snapshot is set that is also written to by this transaction, will cause a
+   * conflict
+   */
+  rocksdb::Status Put(rocksdb::Slice key, rocksdb::Slice value);
+
+  /**
+   * Delete a key value
+   * This will write to the transaction overlay
+   * Writing to the same key after this put operation will cause a conflict
+   * If a snapshot is applied to the transaction, writing to keys after the
+   * snapshot is set that is also written to by this transaction, will cause a
+   * conflict
+   */
+  rocksdb::Status Del(rocksdb::Slice key);
+
+  /**
+   * Attach `Iterator` to be managed by this `Transaction`
+   * Iterators attached will be closed automatically if not detached
+   */
+  void AttachIterator(napi_env env, uint32_t id, Iterator* iterator);
+
+  /**
+   * Detach `Iterator` from this `Transaction`
+   * It is assumed the caller will have closed or will be closing the iterator
+   */
+  void DetachIterator(napi_env env, uint32_t id);
+
+  /**
+   * Increment pending work count to delay concurrent close operation
+   * This also increments the JS reference count which prevents GC
+   * Pending work can be priority asynchronous operations
+   * or they can be sub-objects like iterators
+   */
+  void IncrementPendingWork(napi_env env);
+
+  /**
+   * Decrement pending work count
+   * When count reaches 0, it will run the `closeWorker_` if it set
+   */
+  void DecrementPendingWork(napi_env env);
+
+  /**
+   * Check if it has any pending work
+   */
+  bool HasPendingWork() const;
 
   Database* database_;
   const uint32_t id_;
+  /**
+   * This is managed by workers
+   * It is used to indicate whether commit is asynchronously scheduled
+   */
   bool isCommitting_;
   bool hasCommitted_;
+  /**
+   * This is managed by workers
+   * It is used to indicate whether rollback is asynchronously scheduled
+   */
   bool isRollbacking_;
   bool hasRollbacked_;
-  BaseWorker* pendingCloseWorker_;
+  uint32_t currentIteratorId_;
+  std::map<uint32_t, Iterator*> iterators_;
+  BaseWorker* closeWorker_;
 
  private:
-  rocksdb::Transaction* dbTransaction_;
   rocksdb::WriteOptions* options_;
+  rocksdb::Transaction* tran_;
+  uint32_t pendingWork_;
   napi_ref ref_;
-  uint32_t priorityWork_;
 };

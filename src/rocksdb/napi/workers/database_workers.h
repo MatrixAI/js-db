@@ -47,6 +47,8 @@ struct CloseWorker final : public BaseWorker {
   ~CloseWorker();
 
   void DoExecute() override;
+
+  void DoFinally(napi_env env) override;
 };
 
 /**

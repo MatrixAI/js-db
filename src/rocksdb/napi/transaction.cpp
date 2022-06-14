@@ -6,11 +6,15 @@
 #include <cstdint>
 
 #include <node/node_api.h>
+#include <napi-macros.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/status.h>
 #include <rocksdb/options.h>
+#include <rocksdb/iterator.h>
 
+#include "debug.h"
 #include "database.h"
+#include "iterator.h"
 
 Transaction::Transaction(Database* database, const uint32_t id, const bool sync)
     : database_(database),
@@ -19,95 +23,138 @@ Transaction::Transaction(Database* database, const uint32_t id, const bool sync)
       hasCommitted_(false),
       isRollbacking_(false),
       hasRollbacked_(false),
-      pendingCloseWorker_(nullptr),
-      ref_(nullptr),
-      priorityWork_(0) {
+      currentIteratorId_(0),
+      closeWorker_(nullptr),
+      pendingWork_(0),
+      ref_(nullptr) {
+  LOG_DEBUG("Transaction:Constructing Transaction %d\n", id_);
   options_ = new rocksdb::WriteOptions();
   options_->sync = sync;
-  dbTransaction_ = database->NewTransaction(options_);
+  tran_ = database->NewTransaction(*options_);
+  LOG_DEBUG("Transaction:Constructed Transaction %d\n", id_);
 }
 
 Transaction::~Transaction() {
+  LOG_DEBUG("Transaction:Destroying Transaction %d\n", id_);
   assert(hasCommitted_ || hasRollbacked_);
+  delete tran_;
   delete options_;
+  LOG_DEBUG("Transaction:Destroyed Transaction %d\n", id_);
 }
 
-void Transaction::Attach(napi_env env, napi_value tran_ref) {
-  napi_create_reference(env, tran_ref, 1, &ref_);
+void Transaction::Attach(napi_env env, napi_value transaction_ref) {
+  if (ref_ != nullptr) return;
+  NAPI_STATUS_THROWS_VOID(
+      napi_create_reference(env, transaction_ref, 1, &ref_));
   database_->AttachTransaction(env, id_, this);
 }
 
 void Transaction::Detach(napi_env env) {
+  if (ref_ == nullptr) return;
   database_->DetachTransaction(env, id_);
-  if (ref_ != NULL) napi_delete_reference(env, ref_);
+  NAPI_STATUS_THROWS_VOID(napi_delete_reference(env, ref_));
+  ref_ = nullptr;
 }
 
 rocksdb::Status Transaction::Commit() {
-  if (hasCommitted_) {
-    return rocksdb::Status::OK();
-  }
+  LOG_DEBUG("Transaction:Committing Transaction %d\n", id_);
+  assert(!hasRollbacked_);
+  if (hasCommitted_) return rocksdb::Status::OK();
   hasCommitted_ = true;
-  rocksdb::Status status = dbTransaction_->Commit();
-  delete dbTransaction_;
-  dbTransaction_ = NULL;
-  // TODO: release snapshot?
-  // database_->ReleaseSnapshot(options_->snapshot);
+  rocksdb::Status status = tran_->Commit();
+  // Early deletion
+  delete tran_;
+  tran_ = nullptr;
+  delete options_;
+  options_ = nullptr;
+  LOG_DEBUG("Transaction:Committed Transaction %d\n", id_);
   return status;
 }
 
 rocksdb::Status Transaction::Rollback() {
-  if (hasRollbacked_) {
-    return rocksdb::Status::OK();
-  }
+  LOG_DEBUG("Transaction:Rollbacking Transaction %d\n", id_);
+  assert(!hasCommitted_);
+  if (hasRollbacked_) return rocksdb::Status::OK();
   hasRollbacked_ = true;
-  rocksdb::Status status = dbTransaction_->Rollback();
-  delete dbTransaction_;
-  dbTransaction_ = NULL;
-  // TODO: release snapshot?
-  // database_->ReleaseSnapshot(options_->snapshot);
+  rocksdb::Status status = tran_->Rollback();
+  // Early deletion
+  delete tran_;
+  tran_ = nullptr;
+  delete options_;
+  options_ = nullptr;
+  LOG_DEBUG("Transaction:Rollbacked Transaction %d\n", id_);
   return status;
+}
+
+void Transaction::SetSnapshot() {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->SetSnapshot();
+}
+
+const rocksdb::Snapshot* Transaction::GetSnapshot() {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->GetSnapshot();
+}
+
+rocksdb::Iterator* Transaction::GetIterator(
+    const rocksdb::ReadOptions& options) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->GetIterator(options);
 }
 
 rocksdb::Status Transaction::Get(const rocksdb::ReadOptions& options,
                                  rocksdb::Slice key, std::string& value) {
-  return dbTransaction_->Get(options, key, &value);
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->Get(options, key, &value);
 }
 
 rocksdb::Status Transaction::GetForUpdate(const rocksdb::ReadOptions& options,
                                           rocksdb::Slice key,
                                           std::string& value, bool exclusive) {
-  return dbTransaction_->GetForUpdate(options, key, &value, exclusive);
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->GetForUpdate(options, key, &value, exclusive);
 }
 
 rocksdb::Status Transaction::Put(rocksdb::Slice key, rocksdb::Slice value) {
-  return dbTransaction_->Put(key, value);
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->Put(key, value);
 }
 
 rocksdb::Status Transaction::Del(rocksdb::Slice key) {
-  return dbTransaction_->Delete(key);
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->Delete(key);
 }
 
-void Transaction::SetSnapshot() { return dbTransaction_->SetSnapshot(); }
-
-const rocksdb::Snapshot* Transaction::GetSnapshot() {
-  return dbTransaction_->GetSnapshot();
+void Transaction::AttachIterator(napi_env env, uint32_t id,
+                                 Iterator* iterator) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  iterators_[id] = iterator;
+  IncrementPendingWork(env);
 }
 
-void Transaction::IncrementPriorityWork(napi_env env) {
-  napi_reference_ref(env, ref_, &priorityWork_);
+void Transaction::DetachIterator(napi_env env, uint32_t id) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  iterators_.erase(id);
+  DecrementPendingWork(env);
 }
 
-void Transaction::DecrementPriorityWork(napi_env env) {
-  napi_reference_unref(env, ref_, &priorityWork_);
+void Transaction::IncrementPendingWork(napi_env env) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  napi_reference_ref(env, ref_, &pendingWork_);
+}
 
-  if (priorityWork_ == 0 && pendingCloseWorker_ != NULL) {
-    pendingCloseWorker_->Queue(env);
-    pendingCloseWorker_ = NULL;
+void Transaction::DecrementPendingWork(napi_env env) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  napi_reference_unref(env, ref_, &pendingWork_);
+  // If the `closeWorker_` is set, then the closing operation
+  // is waiting until all pending work is completed
+  if (closeWorker_ != nullptr && pendingWork_ == 0) {
+    closeWorker_->Queue(env);
+    closeWorker_ = nullptr;
   }
 }
 
-bool Transaction::HasPriorityWork() const {
-  // The initial ref count for transaction starts at 1
-  // to prevent `tran_ref` from being GCed by JS
-  return priorityWork_ > 1;
+bool Transaction::HasPendingWork() const {
+  // Initial JS reference count starts at 1
+  return pendingWork_ > 1;
 }

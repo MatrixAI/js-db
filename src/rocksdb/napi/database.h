@@ -27,13 +27,40 @@ struct BaseWorker;
  * Owns the RocksDB storage, cache, filter policy and iterators.
  */
 struct Database {
+  /**
+   * Constructs database
+   */
   Database();
 
+  /**
+   * Destroys transaction
+   * Call `Database::Close()` beforehand
+   */
   ~Database();
+
+  /**
+   * Creates JS reference count at 0
+   * This is a weak reference, it will be GCed once the
+   * db reference is no longer live
+   * Repeating this call is idempotent
+   */
+  void Attach(napi_env env, napi_value database_ref);
+
+  /**
+   * Deletes JS reference count to allow GC of this object
+   * Even though this object starts out as a weak reference,
+   * this should still be called when the object is GCed
+   * Repeating this call is idempotent
+   */
+  void Detach(napi_env env);
 
   rocksdb::Status Open(const rocksdb::Options& options, const char* location);
 
-  void CloseDatabase();
+  /**
+   * Close the database
+   * Repeating this call is idempotent
+   */
+  void Close();
 
   rocksdb::Status Put(const rocksdb::WriteOptions& options, rocksdb::Slice key,
                       rocksdb::Slice value);
@@ -58,9 +85,9 @@ struct Database {
 
   const rocksdb::Snapshot* NewSnapshot();
 
-  rocksdb::Iterator* NewIterator(rocksdb::ReadOptions* options);
+  rocksdb::Iterator* NewIterator(rocksdb::ReadOptions& options);
 
-  rocksdb::Transaction* NewTransaction(rocksdb::WriteOptions* options);
+  rocksdb::Transaction* NewTransaction(rocksdb::WriteOptions& options);
 
   void ReleaseSnapshot(const rocksdb::Snapshot* snapshot);
 
@@ -76,22 +103,24 @@ struct Database {
 
   void DetachSnapshot(napi_env, uint32_t id);
 
-  void IncrementPriorityWork(napi_env env);
+  void IncrementPendingWork(napi_env env);
 
-  void DecrementPriorityWork(napi_env env);
+  void DecrementPendingWork(napi_env env);
 
-  bool HasPriorityWork() const;
+  bool HasPendingWork() const;
 
   rocksdb::OptimisticTransactionDB* db_;
+  bool isClosing_;
+  bool hasClosed_;
   uint32_t currentIteratorId_;
   uint32_t currentTransactionId_;
   uint32_t currentSnapshotId_;
-  BaseWorker* pendingCloseWorker_;
   std::map<uint32_t, Iterator*> iterators_;
   std::map<uint32_t, Transaction*> transactions_;
   std::map<uint32_t, Snapshot*> snapshots_;
+  BaseWorker* closeWorker_;
   napi_ref ref_;
 
  private:
-  uint32_t priorityWork_;
+  uint32_t pendingWork_;
 };

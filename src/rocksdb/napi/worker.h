@@ -11,8 +11,12 @@
 #include "transaction.h"
 
 /**
- * Base worker class. Handles the async work. Derived classes can override the
- * following virtual methods (listed in the order in which they're called):
+ * Asynchronous worker queues operations into the Node.js libuv thread pool
+ * Use this to make synchronous operations asynchronous so you don't block
+ * the main Node.js thread
+ *
+ * Derived classes can override the following virtual methods
+ * (listed in the order in which they're called):
  *
  * - DoExecute (abstract, worker pool thread): main work
  * - HandleOKCallback (main thread): call JS callback on success
@@ -61,7 +65,8 @@ struct BaseWorker {
 };
 
 /**
- * Base worker class for doing async work that defers closing the database.
+ * Priority worker represents asynchronous operations that delays concurrent
+ * close operations
  */
 struct PriorityWorker : public BaseWorker {
   PriorityWorker(napi_env env, Database* database, napi_value callback,

@@ -139,7 +139,7 @@ type RocksDBClearOptions = RocksDBRangeOptions;
  * Note that `undefined` is not a valid value for these options
  * If properties exist, they must have the correct type
  */
-type RocksDBIteratorOptions = RocksDBGetOptions &
+type RocksDBIteratorOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot> = RocksDBGetOptions<S> &
   RocksDBRangeOptions & {
     keys?: boolean;
     values?: boolean;

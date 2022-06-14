@@ -24,9 +24,7 @@ BaseWorker::BaseWorker(napi_env env, Database* database, napi_value callback,
 
 BaseWorker::BaseWorker(napi_env env, Transaction* transaction,
                        napi_value callback, const char* resourceName)
-    : database_(transaction->database_),
-      transaction_(transaction),
-      errMsg_(nullptr) {
+    : database_(nullptr), transaction_(transaction), errMsg_(nullptr) {
   NAPI_STATUS_THROWS_VOID(
       napi_create_reference(env, callback, 1, &callbackRef_));
   napi_value asyncResourceName;
@@ -117,7 +115,8 @@ void BaseWorker::HandleErrorCallback(napi_env env, napi_value callback) {
 void BaseWorker::DoFinally(napi_env env) {
   napi_delete_reference(env, callbackRef_);
   napi_delete_async_work(env, asyncWork_);
-
+  // Because the worker is executed asynchronously
+  // cleanup must be done by itself
   delete this;
 }
 
@@ -126,22 +125,23 @@ void BaseWorker::Queue(napi_env env) { napi_queue_async_work(env, asyncWork_); }
 PriorityWorker::PriorityWorker(napi_env env, Database* database,
                                napi_value callback, const char* resourceName)
     : BaseWorker(env, database, callback, resourceName) {
-  database_->IncrementPriorityWork(env);
+  database_->IncrementPendingWork(env);
 }
 
 PriorityWorker::PriorityWorker(napi_env env, Transaction* transaction,
                                napi_value callback, const char* resourceName)
     : BaseWorker(env, transaction, callback, resourceName) {
-  transaction_->IncrementPriorityWork(env);
+  transaction_->IncrementPendingWork(env);
 }
 
 PriorityWorker::~PriorityWorker() = default;
 
 void PriorityWorker::DoFinally(napi_env env) {
-  if (transaction_ != nullptr) {
-    transaction_->DecrementPriorityWork(env);
-  } else {
-    database_->DecrementPriorityWork(env);
+  assert(database_ != nullptr || transaction_ != nullptr);
+  if (database_ != nullptr) {
+    database_->DecrementPendingWork(env);
+  } else if (transaction_ != nullptr) {
+    transaction_->DecrementPendingWork(env);
   }
   BaseWorker::DoFinally(env);
 }

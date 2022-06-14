@@ -14,6 +14,9 @@
 #include <rocksdb/iterator.h>
 
 #include "database.h"
+#include "transaction.h"
+#include "snapshot.h"
+#include "worker.h"
 
 /**
  * Whether to yield entries, keys or values.
@@ -38,14 +41,37 @@ struct Entry {
 };
 
 /**
- * Owns a rocksdb iterator.
+ * Iterator wrapper used internally
+ * Lifecycle controlled manually in C++
  */
 struct BaseIterator {
+  /**
+   * Constructs iterator from database
+   */
   BaseIterator(Database* database, const bool reverse, std::string* lt,
                std::string* lte, std::string* gt, std::string* gte,
-               const int limit, const bool fillCache);
+               const int limit, const bool fillCache,
+               const Snapshot* snapshot = nullptr);
 
+  /**
+   * Constructs iterator from transaction
+   */
+  BaseIterator(Transaction* transaction, const bool reverse, std::string* lt,
+               std::string* lte, std::string* gt, std::string* gte,
+               const int limit, const bool fillCache,
+               const TransactionSnapshot* snapshot = nullptr);
+
+  /**
+   * Destroy iterator
+   * Call `BaseIterator::Close` beforehand
+   */
   virtual ~BaseIterator();
+
+  /**
+   * Closes the iterator
+   * Repeating this call is idempotent
+   */
+  virtual void Close();
 
   bool DidSeek() const;
 
@@ -58,8 +84,6 @@ struct BaseIterator {
    * Seek manually (during iteration).
    */
   void Seek(rocksdb::Slice& target);
-
-  void Close();
 
   bool Valid() const;
 
@@ -82,10 +106,11 @@ struct BaseIterator {
   bool OutOfRange(const rocksdb::Slice& target) const;
 
   Database* database_;
+  Transaction* transaction_;
   bool hasClosed_;
 
  private:
-  rocksdb::Iterator* dbIterator_;
+  rocksdb::Iterator* iter_;
   bool didSeek_;
   const bool reverse_;
   std::string* lt_;
@@ -98,20 +123,52 @@ struct BaseIterator {
 };
 
 /**
- * Extends BaseIterator for reading it from JS land.
+ * Iterator object managed from JS
+ * Lifecycle controlled by JS
  */
 struct Iterator final : public BaseIterator {
+  /**
+   * Constructs iterator from database
+   * Call `Iterator::Attach` afterwards
+   */
   Iterator(Database* database, const uint32_t id, const bool reverse,
            const bool keys, const bool values, const int limit, std::string* lt,
            std::string* lte, std::string* gt, std::string* gte,
            const bool fillCache, const bool keyAsBuffer,
-           const bool valueAsBuffer, const uint32_t highWaterMarkBytes);
+           const bool valueAsBuffer, const uint32_t highWaterMarkBytes,
+           const Snapshot* snapshot = nullptr);
 
-  ~Iterator();
+  /**
+   * Constructs iterator from transaction
+   * Call `Iterator::Attach` afterwards
+   */
+  Iterator(Transaction* transaction, const uint32_t id, const bool reverse,
+           const bool keys, const bool values, const int limit, std::string* lt,
+           std::string* lte, std::string* gt, std::string* gte,
+           const bool fillCache, const bool keyAsBuffer,
+           const bool valueAsBuffer, const uint32_t highWaterMarkBytes,
+           const TransactionSnapshot* snapshot = nullptr);
 
-  void Attach(napi_env env, napi_value context);
+  ~Iterator() override;
 
+  /**
+   * Creates JS reference count at 1 to prevent GC of this object
+   * Attaches this `Iterator` to the `Database` or `Transaction`
+   * Repeating this call is idempotent
+   * Call this after `Iterator::Iterator`
+   */
+  void Attach(napi_env env, napi_value iterator_ref);
+
+  /**
+   * Deletes JS reference count to allow GC of this object
+   * Detaches this `Transaction` from the `Database`
+   * Repeating this call is idempotent
+   * Call this after `BaseIterator::Close` but before
+   * `BaseIterator::~BaseIterator`
+   */
   void Detach(napi_env env);
+
+  void Close() override;
 
   bool ReadMany(uint32_t size);
 
@@ -123,6 +180,10 @@ struct Iterator final : public BaseIterator {
   const uint32_t highWaterMarkBytes_;
   bool first_;
   bool nexting_;
+  /**
+   * This is managed by workers
+   * It is used to indicate whether close is asynchronously scheduled
+   */
   bool isClosing_;
   BaseWorker* closeWorker_;
   std::vector<Entry> cache_;

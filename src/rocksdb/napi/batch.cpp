@@ -7,12 +7,20 @@
 #include <rocksdb/slice.h>
 #include <rocksdb/write_batch.h>
 
+#include "debug.h"
 #include "database.h"
 
 Batch::Batch(Database* database)
-    : database_(database), batch_(new rocksdb::WriteBatch()), hasData_(false) {}
+    : database_(database), batch_(new rocksdb::WriteBatch()), hasData_(false) {
+  LOG_DEBUG("Batch:Constructing Batch\n");
+  LOG_DEBUG("Batch:Constructed Batch\n");
+}
 
-Batch::~Batch() { delete batch_; }
+Batch::~Batch() {
+  LOG_DEBUG("Batch:Destroying Batch\n");
+  delete batch_;
+  LOG_DEBUG("Batch:Destroyed Batch\n");
+}
 
 void Batch::Put(rocksdb::Slice key, rocksdb::Slice value) {
   batch_->Put(key, value);

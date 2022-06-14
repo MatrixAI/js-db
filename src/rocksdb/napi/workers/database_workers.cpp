@@ -72,7 +72,12 @@ CloseWorker::CloseWorker(napi_env env, Database* database, napi_value callback)
 
 CloseWorker::~CloseWorker() {}
 
-void CloseWorker::DoExecute() { database_->CloseDatabase(); }
+void CloseWorker::DoExecute() { database_->Close(); }
+
+void CloseWorker::DoFinally(napi_env env) {
+  database_->Detach(env);
+  BaseWorker::DoFinally(env);
+}
 
 GetWorker::GetWorker(napi_env env, Database* database, napi_value callback,
                      rocksdb::Slice key, const bool asBuffer,
