@@ -139,7 +139,6 @@ void Database::AttachSnapshot(napi_env env, uint32_t id, Snapshot* snapshot) {
 }
 
 void Database::DetachSnapshot(napi_env env, uint32_t id) {
-  assert(!hasClosed_);
   snapshots_.erase(id);
   DecrementPendingWork(env);
 }
@@ -151,7 +150,6 @@ void Database::AttachIterator(napi_env env, uint32_t id, Iterator* iterator) {
 }
 
 void Database::DetachIterator(napi_env env, uint32_t id) {
-  assert(!hasClosed_);
   iterators_.erase(id);
   DecrementPendingWork(env);
 }
@@ -164,7 +162,6 @@ void Database::AttachTransaction(napi_env env, uint32_t id,
 }
 
 void Database::DetachTransaction(napi_env env, uint32_t id) {
-  assert(!hasClosed_);
   transactions_.erase(id);
   DecrementPendingWork(env);
 }
@@ -175,7 +172,6 @@ void Database::IncrementPendingWork(napi_env env) {
 }
 
 void Database::DecrementPendingWork(napi_env env) {
-  assert(!hasClosed_);
   napi_reference_unref(env, ref_, &pendingWork_);
   // If the `closeWorker_` is set, then the closing operation
   // is waiting until all pending work is completed

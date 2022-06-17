@@ -133,7 +133,6 @@ void Transaction::AttachIterator(napi_env env, uint32_t id,
 }
 
 void Transaction::DetachIterator(napi_env env, uint32_t id) {
-  assert(!hasCommitted_ && !hasRollbacked_);
   iterators_.erase(id);
   DecrementPendingWork(env);
 }
@@ -144,7 +143,6 @@ void Transaction::IncrementPendingWork(napi_env env) {
 }
 
 void Transaction::DecrementPendingWork(napi_env env) {
-  assert(!hasCommitted_ && !hasRollbacked_);
   napi_reference_unref(env, ref_, &pendingWork_);
   // If the `closeWorker_` is set, then the closing operation
   // is waiting until all pending work is completed

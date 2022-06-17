@@ -48,7 +48,8 @@ static void env_cleanup_hook(void* arg) {
     std::map<uint32_t, Iterator*>::iterator iterator_it;
     for (iterator_it = iterators.begin(); iterator_it != iterators.end();
          ++iterator_it) {
-      iterator_it->second->Close();
+      auto iterator = iterator_it->second;
+      iterator->Close();
     }
     std::map<uint32_t, Transaction*> transactions = database->transactions_;
     std::map<uint32_t, Transaction*>::iterator transaction_it;
@@ -69,7 +70,8 @@ static void env_cleanup_hook(void* arg) {
     std::map<uint32_t, Snapshot*>::iterator snapshot_it;
     for (snapshot_it = snapshots.begin(); snapshot_it != snapshots.end();
          ++snapshot_it) {
-      snapshot_it->second->Release();
+      auto snapshot = snapshot_it->second;
+      snapshot->Release();
     }
     database->Close();
   }
