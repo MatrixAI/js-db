@@ -27,39 +27,52 @@ Transaction::Transaction(Database* database, const uint32_t id, const bool sync)
       closeWorker_(nullptr),
       pendingWork_(0),
       ref_(nullptr) {
-  LOG_DEBUG("Transaction:Constructing Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Constructing from Database\n", id_);
   options_ = new rocksdb::WriteOptions();
   options_->sync = sync;
   tran_ = database->NewTransaction(*options_);
-  LOG_DEBUG("Transaction:Constructed Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Constructed from Database\n", id_);
 }
 
 Transaction::~Transaction() {
-  LOG_DEBUG("Transaction:Destroying Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Destroying\n", id_);
   assert(hasCommitted_ || hasRollbacked_);
   delete tran_;
   delete options_;
-  LOG_DEBUG("Transaction:Destroyed Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Destroyed\n", id_);
 }
 
 void Transaction::Attach(napi_env env, napi_value transaction_ref) {
-  if (ref_ != nullptr) return;
+  LOG_DEBUG("Transaction %d:Calling Attach\n", id_);
+  if (ref_ != nullptr) {
+    LOG_DEBUG("Transaction %d:Called Attach\n", id_);
+    return;
+  }
   NAPI_STATUS_THROWS_VOID(
       napi_create_reference(env, transaction_ref, 1, &ref_));
   database_->AttachTransaction(env, id_, this);
+  LOG_DEBUG("Transaction %d:Called Attach\n", id_);
 }
 
 void Transaction::Detach(napi_env env) {
-  if (ref_ == nullptr) return;
+  LOG_DEBUG("Transaction %d:Calling Detach\n", id_);
+  if (ref_ == nullptr) {
+    LOG_DEBUG("Transaction %d:Called Detach\n", id_);
+    return;
+  }
   database_->DetachTransaction(env, id_);
   NAPI_STATUS_THROWS_VOID(napi_delete_reference(env, ref_));
   ref_ = nullptr;
+  LOG_DEBUG("Transaction %d:Called Detach\n", id_);
 }
 
 rocksdb::Status Transaction::Commit() {
-  LOG_DEBUG("Transaction:Committing Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Calling Commit\n", id_);
   assert(!hasRollbacked_);
-  if (hasCommitted_) return rocksdb::Status::OK();
+  if (hasCommitted_) {
+    LOG_DEBUG("Transaction %d:Called Commit\n", id_);
+    return rocksdb::Status::OK();
+  }
   hasCommitted_ = true;
   rocksdb::Status status = tran_->Commit();
   // Early deletion
@@ -67,14 +80,17 @@ rocksdb::Status Transaction::Commit() {
   tran_ = nullptr;
   delete options_;
   options_ = nullptr;
-  LOG_DEBUG("Transaction:Committed Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Called Commit\n", id_);
   return status;
 }
 
 rocksdb::Status Transaction::Rollback() {
-  LOG_DEBUG("Transaction:Rollbacking Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Calling Rollback\n", id_);
   assert(!hasCommitted_);
-  if (hasRollbacked_) return rocksdb::Status::OK();
+  if (hasRollbacked_) {
+    LOG_DEBUG("Transaction %d:Called Rollback\n", id_);
+    return rocksdb::Status::OK();
+  }
   hasRollbacked_ = true;
   rocksdb::Status status = tran_->Rollback();
   // Early deletion
@@ -82,7 +98,7 @@ rocksdb::Status Transaction::Rollback() {
   tran_ = nullptr;
   delete options_;
   options_ = nullptr;
-  LOG_DEBUG("Transaction:Rollbacked Transaction %d\n", id_);
+  LOG_DEBUG("Transaction %d:Called Rollback\n", id_);
   return status;
 }
 
@@ -139,6 +155,8 @@ void Transaction::DetachIterator(napi_env env, uint32_t id) {
 
 void Transaction::IncrementPendingWork(napi_env env) {
   assert(!hasCommitted_ && !hasRollbacked_);
+  // The initial JS reference count starts at 1
+  // therefore the `pendingWork_` will start at 1
   napi_reference_ref(env, ref_, &pendingWork_);
 }
 
@@ -146,13 +164,16 @@ void Transaction::DecrementPendingWork(napi_env env) {
   napi_reference_unref(env, ref_, &pendingWork_);
   // If the `closeWorker_` is set, then the closing operation
   // is waiting until all pending work is completed
-  if (closeWorker_ != nullptr && pendingWork_ == 0) {
+  // Remember that the `pendingWork_` starts at 1
+  // so when there's no pending work, `pendingWork_` will be 1
+  if (closeWorker_ != nullptr && pendingWork_ == 1) {
     closeWorker_->Queue(env);
     closeWorker_ = nullptr;
   }
 }
 
 bool Transaction::HasPendingWork() const {
-  // Initial JS reference count starts at 1
+  // Remember that the `pendingWork_` starts at 1
+  // so when there's no pending work, `pendingWork_` will be 1
   return pendingWork_ > 1;
 }
