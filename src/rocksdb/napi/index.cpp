@@ -469,8 +469,10 @@ NAPI_METHOD(dbClear) {
   std::string* lte = RangeOption(env, options, "lte");
   std::string* gt = RangeOption(env, options, "gt");
   std::string* gte = RangeOption(env, options, "gte");
+  const Snapshot* snapshot = SnapshotProperty(env, options, "snapshot");
+  const bool sync = BooleanProperty(env, options, "sync", false);
   ClearWorker* worker = new ClearWorker(env, database, callback, reverse, limit,
-                                        lt, lte, gt, gte);
+                                        lt, lte, gt, gte, sync, snapshot);
   worker->Queue(env);
   NAPI_RETURN_UNDEFINED();
 }
@@ -959,6 +961,26 @@ NAPI_METHOD(transactionIteratorInit) {
   return iterator_ref;
 }
 
+NAPI_METHOD(transactionClear) {
+  NAPI_ARGV(3);
+  NAPI_TRANSACTION_CONTEXT();
+  ASSERT_TRANSACTION_READY(env, transaction);
+  napi_value options = argv[1];
+  napi_value callback = argv[2];
+  const bool reverse = BooleanProperty(env, options, "reverse", false);
+  const int limit = Int32Property(env, options, "limit", -1);
+  std::string* lt = RangeOption(env, options, "lt");
+  std::string* lte = RangeOption(env, options, "lte");
+  std::string* gt = RangeOption(env, options, "gt");
+  std::string* gte = RangeOption(env, options, "gte");
+  const TransactionSnapshot* snapshot =
+      TransactionSnapshotProperty(env, options, "snapshot");
+  ClearWorker* worker = new ClearWorker(env, transaction, callback, reverse,
+                                        limit, lt, lte, gt, gte, snapshot);
+  worker->Queue(env);
+  NAPI_RETURN_UNDEFINED();
+}
+
 /**
  * All exported functions.
  */
@@ -1005,4 +1027,5 @@ NAPI_INIT() {
   NAPI_EXPORT_FUNCTION(transactionDel);
   NAPI_EXPORT_FUNCTION(transactionSnapshot);
   NAPI_EXPORT_FUNCTION(transactionIteratorInit);
+  NAPI_EXPORT_FUNCTION(transactionClear);
 }

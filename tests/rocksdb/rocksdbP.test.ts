@@ -143,6 +143,30 @@ describe('rocksdbP', () => {
         );
         await rocksdbP.iteratorClose(iter);
       });
+      test('dbClear with implicit snapshot', async () => {
+        await rocksdbP.dbPut(db, 'K1', '100', {});
+        await rocksdbP.dbPut(db, 'K2', '100', {});
+        await rocksdbP.dbClear(db, {});
+        await expect(rocksdbP.dbGet(db, 'K1', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+        await expect(rocksdbP.dbGet(db, 'K2', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+      });
+      test('dbClear with explicit snapshot', async () => {
+        await rocksdbP.dbPut(db, 'K1', '100', {});
+        await rocksdbP.dbPut(db, 'K2', '100', {});
+        const snap = rocksdbP.snapshotInit(db);
+        await rocksdbP.dbPut(db, 'K1', '200', {});
+        await rocksdbP.dbPut(db, 'K2', '200', {});
+        await rocksdbP.dbPut(db, 'K3', '200', {});
+        await rocksdbP.dbPut(db, 'K4', '200', {});
+        await rocksdbP.dbClear(db, {
+          snapshot: snap
+        });
+        await rocksdbP.snapshotRelease(snap);
+        await expect(rocksdbP.dbGet(db, 'K1', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+        await expect(rocksdbP.dbGet(db, 'K2', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+        expect(await rocksdbP.dbGet(db, 'K3', {})).toBe('200');
+        expect(await rocksdbP.dbGet(db, 'K4', {})).toBe('200');
+      });
     });
     describe('transactions', () => {
       test('transactionCommit is idempotent', async () => {
@@ -356,6 +380,23 @@ describe('rocksdbP', () => {
           // Therefore iterators should always use the snapshot taken
           // at the beginning of the transaction
           await rocksdbP.transactionRollback(tran);
+        });
+        test.only('clear with repeatable read', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          const tranSnap = rocksdbP.transactionSnapshot(tran);
+          await rocksdbP.transactionPut(tran, 'K2', '200');
+          await rocksdbP.transactionPut(tran, 'K3', '200');
+          await rocksdbP.dbPut(db, 'K4', '200', {});
+          console.log('OH NO');
+          await rocksdbP.transactionClear(tran, { snapshot: tranSnap });
+          console.log('????');
+          await rocksdbP.transactionCommit(tran);
+          await expect(rocksdbP.dbGet(db, 'K1', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+          await expect(rocksdbP.dbGet(db, 'K2', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+          await expect(rocksdbP.dbGet(db, 'K3', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+          expect(await rocksdbP.dbGet(db, 'K4', {})).toBe('200');
         });
       });
     });

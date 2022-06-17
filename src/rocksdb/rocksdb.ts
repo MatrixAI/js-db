@@ -206,9 +206,14 @@ interface RocksDB {
     options: RocksDBIteratorOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
   ): RocksDBIterator<string, Buffer>;
   transactionIteratorInit(
-    database: RocksDBDatabase,
+    transaction: RocksDBTransaction,
     options: RocksDBIteratorOptions<RocksDBTransactionSnapshot>,
   ): RocksDBIterator<string, string>;
+  transactionClear(
+    transaction: RocksDBTransaction,
+    options: RocksDBClearOptions<RocksDBTransactionSnapshot>,
+    callback: Callback<[], void>,
+  ): void;
 }
 
 const rocksdb: RocksDB = nodeGypBuild(path.join(__dirname, '../../'));

@@ -132,14 +132,21 @@ type RocksDBRangeOptions = {
  * Note that `undefined` is not a valid value for these options
  * If properties exist, they must have the correct type
  */
-type RocksDBClearOptions = RocksDBRangeOptions;
+type RocksDBClearOptions
+<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot>
+= RocksDBRangeOptions & {
+  snapshot?: S;
+  sync?: S extends RocksDBSnapshot ? boolean : void; // Default false
+};
 
 /**
  * Iterator options
  * Note that `undefined` is not a valid value for these options
  * If properties exist, they must have the correct type
  */
-type RocksDBIteratorOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot> = RocksDBGetOptions<S> &
+type RocksDBIteratorOptions
+<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot>
+= RocksDBGetOptions<S> &
   RocksDBRangeOptions & {
     keys?: boolean;
     values?: boolean;

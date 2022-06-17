@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cassert>
 
 #include <node/node_api.h>
 
@@ -78,4 +79,72 @@ void NextWorker::DoFinally(napi_env env) {
   }
 
   BaseWorker::DoFinally(env);
+}
+
+ClearWorker::ClearWorker(napi_env env, Database* database, napi_value callback,
+                         const bool reverse, const int limit, std::string* lt,
+                         std::string* lte, std::string* gt, std::string* gte,
+                         const bool sync, const Snapshot* snapshot)
+    : PriorityWorker(env, database, callback, "rocksdb.db.clear") {
+  iterator_ = new BaseIterator(database, reverse, lt, lte, gt, gte, limit,
+                               false, snapshot);
+  writeOptions_ = new rocksdb::WriteOptions();
+  writeOptions_->sync = sync;
+}
+
+ClearWorker::ClearWorker(napi_env env, Transaction* transaction,
+                         napi_value callback, const bool reverse,
+                         const int limit, std::string* lt, std::string* lte,
+                         std::string* gt, std::string* gte,
+                         const TransactionSnapshot* snapshot)
+    : PriorityWorker(env, transaction, callback, "rocksdb.db.clear") {
+  iterator_ = new BaseIterator(transaction, reverse, lt, lte, gt, gte, limit,
+                               false, snapshot);
+  writeOptions_ = nullptr;
+}
+
+ClearWorker::~ClearWorker() {
+  delete iterator_;
+  delete writeOptions_;
+}
+
+void ClearWorker::DoExecute() {
+  assert(database_ != nullptr || transaction_ != nullptr);
+  iterator_->SeekToRange();
+  uint32_t hwm = 16 * 1024;
+  if (database_ != nullptr) {
+    rocksdb::WriteBatch batch;
+    while (true) {
+      size_t bytesRead = 0;
+      while (bytesRead <= hwm && iterator_->Valid() && iterator_->Increment()) {
+        rocksdb::Slice key = iterator_->CurrentKey();
+        // If this fails, we return
+        if (!SetStatus(batch.Delete(key))) return;
+        bytesRead += key.size();
+        iterator_->Next();
+      }
+      if (!SetStatus(iterator_->Status()) || bytesRead == 0) {
+        break;
+      }
+      if (!SetStatus(database_->WriteBatch(*writeOptions_, &batch))) {
+        break;
+      }
+      batch.Clear();
+    }
+  } else if (transaction_ != nullptr) {
+    while (true) {
+      size_t bytesRead = 0;
+      while (bytesRead <= hwm && iterator_->Valid() && iterator_->Increment()) {
+        rocksdb::Slice key = iterator_->CurrentKey();
+        // If this fails, we return
+        if (!SetStatus(transaction_->Del(key))) return;
+        bytesRead += key.size();
+        iterator_->Next();
+      }
+      if (!SetStatus(iterator_->Status()) || bytesRead == 0) {
+        break;
+      }
+    }
+  }
+  iterator_->Close();
 }

@@ -175,6 +175,10 @@ interface RocksDBP {
     database: RocksDBTransaction,
     options: RocksDBIteratorOptions<RocksDBTransactionSnapshot>,
   ): RocksDBIterator<string, string>;
+  transactionClear(
+    transaction: RocksDBTransaction,
+    options: RocksDBClearOptions<RocksDBTransactionSnapshot>,
+  ): Promise<void>;
 }
 
 /**
@@ -217,6 +221,7 @@ const rocksdbP: RocksDBP = {
   transactionDel: utils.promisify(rocksdb.transactionDel).bind(rocksdb),
   transactionSnapshot: rocksdb.transactionSnapshot.bind(rocksdb),
   transactionIteratorInit: rocksdb.transactionIteratorInit.bind(rocksdb),
+  transactionClear: rocksdb.transactionClear.bind(rocksdb),
 };
 
 export default rocksdbP;

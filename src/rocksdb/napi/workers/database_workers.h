@@ -13,7 +13,6 @@
 #include <rocksdb/slice.h>
 
 #include "../worker.h"
-#include "../iterator.h"
 #include "../database.h"
 #include "../snapshot.h"
 
@@ -123,23 +122,6 @@ struct DelWorker final : public PriorityWorker {
 
   rocksdb::WriteOptions options_;
   rocksdb::Slice key_;
-};
-
-/**
- * Worker class for deleting a range from a database.
- */
-struct ClearWorker final : public PriorityWorker {
-  ClearWorker(napi_env env, Database* database, napi_value callback,
-              const bool reverse, const int limit, std::string* lt,
-              std::string* lte, std::string* gt, std::string* gte);
-
-  ~ClearWorker();
-
-  void DoExecute() override;
-
- private:
-  BaseIterator* iterator_;
-  rocksdb::WriteOptions* writeOptions_;
 };
 
 /**

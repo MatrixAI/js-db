@@ -18,7 +18,7 @@
 
 #include "../worker.h"
 #include "../database.h"
-#include "../iterator.h"
+#include "../snapshot.h"
 #include "../utils.h"
 
 OpenWorker::OpenWorker(napi_env env, Database* database, napi_value callback,
@@ -185,52 +185,6 @@ DelWorker::DelWorker(napi_env env, Database* database, napi_value callback,
 DelWorker::~DelWorker() { DisposeSliceBuffer(key_); }
 
 void DelWorker::DoExecute() { SetStatus(database_->Del(options_, key_)); }
-
-ClearWorker::ClearWorker(napi_env env, Database* database, napi_value callback,
-                         const bool reverse, const int limit, std::string* lt,
-                         std::string* lte, std::string* gt, std::string* gte)
-    : PriorityWorker(env, database, callback, "rocksdb.db.clear") {
-  iterator_ =
-      new BaseIterator(database, reverse, lt, lte, gt, gte, limit, false);
-  writeOptions_ = new rocksdb::WriteOptions();
-  writeOptions_->sync = false;
-}
-
-ClearWorker::~ClearWorker() {
-  delete iterator_;
-  delete writeOptions_;
-}
-
-void ClearWorker::DoExecute() {
-  iterator_->SeekToRange();
-
-  // TODO: add option
-  uint32_t hwm = 16 * 1024;
-  rocksdb::WriteBatch batch;
-
-  while (true) {
-    size_t bytesRead = 0;
-
-    while (bytesRead <= hwm && iterator_->Valid() && iterator_->Increment()) {
-      rocksdb::Slice key = iterator_->CurrentKey();
-      batch.Delete(key);
-      bytesRead += key.size();
-      iterator_->Next();
-    }
-
-    if (!SetStatus(iterator_->Status()) || bytesRead == 0) {
-      break;
-    }
-
-    if (!SetStatus(database_->WriteBatch(*writeOptions_, &batch))) {
-      break;
-    }
-
-    batch.Clear();
-  }
-
-  iterator_->Close();
-}
 
 ApproximateSizeWorker::ApproximateSizeWorker(napi_env env, Database* database,
                                              napi_value callback,
