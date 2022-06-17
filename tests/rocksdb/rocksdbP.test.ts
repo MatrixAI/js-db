@@ -130,6 +130,19 @@ describe('rocksdbP', () => {
         await rocksdbP.iteratorClose(iter);
         await rocksdbP.snapshotRelease(snap);
       });
+      test('iterators have consistent iteration', async () => {
+        await rocksdbP.dbPut(db, 'K1', '100', {});
+        await rocksdbP.dbPut(db, 'K2', '100', {});
+        const iter = rocksdbP.iteratorInit(db, {});
+        expect(await rocksdbP.iteratorNextv(iter, 1)).toEqual(
+          [[['K1', '100']], false]
+        );
+        await rocksdbP.dbPut(db, 'K2', '200', {});
+        expect(await rocksdbP.iteratorNextv(iter, 1)).toEqual(
+          [[['K2', '100']], false]
+        );
+        await rocksdbP.iteratorClose(iter);
+      });
     });
     describe('transactions', () => {
       test('transactionCommit is idempotent', async () => {
@@ -232,6 +245,32 @@ describe('rocksdbP', () => {
           expect(await rocksdbP.transactionGet(tran, 'K1', {})).toBe('200');
           await rocksdbP.transactionCommit(tran);
         });
+        test('iterator non-repeatable reads', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          await rocksdbP.dbPut(db, 'K1', '200', {});
+          await rocksdbP.dbPut(db, 'K2', '200', {});
+          const iter1 = rocksdbP.transactionIteratorInit(tran, {});
+          expect(await rocksdbP.iteratorNextv(iter1, 2)).toEqual(
+            [[
+              ['K1', '200'],
+              ['K2', '200'],
+            ], false]
+          );
+          await rocksdbP.iteratorClose(iter1);
+          await rocksdbP.dbPut(db, 'K1', '300', {});
+          await rocksdbP.dbPut(db, 'K2', '300', {});
+          const iter2 = rocksdbP.transactionIteratorInit(tran, {});
+          expect(await rocksdbP.iteratorNextv(iter2, 2)).toEqual(
+            [[
+              ['K1', '300'],
+              ['K2', '300'],
+            ], false]
+          );
+          await rocksdbP.iteratorClose(iter2);
+          await rocksdbP.transactionRollback(tran);
+        });
       });
       describe('transaction with snapshot', () => {
         test('conflicts when db write occurs after snapshot creation', async () => {
@@ -263,14 +302,14 @@ describe('rocksdbP', () => {
           expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('300');
           await rocksdbP.transactionRollback(tran);
         });
-        test.only('iterator repeatable reads', async () => {
+        test('iterator repeatable reads', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
           await rocksdbP.dbPut(db, 'K2', '100', {});
           const tran = rocksdbP.transactionInit(db, {});
           await rocksdbP.transactionPut(tran, 'K3', '100');
-          const tranSnap = rocksdbP.transactionSnapshot(tran);
+          const tranSnap1 = rocksdbP.transactionSnapshot(tran);
           const iter1 = rocksdbP.transactionIteratorInit(tran, {
-            snapshot: tranSnap
+            snapshot: tranSnap1
           });
           expect(await rocksdbP.iteratorNextv(iter1, 3)).toEqual(
             [[
@@ -284,16 +323,38 @@ describe('rocksdbP', () => {
           await rocksdbP.transactionPut(tran, 'K3', '200');
           await rocksdbP.dbPut(db, 'K1', '200', {});
           const iter2 = rocksdbP.transactionIteratorInit(tran, {
-            snapshot: tranSnap
+            snapshot: tranSnap1
           });
+          // Notice that this iteration uses the new values written
+          // to in this transaction, this mean the snapshot only applies
+          // to the underlying database, it's not a snapshot on the transaction
+          // writes
           expect(await rocksdbP.iteratorNextv(iter2, 3)).toEqual(
             [[
               ['K1', '100'],
-              ['K2', '100'],
-              ['K3', '100'],
+              ['K2', '200'],
+              ['K3', '200'],
             ], false]
           );
           await rocksdbP.iteratorClose(iter2);
+          // Resetting the snapshot for the transaction
+          // Now the snapshot takes the current state of the DB,
+          // but the transaction writes are overlayed on top
+          const tranSnap2 = rocksdbP.transactionSnapshot(tran);
+          await rocksdbP.dbPut(db, 'K2', '300', {});
+          const iter3 = rocksdbP.transactionIteratorInit(tran, {
+            snapshot: tranSnap2
+          });
+          expect(await rocksdbP.iteratorNextv(iter3, 3)).toEqual(
+            [[
+              ['K1', '200'],
+              ['K2', '200'],
+              ['K3', '200'],
+            ], false]
+          );
+          await rocksdbP.iteratorClose(iter3);
+          // Therefore iterators should always use the snapshot taken
+          // at the beginning of the transaction
           await rocksdbP.transactionRollback(tran);
         });
       });
