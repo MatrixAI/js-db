@@ -226,6 +226,43 @@ describe('rocksdbP', () => {
           return result.status === 'rejected' && result.reason.code === 'TRANSACTION_CONFLICT';
         })).toBe(true);
       });
+      test('transactionMultiGetForUpdate addresses write skew by promoting gets into same-value puts', async () => {
+        // Snapshot isolation allows write skew anomalies to occur
+        // A write skew means that 2 transactions concurrently read from overlapping keys
+        // then make disjoint updates to the keys, that breaks a consistency constraint on those keys
+        // For example:
+        // T1 reads from k1, k2, writes to k1
+        // T2 reads from k1, k2, writes to k2
+        // Where k1 + k2 >= 0
+        await rocksdbP.dbPut(db, 'balance1', '100', {});
+        await rocksdbP.dbPut(db, 'balance2', '100', {});
+        const t1 = async () => {
+          const tran1 = rocksdbP.transactionInit(db, {});
+          let balance1 = parseInt((await rocksdbP.transactionMultiGetForUpdate(tran1, ['balance1'], {}))[0]);
+          const balance2 = parseInt((await rocksdbP.transactionMultiGetForUpdate(tran1, ['balance2'], {}))[0]);
+          balance1 -= 100;
+          expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
+          await rocksdbP.transactionPut(tran1, 'balance1', balance1.toString());
+          await rocksdbP.transactionCommit(tran1);
+        };
+        const t2 = async () => {
+          const tran2 = rocksdbP.transactionInit(db, {});
+          const balance1 = parseInt((await rocksdbP.transactionMultiGetForUpdate(tran2, ['balance1'], {}))[0]);
+          let balance2 = parseInt((await rocksdbP.transactionMultiGetForUpdate(tran2, ['balance2'], {}))[0]);
+          balance2 -= 100;
+          expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
+          await rocksdbP.transactionPut(tran2, 'balance2', balance2.toString());
+          await rocksdbP.transactionCommit(tran2);
+        };
+        // By using transactionGetForUpdate, we promote the read to a write, where it writes the same value
+        // this causes a write-write conflict
+        const results = await Promise.allSettled([t1(), t2()]);
+        // One will succeed, one will fail
+        expect(results.some((result) => result.status === 'fulfilled')).toBe(true);
+        expect(results.some((result) => {
+          return result.status === 'rejected' && result.reason.code === 'TRANSACTION_CONFLICT';
+        })).toBe(true);
+      });
       test('transactionIteratorInit iterates over overlay defaults to underlay', async () => {
         await rocksdbP.dbPut(db, 'K1', '100', {});
         await rocksdbP.dbPut(db, 'K2', '100', {});
@@ -245,6 +282,46 @@ describe('rocksdbP', () => {
         await rocksdbP.iteratorClose(iter);
         await rocksdbP.transactionRollback(tran);
       });
+      test('transactionGetForUpdate does not block transactions', async () => {
+        await rocksdbP.dbPut(db, 'K1', '100', {});
+        await rocksdbP.dbPut(db, 'K2', '100', {});
+        // T1 locks in K2 and updates K2
+        const tran1 = rocksdbP.transactionInit(db, {});
+        await rocksdbP.transactionGetForUpdate(tran1, 'K2', {});
+        await rocksdbP.transactionPut(tran1, 'K2', '200');
+        // T2 locks in K2 and updates K2 to the same value
+        // if `transactionGetForUpdate` was blocking, then this
+        // would result in a deadlock
+        const tran2 = rocksdbP.transactionInit(db, {});
+        await rocksdbP.transactionGetForUpdate(tran2, 'K2', {});
+        await rocksdbP.transactionPut(tran2, 'K2', '200');
+        await rocksdbP.transactionCommit(tran2);
+        // However optimistic transactions never deadlock
+        // So T2 commits, but T1 will have conflict exception
+        // And therefore the `exclusive` option is not relevant
+        // to optimistic transactions
+        await expect(rocksdbP.transactionCommit(tran1)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
+      });
+      test('transactionMultiGetForUpdate does not block transactions', async () => {
+        await rocksdbP.dbPut(db, 'K1', '100', {});
+        await rocksdbP.dbPut(db, 'K2', '100', {});
+        // T1 locks in K2 and updates K2
+        const tran1 = rocksdbP.transactionInit(db, {});
+        await rocksdbP.transactionMultiGetForUpdate(tran1, ['K2'], {});
+        await rocksdbP.transactionPut(tran1, 'K2', '200');
+        // T2 locks in K2 and updates K2 to the same value
+        // if `transactionGetForUpdate` was blocking, then this
+        // would result in a deadlock
+        const tran2 = rocksdbP.transactionInit(db, {});
+        await rocksdbP.transactionMultiGetForUpdate(tran2, ['K2'], {});
+        await rocksdbP.transactionPut(tran2, 'K2', '200');
+        await rocksdbP.transactionCommit(tran2);
+        // However optimistic transactions never deadlock
+        // So T2 commits, but T1 will have conflict exception
+        // And therefore the `exclusive` option is not relevant
+        // to optimistic transactions
+        await expect(rocksdbP.transactionCommit(tran1)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
+      });
       describe('transaction without snapshot', () => {
         test('no conflict when db write occurs before transaction write', async () => {
           // No conflict since the write directly to DB occurred before the transaction write occurred
@@ -261,13 +338,21 @@ describe('rocksdbP', () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
           await expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
         });
-        test('non-repeatable reads', async () => {
+        test('transactionGet non-repeatable reads', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
           const tran = rocksdbP.transactionInit(db, {});
           expect(await rocksdbP.transactionGet(tran, 'K1', {})).toBe('100');
           await rocksdbP.dbPut(db, 'K1', '200', {});
           expect(await rocksdbP.transactionGet(tran, 'K1', {})).toBe('200');
           await rocksdbP.transactionCommit(tran);
+        });
+        test('transactionGetForUpdate non-repeatable reads', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          expect(await rocksdbP.transactionGetForUpdate(tran, 'K1', {})).toBe('100');
+          await rocksdbP.dbPut(db, 'K1', '200', {});
+          expect(await rocksdbP.transactionGetForUpdate(tran, 'K1', {})).toBe('200');
+          expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
         });
         test('iterator non-repeatable reads', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
@@ -295,6 +380,50 @@ describe('rocksdbP', () => {
           await rocksdbP.iteratorClose(iter2);
           await rocksdbP.transactionRollback(tran);
         });
+        test('clear with non-repeatable read', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          await rocksdbP.transactionPut(tran, 'K2', '200');
+          await rocksdbP.transactionPut(tran, 'K3', '200');
+          await rocksdbP.dbPut(db, 'K4', '200', {});
+          // This will delete K1, K2, K3, K4
+          await rocksdbP.transactionClear(tran, {});
+          await rocksdbP.transactionCommit(tran);
+          await expect(rocksdbP.dbGet(db, 'K1', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+          await expect(rocksdbP.dbGet(db, 'K2', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+          await expect(rocksdbP.dbGet(db, 'K3', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+          await expect(rocksdbP.dbGet(db, 'K4', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
+        });
+        test('transactionMultiGet with non-repeatable read', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          await rocksdbP.transactionPut(tran, 'K2', '200');
+          await rocksdbP.transactionPut(tran, 'K3', '200');
+          await rocksdbP.dbPut(db, 'K4', '200', {});
+          expect(await rocksdbP.transactionMultiGet(
+            tran, ['K1', 'K2', 'K3', 'K4', 'K5'], {}
+          )).toEqual(
+            ['100', '200', '200', '200', undefined]
+          );
+          await rocksdbP.transactionCommit(tran);
+        });
+        test('transactionMultiGetForUpdate with non-repeatable read', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          await rocksdbP.transactionPut(tran, 'K2', '200');
+          await rocksdbP.transactionPut(tran, 'K3', '200');
+          await rocksdbP.dbPut(db, 'K4', '200', {});
+          expect(await rocksdbP.transactionMultiGetForUpdate(
+            tran, ['K1', 'K2', 'K3', 'K4', 'K5'], {}
+          )).toEqual(
+            ['100', '200', '200', '200', undefined]
+          );
+          // No conflict because K4 write was done prior to `transactionMultiGetForUpdate`
+          await rocksdbP.transactionCommit(tran);
+        });
       });
       describe('transaction with snapshot', () => {
         test('conflicts when db write occurs after snapshot creation', async () => {
@@ -305,7 +434,7 @@ describe('rocksdbP', () => {
           await rocksdbP.transactionPut(tran, 'K1', '200');
           await expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
         });
-        test('repeatable reads', async () => {
+        test('transactionGet repeatable reads', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
           const tran = rocksdbP.transactionInit(db, {});
           const tranSnap = rocksdbP.transactionSnapshot(tran);
@@ -314,7 +443,7 @@ describe('rocksdbP', () => {
           expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('100');
           await rocksdbP.transactionRollback(tran);
         });
-        test('repeatable reads use write overlay', async () => {
+        test('transactionGet repeatable reads use write overlay', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
           const tran = rocksdbP.transactionInit(db, {});
           const tranSnap = rocksdbP.transactionSnapshot(tran);
@@ -325,6 +454,15 @@ describe('rocksdbP', () => {
           // it ends up using 300, but it ignores the 200 that's written directly to the DB
           expect(await rocksdbP.transactionGet(tran, 'K1', { snapshot: tranSnap })).toBe('300');
           await rocksdbP.transactionRollback(tran);
+        });
+        test('transactionGetForUpdate repeatable reads', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          const tranSnap = rocksdbP.transactionSnapshot(tran);
+          expect(await rocksdbP.transactionGetForUpdate(tran, 'K1', { snapshot: tranSnap })).toBe('100');
+          await rocksdbP.dbPut(db, 'K1', '200', {});
+          expect(await rocksdbP.transactionGetForUpdate(tran, 'K1', { snapshot: tranSnap })).toBe('100');
+          expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
         });
         test('iterator repeatable reads', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
@@ -381,7 +519,7 @@ describe('rocksdbP', () => {
           // at the beginning of the transaction
           await rocksdbP.transactionRollback(tran);
         });
-        test.only('clear with repeatable read', async () => {
+        test('clear with repeatable read', async () => {
           await rocksdbP.dbPut(db, 'K1', '100', {});
           await rocksdbP.dbPut(db, 'K2', '100', {});
           const tran = rocksdbP.transactionInit(db, {});
@@ -389,14 +527,48 @@ describe('rocksdbP', () => {
           await rocksdbP.transactionPut(tran, 'K2', '200');
           await rocksdbP.transactionPut(tran, 'K3', '200');
           await rocksdbP.dbPut(db, 'K4', '200', {});
-          console.log('OH NO');
+          // This will delete K1, K2, K3
           await rocksdbP.transactionClear(tran, { snapshot: tranSnap });
-          console.log('????');
           await rocksdbP.transactionCommit(tran);
           await expect(rocksdbP.dbGet(db, 'K1', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
           await expect(rocksdbP.dbGet(db, 'K2', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
           await expect(rocksdbP.dbGet(db, 'K3', {})).rejects.toHaveProperty('code', 'NOT_FOUND');
           expect(await rocksdbP.dbGet(db, 'K4', {})).toBe('200');
+        });
+        test('transactionMultiGet with repeatable read', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          const tranSnap = rocksdbP.transactionSnapshot(tran);
+          await rocksdbP.transactionPut(tran, 'K2', '200');
+          await rocksdbP.transactionPut(tran, 'K3', '200');
+          await rocksdbP.dbPut(db, 'K4', '200', {});
+          expect(await rocksdbP.transactionMultiGet(
+            tran, ['K1', 'K2', 'K3', 'K4', 'K5'], {
+              snapshot: tranSnap
+            }
+          )).toEqual(
+            ['100', '200', '200', undefined, undefined]
+          );
+          await rocksdbP.transactionCommit(tran);
+        });
+        test('transactionMultiGetForUpdate with repeatable read', async () => {
+          await rocksdbP.dbPut(db, 'K1', '100', {});
+          await rocksdbP.dbPut(db, 'K2', '100', {});
+          const tran = rocksdbP.transactionInit(db, {});
+          const tranSnap = rocksdbP.transactionSnapshot(tran);
+          await rocksdbP.transactionPut(tran, 'K2', '200');
+          await rocksdbP.transactionPut(tran, 'K3', '200');
+          await rocksdbP.dbPut(db, 'K4', '200', {});
+          expect(await rocksdbP.transactionMultiGetForUpdate(
+            tran, ['K1', 'K2', 'K3', 'K4', 'K5'], {
+              snapshot: tranSnap
+            }
+          )).toEqual(
+            ['100', '200', '200', undefined, undefined]
+          );
+          // Conflict because of K4 write was done after snapshot
+          await expect(rocksdbP.transactionCommit(tran)).rejects.toHaveProperty('code', 'TRANSACTION_CONFLICT');
         });
       });
     });

@@ -2,8 +2,12 @@
 
 #include "transaction_workers.h"
 
+#include <string>
+#include <vector>
+
 #include <node/node_api.h>
 #include <rocksdb/slice.h>
+#include <rocksdb/status.h>
 
 #include "../worker.h"
 #include "../transaction.h"
@@ -86,11 +90,10 @@ void TransactionGetWorker::HandleOKCallback(napi_env env, napi_value callback) {
 TransactionGetForUpdateWorker::TransactionGetForUpdateWorker(
     napi_env env, Transaction* tran, napi_value callback, rocksdb::Slice key,
     const bool asBuffer, const bool fillCache,
-    const TransactionSnapshot* snapshot, const bool exclusive)
+    const TransactionSnapshot* snapshot)
     : PriorityWorker(env, tran, callback, "rocksdb.transaction.get_for_update"),
       key_(key),
-      asBuffer_(asBuffer),
-      exclusive_(exclusive) {
+      asBuffer_(asBuffer) {
   options_.fill_cache = fillCache;
   if (snapshot != nullptr) options_.snapshot = snapshot->snapshot();
 }
@@ -100,7 +103,7 @@ TransactionGetForUpdateWorker::~TransactionGetForUpdateWorker() {
 }
 
 void TransactionGetForUpdateWorker::DoExecute() {
-  SetStatus(transaction_->GetForUpdate(options_, key_, value_, exclusive_));
+  SetStatus(transaction_->GetForUpdate(options_, key_, value_));
 }
 
 void TransactionGetForUpdateWorker::HandleOKCallback(napi_env env,
@@ -108,6 +111,136 @@ void TransactionGetForUpdateWorker::HandleOKCallback(napi_env env,
   napi_value argv[2];
   napi_get_null(env, &argv[0]);
   Entry::Convert(env, &value_, asBuffer_, &argv[1]);
+  CallFunction(env, callback, 2, argv);
+}
+
+/**
+ * Transaction multi get
+ */
+
+TransactionMultiGetWorker::TransactionMultiGetWorker(
+    napi_env env, Transaction* transaction,
+    const std::vector<rocksdb::Slice>* keys, napi_value callback,
+    const bool valueAsBuffer, const bool fillCache,
+    const TransactionSnapshot* snapshot)
+    : PriorityWorker(env, transaction, callback,
+                     "rocksdb.transaction.multiget"),
+      keys_(keys),
+      valueAsBuffer_(valueAsBuffer) {
+  options_.fill_cache = fillCache;
+  if (snapshot) options_.snapshot = snapshot->snapshot();
+}
+
+TransactionMultiGetWorker::~TransactionMultiGetWorker() { delete keys_; }
+
+void TransactionMultiGetWorker::DoExecute() {
+  // NAPI requires a vector of string pointers
+  // the nullptr can be used to represent `undefined`
+  values_.reserve(keys_->size());
+  // RocksDB requires just a vector of strings
+  // these will be automatically deallocated
+  std::vector<std::string> values(keys_->size());
+  std::vector<rocksdb::Status> statuses =
+      transaction_->MultiGet(options_, *keys_, values);
+  for (size_t i = 0; i != statuses.size(); i++) {
+    if (statuses[i].ok()) {
+      std::string* value = new std::string(values[i]);
+      values_.push_back(value);
+    } else if (statuses[i].IsNotFound()) {
+      values_.push_back(nullptr);
+    } else {
+      for (const std::string* value : values_) {
+        if (value != NULL) delete value;
+      }
+      SetStatus(statuses[i]);
+      break;
+    }
+  }
+}
+
+void TransactionMultiGetWorker::HandleOKCallback(napi_env env,
+                                                 napi_value callback) {
+  size_t size = values_.size();
+  napi_value array;
+  napi_create_array_with_length(env, size, &array);
+
+  for (size_t idx = 0; idx < size; idx++) {
+    std::string* value = values_[idx];
+    napi_value element;
+    Entry::Convert(env, value, valueAsBuffer_, &element);
+    napi_set_element(env, array, static_cast<uint32_t>(idx), element);
+    if (value != nullptr) delete value;
+  }
+
+  napi_value argv[2];
+  napi_get_null(env, &argv[0]);
+  argv[1] = array;
+  CallFunction(env, callback, 2, argv);
+}
+
+/**
+ * Transaction multi get for update
+ */
+
+TransactionMultiGetForUpdateWorker::TransactionMultiGetForUpdateWorker(
+    napi_env env, Transaction* transaction,
+    const std::vector<rocksdb::Slice>* keys, napi_value callback,
+    const bool valueAsBuffer, const bool fillCache,
+    const TransactionSnapshot* snapshot)
+    : PriorityWorker(env, transaction, callback,
+                     "rocksdb.transaction.multiget_for_update"),
+      keys_(keys),
+      valueAsBuffer_(valueAsBuffer) {
+  options_.fill_cache = fillCache;
+  if (snapshot) options_.snapshot = snapshot->snapshot();
+}
+
+TransactionMultiGetForUpdateWorker::~TransactionMultiGetForUpdateWorker() {
+  delete keys_;
+}
+
+void TransactionMultiGetForUpdateWorker::DoExecute() {
+  // NAPI requires a vector of string pointers
+  // the nullptr can be used to represent `undefined`
+  values_.reserve(keys_->size());
+  // RocksDB requires just a vector of strings
+  // these will be automatically deallocated
+  std::vector<std::string> values(keys_->size());
+  std::vector<rocksdb::Status> statuses =
+      transaction_->MultiGetForUpdate(options_, *keys_, values);
+  for (size_t i = 0; i != statuses.size(); i++) {
+    if (statuses[i].ok()) {
+      std::string* value = new std::string(values[i]);
+      values_.push_back(value);
+    } else if (statuses[i].IsNotFound()) {
+      values_.push_back(nullptr);
+    } else {
+      for (const std::string* value : values_) {
+        if (value != NULL) delete value;
+      }
+      SetStatus(statuses[i]);
+      break;
+    }
+  }
+}
+
+void TransactionMultiGetForUpdateWorker::HandleOKCallback(napi_env env,
+                                                          napi_value callback) {
+  size_t size = values_.size();
+  napi_value array;
+  napi_create_array_with_length(env, size, &array);
+
+  for (size_t idx = 0; idx < size; idx++) {
+    std::string* value = values_[idx];
+    napi_value element;
+    Entry::Convert(env, value, valueAsBuffer_, &element);
+    napi_set_element(env, array, static_cast<uint32_t>(idx), element);
+    if (value != nullptr) delete value;
+  }
+
+  napi_value argv[2];
+  napi_get_null(env, &argv[0]);
+  argv[1] = array;
   CallFunction(env, callback, 2, argv);
 }
 

@@ -39,7 +39,6 @@ BaseWorker::~BaseWorker() { delete[] errMsg_; }
 
 void BaseWorker::Execute(napi_env env, void* data) {
   BaseWorker* self = (BaseWorker*)data;
-
   // Don't pass env to DoExecute() because use of Node-API
   // methods should generally be avoided in async work.
   self->DoExecute();

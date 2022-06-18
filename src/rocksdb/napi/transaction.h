@@ -6,6 +6,8 @@
 
 #include <cstdint>
 #include <map>
+#include <vector>
+#include <string>
 
 #include <node/node_api.h>
 #include <rocksdb/slice.h>
@@ -106,6 +108,21 @@ struct Transaction final {
   rocksdb::Status GetForUpdate(const rocksdb::ReadOptions& options,
                                rocksdb::Slice key, std::string& value,
                                bool exclusive = true);
+
+  /**
+   * Get multiple values
+   */
+  std::vector<rocksdb::Status> MultiGet(const rocksdb::ReadOptions& options,
+                                        const std::vector<rocksdb::Slice>& keys,
+                                        std::vector<std::string>& values);
+
+  /**
+   * Get multiple values for update
+   */
+  std::vector<rocksdb::Status> MultiGetForUpdate(
+      const rocksdb::ReadOptions& options,
+      const std::vector<rocksdb::Slice>& keys,
+      std::vector<std::string>& values);
 
   /**
    * Put a key value

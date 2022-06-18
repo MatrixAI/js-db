@@ -12,30 +12,30 @@
 #include "../iterator.h"
 #include "../utils.h"
 
-CloseIteratorWorker::CloseIteratorWorker(napi_env env, Iterator* iterator,
+IteratorCloseWorker::IteratorCloseWorker(napi_env env, Iterator* iterator,
                                          napi_value callback)
     : BaseWorker(env, iterator->database_, callback, "rocksdb.iterator.close"),
       iterator_(iterator) {}
 
-CloseIteratorWorker::~CloseIteratorWorker() {}
+IteratorCloseWorker::~IteratorCloseWorker() {}
 
-void CloseIteratorWorker::DoExecute() { iterator_->Close(); }
+void IteratorCloseWorker::DoExecute() { iterator_->Close(); }
 
-void CloseIteratorWorker::DoFinally(napi_env env) {
+void IteratorCloseWorker::DoFinally(napi_env env) {
   iterator_->Detach(env);
   BaseWorker::DoFinally(env);
 }
 
-NextWorker::NextWorker(napi_env env, Iterator* iterator, uint32_t size,
-                       napi_value callback)
+IteratorNextWorker::IteratorNextWorker(napi_env env, Iterator* iterator,
+                                       uint32_t size, napi_value callback)
     : BaseWorker(env, iterator->database_, callback, "rocksdb.iterator.next"),
       iterator_(iterator),
       size_(size),
       ok_() {}
 
-NextWorker::~NextWorker() {}
+IteratorNextWorker::~IteratorNextWorker() {}
 
-void NextWorker::DoExecute() {
+void IteratorNextWorker::DoExecute() {
   if (!iterator_->DidSeek()) {
     iterator_->SeekToRange();
   }
@@ -47,7 +47,7 @@ void NextWorker::DoExecute() {
   }
 }
 
-void NextWorker::HandleOKCallback(napi_env env, napi_value callback) {
+void IteratorNextWorker::HandleOKCallback(napi_env env, napi_value callback) {
   size_t size = iterator_->cache_.size();
   napi_value jsArray;
   napi_create_array_with_length(env, size, &jsArray);
@@ -69,7 +69,7 @@ void NextWorker::HandleOKCallback(napi_env env, napi_value callback) {
   CallFunction(env, callback, 3, argv);
 }
 
-void NextWorker::DoFinally(napi_env env) {
+void IteratorNextWorker::DoFinally(napi_env env) {
   // clean up & handle the next/close state
   iterator_->nexting_ = false;
 
@@ -81,34 +81,35 @@ void NextWorker::DoFinally(napi_env env) {
   BaseWorker::DoFinally(env);
 }
 
-ClearWorker::ClearWorker(napi_env env, Database* database, napi_value callback,
-                         const bool reverse, const int limit, std::string* lt,
-                         std::string* lte, std::string* gt, std::string* gte,
-                         const bool sync, const Snapshot* snapshot)
-    : PriorityWorker(env, database, callback, "rocksdb.db.clear") {
+IteratorClearWorker::IteratorClearWorker(
+    napi_env env, Database* database, napi_value callback, const bool reverse,
+    const int limit, std::string* lt, std::string* lte, std::string* gt,
+    std::string* gte, const bool sync, const Snapshot* snapshot)
+    : PriorityWorker(env, database, callback, "rocksdb.iterator.clear") {
   iterator_ = new BaseIterator(database, reverse, lt, lte, gt, gte, limit,
                                false, snapshot);
   writeOptions_ = new rocksdb::WriteOptions();
   writeOptions_->sync = sync;
 }
 
-ClearWorker::ClearWorker(napi_env env, Transaction* transaction,
-                         napi_value callback, const bool reverse,
-                         const int limit, std::string* lt, std::string* lte,
-                         std::string* gt, std::string* gte,
-                         const TransactionSnapshot* snapshot)
-    : PriorityWorker(env, transaction, callback, "rocksdb.db.clear") {
+IteratorClearWorker::IteratorClearWorker(napi_env env, Transaction* transaction,
+                                         napi_value callback,
+                                         const bool reverse, const int limit,
+                                         std::string* lt, std::string* lte,
+                                         std::string* gt, std::string* gte,
+                                         const TransactionSnapshot* snapshot)
+    : PriorityWorker(env, transaction, callback, "rocksdb.iterator.clear") {
   iterator_ = new BaseIterator(transaction, reverse, lt, lte, gt, gte, limit,
                                false, snapshot);
   writeOptions_ = nullptr;
 }
 
-ClearWorker::~ClearWorker() {
+IteratorClearWorker::~IteratorClearWorker() {
   delete iterator_;
   delete writeOptions_;
 }
 
-void ClearWorker::DoExecute() {
+void IteratorClearWorker::DoExecute() {
   assert(database_ != nullptr || transaction_ != nullptr);
   iterator_->SeekToRange();
   uint32_t hwm = 16 * 1024;

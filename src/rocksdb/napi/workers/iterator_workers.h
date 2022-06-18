@@ -19,10 +19,10 @@
 /**
  * Worker class for closing an iterator
  */
-struct CloseIteratorWorker final : public BaseWorker {
-  CloseIteratorWorker(napi_env env, Iterator* iterator, napi_value callback);
+struct IteratorCloseWorker final : public BaseWorker {
+  IteratorCloseWorker(napi_env env, Iterator* iterator, napi_value callback);
 
-  ~CloseIteratorWorker();
+  ~IteratorCloseWorker();
 
   void DoExecute() override;
 
@@ -35,11 +35,11 @@ struct CloseIteratorWorker final : public BaseWorker {
 /**
  * Worker class for nexting an iterator.
  */
-struct NextWorker final : public BaseWorker {
-  NextWorker(napi_env env, Iterator* iterator, uint32_t size,
-             napi_value callback);
+struct IteratorNextWorker final : public BaseWorker {
+  IteratorNextWorker(napi_env env, Iterator* iterator, uint32_t size,
+                     napi_value callback);
 
-  ~NextWorker();
+  ~IteratorNextWorker();
 
   void DoExecute() override;
 
@@ -56,18 +56,19 @@ struct NextWorker final : public BaseWorker {
 /**
  * Worker class for deleting a range from a database.
  */
-struct ClearWorker final : public PriorityWorker {
-  ClearWorker(napi_env env, Database* database, napi_value callback,
-              const bool reverse, const int limit, std::string* lt,
-              std::string* lte, std::string* gt, std::string* gte,
-              const bool sync, const Snapshot* snapshot = nullptr);
+struct IteratorClearWorker final : public PriorityWorker {
+  IteratorClearWorker(napi_env env, Database* database, napi_value callback,
+                      const bool reverse, const int limit, std::string* lt,
+                      std::string* lte, std::string* gt, std::string* gte,
+                      const bool sync, const Snapshot* snapshot = nullptr);
 
-  ClearWorker(napi_env env, Transaction* transaction, napi_value callback,
-              const bool reverse, const int limit, std::string* lt,
-              std::string* lte, std::string* gt, std::string* gte,
-              const TransactionSnapshot* snapshot = nullptr);
+  IteratorClearWorker(napi_env env, Transaction* transaction,
+                      napi_value callback, const bool reverse, const int limit,
+                      std::string* lt, std::string* lte, std::string* gt,
+                      std::string* gte,
+                      const TransactionSnapshot* snapshot = nullptr);
 
-  ~ClearWorker();
+  ~IteratorClearWorker();
 
   void DoExecute() override;
 

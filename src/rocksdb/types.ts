@@ -80,16 +80,6 @@ type RocksDBGetOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = 
 };
 
 /**
- * Get for update options
- * Note that `undefined` is not a valid value for these options
- * Make sure that the property either exists and it is a correct type
- * or that it does not exist
- */
-type RocksDBGetForUpdateOptions<S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot> = RocksDBGetOptions<S> & {
-  exclusive?: boolean; // Default true
-};
-
-/**
  * Put options
  * Note that `undefined` is not a valid value for these options
  * Make sure that the property either exists and it is a correct type
@@ -188,7 +178,6 @@ export type {
   RocksDBTransactionSnapshot,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
-  RocksDBGetForUpdateOptions,
   RocksDBPutOptions,
   RocksDBDelOptions,
   RocksDBRangeOptions,

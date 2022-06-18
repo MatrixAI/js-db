@@ -4,6 +4,9 @@
 #define NAPI_VERSION 3
 #endif
 
+#include <string>
+#include <vector>
+
 #include <node/node_api.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
@@ -69,8 +72,7 @@ struct TransactionGetForUpdateWorker final : public PriorityWorker {
   TransactionGetForUpdateWorker(napi_env env, Transaction* tran,
                                 napi_value callback, rocksdb::Slice key,
                                 const bool asBuffer, const bool fillCache,
-                                const TransactionSnapshot* snapshot = nullptr,
-                                const bool exclusive = true);
+                                const TransactionSnapshot* snapshot = nullptr);
 
   ~TransactionGetForUpdateWorker();
 
@@ -83,7 +85,46 @@ struct TransactionGetForUpdateWorker final : public PriorityWorker {
   rocksdb::Slice key_;
   std::string value_;
   const bool asBuffer_;
-  const bool exclusive_;
+};
+
+struct TransactionMultiGetWorker final : public PriorityWorker {
+  TransactionMultiGetWorker(napi_env env, Transaction* transaction,
+                            const std::vector<rocksdb::Slice>* keys,
+                            napi_value callback, const bool valueAsBuffer,
+                            const bool fillCache,
+                            const TransactionSnapshot* snapshot = nullptr);
+
+  ~TransactionMultiGetWorker();
+
+  void DoExecute() override;
+
+  void HandleOKCallback(napi_env env, napi_value callback) override;
+
+ private:
+  rocksdb::ReadOptions options_;
+  const std::vector<rocksdb::Slice>* keys_;
+  std::vector<std::string*> values_;
+  const bool valueAsBuffer_;
+};
+
+struct TransactionMultiGetForUpdateWorker final : public PriorityWorker {
+  TransactionMultiGetForUpdateWorker(
+      napi_env env, Transaction* transaction,
+      const std::vector<rocksdb::Slice>* keys, napi_value callback,
+      const bool valueAsBuffer, const bool fillCache,
+      const TransactionSnapshot* snapshot = nullptr);
+
+  ~TransactionMultiGetForUpdateWorker();
+
+  void DoExecute() override;
+
+  void HandleOKCallback(napi_env env, napi_value callback) override;
+
+ private:
+  rocksdb::ReadOptions options_;
+  const std::vector<rocksdb::Slice>* keys_;
+  std::vector<std::string*> values_;
+  const bool valueAsBuffer_;
 };
 
 /**

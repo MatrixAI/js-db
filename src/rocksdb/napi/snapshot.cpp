@@ -32,38 +32,38 @@ Snapshot::~Snapshot() {
 }
 
 void Snapshot::Attach(napi_env env, napi_value snapshot_ref) {
-  LOG_DEBUG("Snapshot %d:Calling Attach\n", id_);
+  LOG_DEBUG("Snapshot %d:Calling %s\n", id_, __func__);
   if (ref_ != nullptr) {
-    LOG_DEBUG("Snapshot %d:Called Attach\n", id_);
+    LOG_DEBUG("Snapshot %d:Called %s\n", id_, __func__);
     return;
   }
   NAPI_STATUS_THROWS_VOID(napi_create_reference(env, snapshot_ref, 1, &ref_));
   database_->AttachSnapshot(env, id_, this);
-  LOG_DEBUG("Snapshot %d:Called Attach\n", id_);
+  LOG_DEBUG("Snapshot %d:Called %s\n", id_, __func__);
 }
 
 void Snapshot::Detach(napi_env env) {
-  LOG_DEBUG("Snapshot %d:Calling Detach\n", id_);
+  LOG_DEBUG("Snapshot %d:Calling %s\n", id_, __func__);
   if (ref_ == nullptr) {
-    LOG_DEBUG("Snapshot %d:Called Detach\n", id_);
+    LOG_DEBUG("Snapshot %d:Called %s\n", id_, __func__);
     return;
   }
   database_->DetachSnapshot(env, id_);
   NAPI_STATUS_THROWS_VOID(napi_delete_reference(env, ref_));
   ref_ = nullptr;
-  LOG_DEBUG("Snapshot %d:Called Detach\n", id_);
+  LOG_DEBUG("Snapshot %d:Called %s\n", id_, __func__);
 }
 
 void Snapshot::Release() {
-  LOG_DEBUG("Snapshot %d:Calling Release\n", id_);
+  LOG_DEBUG("Snapshot %d:Calling %s\n", id_, __func__);
   if (hasReleased_) {
-    LOG_DEBUG("Snapshot %d:Called Release\n", id_);
+    LOG_DEBUG("Snapshot %d:Called %s\n", id_, __func__);
     return;
   }
   hasReleased_ = true;
   // This deletes also deletes `rocksdb::Snapshot`
   database_->ReleaseSnapshot(snap_);
-  LOG_DEBUG("Snapshot %d:Called Release\n", id_);
+  LOG_DEBUG("Snapshot %d:Called %s\n", id_, __func__);
 }
 
 const rocksdb::Snapshot* Snapshot::snapshot() const { return snap_; }

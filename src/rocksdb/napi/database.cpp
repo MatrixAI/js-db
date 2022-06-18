@@ -54,12 +54,12 @@ rocksdb::Status Database::Open(const rocksdb::Options& options,
 }
 
 void Database::Close() {
-  LOG_DEBUG("Database:Closing Database\n");
+  LOG_DEBUG("Database:Calling %s\n", __func__);
   if (hasClosed_) return;
   hasClosed_ = true;
   delete db_;
   db_ = nullptr;
-  LOG_DEBUG("Database:Closed Database\n");
+  LOG_DEBUG("Database:Called %s\n", __func__);
 }
 
 rocksdb::Status Database::Put(const rocksdb::WriteOptions& options,

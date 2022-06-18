@@ -7,7 +7,6 @@ import type {
   RocksDBBatch,
   RocksDBDatabaseOptions,
   RocksDBGetOptions,
-  RocksDBGetForUpdateOptions,
   RocksDBPutOptions,
   RocksDBDelOptions,
   RocksDBClearOptions,
@@ -139,13 +138,33 @@ interface RocksDBP {
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
   ): Promise<string>;
   transactionGetForUpdate(
     tran: RocksDBTransaction,
     key: string | Buffer,
-    options: RocksDBGetForUpdateOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
   ): Promise<Buffer>;
+  transactionMultiGet(
+    transaction: RocksDBTransaction,
+    keys: Array<string | Buffer>,
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
+  ): Promise<Array<string>>;
+  transactionMultiGet(
+    transaction: RocksDBTransaction,
+    keys: Array<string | Buffer>,
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
+  ): Promise<Array<Buffer>>;
+  transactionMultiGetForUpdate(
+    transaction: RocksDBTransaction,
+    keys: Array<string | Buffer>,
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding?: 'utf8' },
+  ): Promise<Array<string>>;
+  transactionMultiGetForUpdate(
+    transaction: RocksDBTransaction,
+    keys: Array<string | Buffer>,
+    options: RocksDBGetOptions<RocksDBTransactionSnapshot> & { valueEncoding: 'buffer' },
+  ): Promise<Array<Buffer>>;
   transactionPut(
     tran: RocksDBTransaction,
     key: string | Buffer,
@@ -217,11 +236,13 @@ const rocksdbP: RocksDBP = {
   transactionRollback: utils.promisify(rocksdb.transactionRollback).bind(rocksdb),
   transactionGet: utils.promisify(rocksdb.transactionGet).bind(rocksdb),
   transactionGetForUpdate: utils.promisify(rocksdb.transactionGetForUpdate).bind(rocksdb),
+  transactionMultiGet: utils.promisify(rocksdb.transactionMultiGet).bind(rocksdb),
+  transactionMultiGetForUpdate: utils.promisify(rocksdb.transactionMultiGetForUpdate).bind(rocksdb),
   transactionPut: utils.promisify(rocksdb.transactionPut).bind(rocksdb),
   transactionDel: utils.promisify(rocksdb.transactionDel).bind(rocksdb),
   transactionSnapshot: rocksdb.transactionSnapshot.bind(rocksdb),
   transactionIteratorInit: rocksdb.transactionIteratorInit.bind(rocksdb),
-  transactionClear: rocksdb.transactionClear.bind(rocksdb),
+  transactionClear: utils.promisify(rocksdb.transactionClear).bind(rocksdb),
 };
 
 export default rocksdbP;

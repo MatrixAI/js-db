@@ -43,34 +43,34 @@ Transaction::~Transaction() {
 }
 
 void Transaction::Attach(napi_env env, napi_value transaction_ref) {
-  LOG_DEBUG("Transaction %d:Calling Attach\n", id_);
+  LOG_DEBUG("Transaction %d:Calling %s\n", id_, __func__);
   if (ref_ != nullptr) {
-    LOG_DEBUG("Transaction %d:Called Attach\n", id_);
+    LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
     return;
   }
   NAPI_STATUS_THROWS_VOID(
       napi_create_reference(env, transaction_ref, 1, &ref_));
   database_->AttachTransaction(env, id_, this);
-  LOG_DEBUG("Transaction %d:Called Attach\n", id_);
+  LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
 }
 
 void Transaction::Detach(napi_env env) {
-  LOG_DEBUG("Transaction %d:Calling Detach\n", id_);
+  LOG_DEBUG("Transaction %d:Calling %s\n", id_, __func__);
   if (ref_ == nullptr) {
-    LOG_DEBUG("Transaction %d:Called Detach\n", id_);
+    LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
     return;
   }
   database_->DetachTransaction(env, id_);
   NAPI_STATUS_THROWS_VOID(napi_delete_reference(env, ref_));
   ref_ = nullptr;
-  LOG_DEBUG("Transaction %d:Called Detach\n", id_);
+  LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
 }
 
 rocksdb::Status Transaction::Commit() {
-  LOG_DEBUG("Transaction %d:Calling Commit\n", id_);
+  LOG_DEBUG("Transaction %d:Calling %s\n", id_, __func__);
   assert(!hasRollbacked_);
   if (hasCommitted_) {
-    LOG_DEBUG("Transaction %d:Called Commit\n", id_);
+    LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
     return rocksdb::Status::OK();
   }
   hasCommitted_ = true;
@@ -80,15 +80,15 @@ rocksdb::Status Transaction::Commit() {
   tran_ = nullptr;
   delete options_;
   options_ = nullptr;
-  LOG_DEBUG("Transaction %d:Called Commit\n", id_);
+  LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
   return status;
 }
 
 rocksdb::Status Transaction::Rollback() {
-  LOG_DEBUG("Transaction %d:Calling Rollback\n", id_);
+  LOG_DEBUG("Transaction %d:Calling %s\n", id_, __func__);
   assert(!hasCommitted_);
   if (hasRollbacked_) {
-    LOG_DEBUG("Transaction %d:Called Rollback\n", id_);
+    LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
     return rocksdb::Status::OK();
   }
   hasRollbacked_ = true;
@@ -98,7 +98,7 @@ rocksdb::Status Transaction::Rollback() {
   tran_ = nullptr;
   delete options_;
   options_ = nullptr;
-  LOG_DEBUG("Transaction %d:Called Rollback\n", id_);
+  LOG_DEBUG("Transaction %d:Called %s\n", id_, __func__);
   return status;
 }
 
@@ -139,6 +139,20 @@ rocksdb::Status Transaction::Put(rocksdb::Slice key, rocksdb::Slice value) {
 rocksdb::Status Transaction::Del(rocksdb::Slice key) {
   assert(!hasCommitted_ && !hasRollbacked_);
   return tran_->Delete(key);
+}
+
+std::vector<rocksdb::Status> Transaction::MultiGet(
+    const rocksdb::ReadOptions& options,
+    const std::vector<rocksdb::Slice>& keys, std::vector<std::string>& values) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->MultiGet(options, keys, &values);
+}
+
+std::vector<rocksdb::Status> Transaction::MultiGetForUpdate(
+    const rocksdb::ReadOptions& options,
+    const std::vector<rocksdb::Slice>& keys, std::vector<std::string>& values) {
+  assert(!hasCommitted_ && !hasRollbacked_);
+  return tran_->MultiGetForUpdate(options, keys, &values);
 }
 
 void Transaction::AttachIterator(napi_env env, uint32_t id,

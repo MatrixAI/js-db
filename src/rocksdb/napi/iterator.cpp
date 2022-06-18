@@ -314,10 +314,10 @@ Iterator::~Iterator() {
 };
 
 void Iterator::Attach(napi_env env, napi_value iterator_ref) {
-  LOG_DEBUG("Iterator %d:Calling Attach\n", id_);
+  LOG_DEBUG("Iterator %d:Calling %s\n", id_, __func__);
   assert(database_ != nullptr || transaction_ != nullptr);
   if (ref_ != nullptr) {
-    LOG_DEBUG("Iterator %d:Called Attach\n", id_);
+    LOG_DEBUG("Iterator %d:Called %s\n", id_, __func__);
     return;
   }
   NAPI_STATUS_THROWS_VOID(napi_create_reference(env, iterator_ref, 1, &ref_));
@@ -326,14 +326,14 @@ void Iterator::Attach(napi_env env, napi_value iterator_ref) {
   } else if (transaction_ != nullptr) {
     transaction_->AttachIterator(env, id_, this);
   }
-  LOG_DEBUG("Iterator %d:Called Attach\n", id_);
+  LOG_DEBUG("Iterator %d:Called %s\n", id_, __func__);
 }
 
 void Iterator::Detach(napi_env env) {
-  LOG_DEBUG("Iterator %d:Calling Detach\n", id_);
+  LOG_DEBUG("Iterator %d:Calling %s\n", id_, __func__);
   assert(database_ != nullptr || transaction_ != nullptr);
   if (ref_ == nullptr) {
-    LOG_DEBUG("Iterator %d:Called Detach\n", id_);
+    LOG_DEBUG("Iterator %d:Called %s\n", id_, __func__);
     return;
   }
   if (database_ != nullptr) {
@@ -343,13 +343,13 @@ void Iterator::Detach(napi_env env) {
   }
   NAPI_STATUS_THROWS_VOID(napi_delete_reference(env, ref_));
   ref_ = nullptr;
-  LOG_DEBUG("Iterator %d:Called Detach\n", id_);
+  LOG_DEBUG("Iterator %d:Called %s\n", id_, __func__);
 }
 
 void Iterator::Close() {
-  LOG_DEBUG("Iterator %d:Calling Close\n", id_);
+  LOG_DEBUG("Iterator %d:Calling %s\n", id_, __func__);
   BaseIterator::Close();
-  LOG_DEBUG("Iterator %d:Called Close\n", id_);
+  LOG_DEBUG("Iterator %d:Called %s\n", id_, __func__);
 }
 
 bool Iterator::ReadMany(uint32_t size) {
