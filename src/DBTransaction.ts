@@ -148,6 +148,40 @@ class DBTransaction {
     return this._db.deserializeDecrypt<T>(data, raw as any);
   }
 
+  /**
+   * Use this for to address write skews
+   */
+  public async getForUpdate<T>(
+    keyPath: KeyPath | string | Buffer,
+    raw?: false,
+  ): Promise<T | undefined>;
+  public async getForUpdate(
+    keyPath: KeyPath | string | Buffer,
+    raw: true,
+  ): Promise<Buffer | undefined>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async getForUpdate<T>(
+    keyPath: KeyPath | string | Buffer,
+    raw: boolean = false,
+  ): Promise<T | Buffer | undefined> {
+    keyPath = utils.toKeyPath(keyPath);
+    keyPath = ['data', ...keyPath];
+    let data: Buffer;
+    try {
+      const key = utils.keyPathToKey(keyPath);
+      data = await rocksdbP.transactionGetForUpdate(this._transaction, key, {
+        valueEncoding: 'buffer',
+        snapshot: this.setupSnapshot(),
+      });
+    } catch (e) {
+      if (e.code === 'NOT_FOUND') {
+        return undefined;
+      }
+      throw e;
+    }
+    return this._db.deserializeDecrypt<T>(data, raw as any);
+  }
+
   public async put(
     keyPath: KeyPath | string | Buffer,
     value: any,
