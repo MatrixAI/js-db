@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { withF } from '@matrixai/resources';
-import { Lock } from '@matrixai/async-locks';
+import { errors as locksErrors } from '@matrixai/async-locks';
 import DB from '@/DB';
 import DBTransaction from '@/DBTransaction';
 import * as errors from '@/errors';
@@ -297,7 +297,7 @@ describe(DBTransaction.name, () => {
       }),
     ).toBe(true);
   });
-  test('PCC locking to prevent thrashing for racing counters', async () => {
+  test('locking to prevent thrashing for racing counters', async () => {
     await db.put('counter', '0');
     let t1 = withF([db.transaction()], async ([tran]) => {
       // Can also use `getForUpdate`, but a conflict exists even for `get`
@@ -326,33 +326,25 @@ describe(DBTransaction.name, () => {
     // in race thrashing where only 1 request succeeds, and all other requests
     // keep failing. The only way to prevent this thrashing is to use PCC locking
     await db.put('counter', '0');
-    const l = new Lock();
-    t1 = l.withF(async () => {
-      await withF([db.transaction()], async ([tran]) => {
-        // Can also use `get`, no difference here
-        let counter = parseInt((await tran.getForUpdate('counter'))!);
-        counter++;
-        await tran.put('counter', counter.toString());
-      });
+    t1 = withF([db.transaction()], async ([tran]) => {
+      // Enforces mutual exclusion
+      await tran.lock('counter');
+      // Can also use `get`, no difference here
+      let counter = parseInt((await tran.getForUpdate('counter'))!);
+      counter++;
+      await tran.put('counter', counter.toString());
     });
-    t2 = l.withF(async () => {
-      await withF([db.transaction()], async ([tran]) => {
-        // Can also use `get`, no difference here
-        let counter = parseInt((await tran.getForUpdate('counter'))!);
-        counter++;
-        await tran.put('counter', counter.toString());
-      });
+    t2 = withF([db.transaction()], async ([tran]) => {
+      // Enforces mutual exclusion
+      await tran.lock('counter');
+      // Can also use `get`, no difference here
+      let counter = parseInt((await tran.getForUpdate('counter'))!);
+      counter++;
+      await tran.put('counter', counter.toString());
     });
     results = await Promise.allSettled([t1, t2]);
     expect(results.every((result) => result.status === 'fulfilled'));
     expect(await db.get('counter')).toBe('2');
-    // The PCC locks must be done outside of transaction creation
-    // This is because the PCC locks enforce mutual exclusion between commit operations
-    // If the locks were done inside the transaction, it's possible for the commit operations
-    // to be delayed after all mutually exclusive callbacks are executed
-    // resulting in a DBTransactionConflict
-    // When this library gains native locking, it must deal with this problem
-    // by only releasing the locks when the transaction is committed or rollbacked
   });
   test('iterator get after delete consistency', async () => {
     await db.put('hello', 'world');
@@ -991,5 +983,152 @@ describe(DBTransaction.name, () => {
     expect(mockFinally).toBeCalledWith(e);
     expect(await db.get('1')).toBe('a');
     expect(await db.get('2')).toBe('b');
+  });
+  test('locking and unlocking', async () => {
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo');
+      await tran.unlock('foo');
+      expect(tran.locks.size).toBe(0);
+    });
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo', 'bar');
+      await tran.unlock('bar');
+      expect(tran.locks.size).toBe(1);
+      expect(tran.locks.has('foo')).toBe(true);
+    });
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo', 'bar');
+      await tran.unlock('bar', 'foo');
+      expect(tran.locks.size).toBe(0);
+    });
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('bar', 'foo');
+      await tran.unlock('bar', 'foo');
+      expect(tran.locks.size).toBe(0);
+    });
+    // Duplicates are eliminated
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo', 'foo');
+      expect(tran.locks.size).toBe(1);
+      await tran.unlock('foo', 'foo');
+      expect(tran.locks.size).toBe(0);
+    });
+  });
+  test('read and write locking', async () => {
+    await db.withTransactionF(async (tran1) => {
+      await tran1.lock(['foo', 'read']);
+      await tran1.lock(['bar', 'write']);
+      // There is no automatic lock upgrade or downgrade
+      await expect(tran1.lock(['foo', 'write'])).rejects.toThrow(
+        errors.ErrorDBTransactionLockType,
+      );
+      await expect(tran1.lock(['bar', 'read'])).rejects.toThrow(
+        errors.ErrorDBTransactionLockType,
+      );
+      await db.withTransactionF(async (tran2) => {
+        await tran2.lock(['foo', 'read']);
+        await expect(tran2.lock(['bar', 'write', 0])).rejects.toThrow(
+          locksErrors.ErrorAsyncLocksTimeout,
+        );
+        expect(tran1.locks.size).toBe(2);
+        expect(tran1.locks.has('foo')).toBe(true);
+        expect(tran1.locks.get('foo')!.type).toBe('read');
+        expect(tran2.locks.size).toBe(1);
+        expect(tran2.locks.has('foo')).toBe(true);
+        expect(tran2.locks.get('foo')!.type).toBe('read');
+      });
+      expect(tran1.locks.size).toBe(2);
+      await tran1.unlock('bar');
+      await db.withTransactionF(async (tran2) => {
+        await tran2.lock(['foo', 'read']);
+        await tran2.lock(['bar', 'write']);
+        expect(tran1.locks.size).toBe(1);
+        expect(tran1.locks.has('foo')).toBe(true);
+        expect(tran1.locks.get('foo')!.type).toBe('read');
+        expect(tran2.locks.size).toBe(2);
+        expect(tran2.locks.has('foo')).toBe(true);
+        expect(tran2.locks.get('foo')!.type).toBe('read');
+        expect(tran2.locks.has('bar')).toBe(true);
+        expect(tran2.locks.get('bar')!.type).toBe('write');
+      });
+    });
+  });
+  test('locks are unlocked in reverse order', async () => {
+    const order: Array<string> = [];
+    let p1, p2;
+    await db.withTransactionF(async (tran) => {
+      // '1' and '2' are in sort order
+      await tran.lock('1');
+      await tran.lock('2');
+      p1 = db.withTransactionF(async (tran) => {
+        await tran.lock('1');
+        order.push('1');
+      });
+      p2 = db.withTransactionF(async (tran) => {
+        await tran.lock('2');
+        order.push('2');
+      });
+    });
+    await Promise.all([p2, p1]);
+    expect(order).toStrictEqual(['2', '1']);
+  });
+  test('lock re-entrancy', async () => {
+    await db.withTransactionF(async (tran) => {
+      // Locking with the same keys is idempotent
+      await tran.lock('key1', 'key2');
+      await tran.lock('key1', 'key2');
+      await tran.lock('key1');
+      await tran.lock('key2');
+    });
+  });
+  test('locks are isolated per transaction', async () => {
+    await db.withTransactionF(async (tran1) => {
+      await tran1.lock('key1', 'key2');
+      expect(tran1.locks.size).toBe(2);
+      await db.withTransactionF(async (tran2) => {
+        // This is a noop, because `tran1` owns `key1` and `key2`
+        await tran2.unlock('key1', 'key2');
+        // This fails because `key1` is still locked by `tran1`
+        await expect(tran2.lock(['key1', 'write', 0])).rejects.toThrow(
+          locksErrors.ErrorAsyncLocksTimeout,
+        );
+        await tran1.unlock('key1');
+        expect(tran1.locks.size).toBe(1);
+        // This succeeds because `key1` is now unlocked
+        await tran2.lock('key1');
+        expect(tran2.locks.size).toBe(1);
+        // This is a noop, because `tran2` owns `key1`
+        await tran1.unlock('key1');
+        expect(tran2.locks.has('key1')).toBe(true);
+        expect(tran1.locks.has('key1')).toBe(false);
+        await expect(tran1.lock(['key1', 'write', 0])).rejects.toThrow(
+          locksErrors.ErrorAsyncLocksTimeout,
+        );
+      });
+      await tran1.lock('key1');
+      expect(tran1.locks.has('key1')).toBe(true);
+      expect(tran1.locks.has('key2')).toBe(true);
+    });
+  });
+  test('deadlock', async () => {
+    await db.withTransactionF(async (tran1) => {
+      await db.withTransactionF(async (tran2) => {
+        await tran1.lock('foo');
+        await tran2.lock('bar');
+        // Currently a deadlock can happen, and the only way to avoid is to use timeouts
+        // In the future, we want to have `DBTransaction` detect deadlocks
+        // and automatically give us `ErrorDBTransactionDeadlock` exception
+        const p1 = tran1.lock(['bar', 'write', 50]);
+        const p2 = tran2.lock(['foo', 'write', 50]);
+        const results = await Promise.allSettled([p1, p2]);
+        expect(
+          results.every(
+            (r) =>
+              r.status === 'rejected' &&
+              r.reason instanceof locksErrors.ErrorAsyncLocksTimeout,
+          ),
+        ).toBe(true);
+      });
+    });
   });
 });

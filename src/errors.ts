@@ -82,6 +82,11 @@ class ErrorDBTransactionConflict<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction cannot commit due to conflicting writes';
 }
 
+class ErrorDBTransactionLockType<T> extends ErrorDBTransaction<T> {
+  static description =
+    'DBTransaction does not support upgrading or downgrading the lock type';
+}
+
 export {
   ErrorDB,
   ErrorDBRunning,
@@ -103,4 +108,5 @@ export {
   ErrorDBTransactionRollbacked,
   ErrorDBTransactionNotCommittedNorRollbacked,
   ErrorDBTransactionConflict,
+  ErrorDBTransactionLockType,
 };

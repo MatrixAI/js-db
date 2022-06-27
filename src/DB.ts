@@ -1,4 +1,5 @@
 import type { ResourceAcquire } from '@matrixai/resources';
+import type { RWLockWriter } from '@matrixai/async-locks';
 import type {
   KeyPath,
   LevelPath,
@@ -20,6 +21,7 @@ import {
   CreateDestroyStartStop,
   ready,
 } from '@matrixai/async-init/dist/CreateDestroyStartStop';
+import { LockBox } from '@matrixai/async-locks';
 import DBIterator from './DBIterator';
 import DBTransaction from './DBTransaction';
 import { rocksdbP } from './rocksdb';
@@ -69,6 +71,7 @@ class DB {
   protected fs: FileSystem;
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
+  protected _lockBox: LockBox<RWLockWriter> = new LockBox();
   protected _db: RocksDBDatabase;
   /**
    * References to iterators
@@ -95,6 +98,10 @@ class DB {
    */
   get transactionRefs(): Readonly<Set<DBTransaction>> {
     return this._transactionRefs;
+  }
+
+  get lockBox(): Readonly<LockBox<RWLockWriter>> {
+    return this._lockBox;
   }
 
   constructor({
@@ -193,6 +200,7 @@ class DB {
     return async () => {
       const tran = new DBTransaction({
         db: this,
+        lockBox: this._lockBox,
         logger: this.logger,
       });
       return [
