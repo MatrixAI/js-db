@@ -27,9 +27,9 @@
   },
   "osInfo": {
     "platform": "linux",
-    "distro": "Matrix ML 1",
-    "release": "unknown",
-    "kernel": "5.10.106",
+    "distro": "nixos",
+    "release": "22.05",
+    "kernel": "5.10.118",
     "arch": "x64"
   },
   "system": {

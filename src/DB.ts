@@ -1,17 +1,19 @@
-import type { LevelDB } from 'level';
 import type { ResourceAcquire } from '@matrixai/resources';
+import type { RWLockWriter } from '@matrixai/async-locks';
 import type {
   KeyPath,
   LevelPath,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
-  DBIteratorOptions,
-  DBIterator,
   DBBatch,
   DBOps,
+  DBOptions,
+  DBIteratorOptions,
+  DBClearOptions,
+  DBCountOptions,
 } from './types';
-import level from 'level';
+import type { RocksDBDatabase, RocksDBDatabaseOptions } from './rocksdb';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
@@ -19,7 +21,10 @@ import {
   CreateDestroyStartStop,
   ready,
 } from '@matrixai/async-init/dist/CreateDestroyStartStop';
+import { LockBox } from '@matrixai/async-locks';
+import DBIterator from './DBIterator';
 import DBTransaction from './DBTransaction';
+import { rocksdbP } from './rocksdb';
 import * as utils from './utils';
 import * as errors from './errors';
 
@@ -35,6 +40,7 @@ class DB {
     fs = require('fs'),
     logger = new Logger(this.name),
     fresh = false,
+    ...dbOptions
   }: {
     dbPath: string;
     crypto?: {
@@ -44,21 +50,20 @@ class DB {
     fs?: FileSystem;
     logger?: Logger;
     fresh?: boolean;
-  }): Promise<DB> {
+  } & DBOptions): Promise<DB> {
     logger.info(`Creating ${this.name}`);
-    const db = new DB({
+    const db = new this({
       dbPath,
       crypto,
       fs,
       logger,
     });
-    await db.start({ fresh });
+    await db.start({ fresh, ...dbOptions });
     logger.info(`Created ${this.name}`);
     return db;
   }
 
   public readonly dbPath: string;
-
   protected crypto?: {
     key: Buffer;
     ops: Crypto;
@@ -66,8 +71,38 @@ class DB {
   protected fs: FileSystem;
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
-  protected _db: LevelDB<string | Buffer, Buffer>;
-  protected transactionCounter: number = 0;
+  protected _lockBox: LockBox<RWLockWriter> = new LockBox();
+  protected _db: RocksDBDatabase;
+  /**
+   * References to iterators
+   */
+  protected _iteratorRefs: Set<DBIterator<any, any>> = new Set();
+  /**
+   * References to transactions
+   */
+  protected _transactionRefs: Set<DBTransaction> = new Set();
+
+  get db(): Readonly<RocksDBDatabase> {
+    return this._db;
+  }
+
+  /**
+   * @internal
+   */
+  get iteratorRefs(): Readonly<Set<DBIterator<any, any>>> {
+    return this._iteratorRefs;
+  }
+
+  /**
+   * @internal
+   */
+  get transactionRefs(): Readonly<Set<DBTransaction>> {
+    return this._transactionRefs;
+  }
+
+  get lockBox(): Readonly<LockBox<RWLockWriter>> {
+    return this._lockBox;
+  }
 
   constructor({
     dbPath,
@@ -89,15 +124,12 @@ class DB {
     this.fs = fs;
   }
 
-  get db(): Readonly<LevelDB<string | Buffer, Buffer>> {
-    return this._db;
-  }
-
   public async start({
     fresh = false,
+    ...dbOptions
   }: {
     fresh?: boolean;
-  } = {}) {
+  } & DBOptions = {}) {
     this.logger.info(`Starting ${this.constructor.name}`);
     this.logger.info(`Setting DB path to ${this.dbPath}`);
     if (fresh) {
@@ -110,7 +142,11 @@ class DB {
         throw new errors.ErrorDBDelete(e.message, { cause: e });
       }
     }
-    const db = await this.setupDb(this.dbPath);
+    const db = await this.setupDb(this.dbPath, {
+      ...dbOptions,
+      createIfMissing: true,
+      errorIfExists: false,
+    });
     this._db = db;
     try {
       // Only run these after this._db is assigned
@@ -119,8 +155,8 @@ class DB {
         await this.canaryCheck();
       }
     } catch (e) {
-      // LevelDB must be closed otherwise its lock will persist
-      await this._db.close();
+      // RocksDB must be closed otherwise its lock will persist
+      await rocksdbP.dbClose(db);
       throw e;
     }
     this.logger.info(`Started ${this.constructor.name}`);
@@ -128,7 +164,13 @@ class DB {
 
   public async stop(): Promise<void> {
     this.logger.info(`Stopping ${this.constructor.name}`);
-    await this._db.close();
+    for (const iterator of this._iteratorRefs) {
+      await iterator.destroy();
+    }
+    for (const transaction of this._transactionRefs) {
+      await transaction.rollback();
+    }
+    await rocksdbP.dbClose(this._db);
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 
@@ -156,23 +198,16 @@ class DB {
   @ready(new errors.ErrorDBNotRunning())
   public transaction(): ResourceAcquire<DBTransaction> {
     return async () => {
-      const transactionId = this.transactionCounter++;
-      const tran = await DBTransaction.createTransaction({
+      const tran = new DBTransaction({
         db: this,
-        transactionId,
+        lockBox: this._lockBox,
         logger: this.logger,
       });
       return [
         async (e?: Error) => {
           try {
             if (e == null) {
-              try {
-                await tran.commit();
-              } catch (e) {
-                await tran.rollback(e);
-                throw e;
-              }
-              await tran.finalize();
+              await tran.commit();
             } else {
               await tran.rollback(e);
             }
@@ -235,9 +270,9 @@ class DB {
     let data;
     try {
       const key = utils.keyPathToKey(keyPath);
-      data = await this._db.get(key);
+      data = await rocksdbP.dbGet(this._db, key, { valueEncoding: 'buffer' });
     } catch (e) {
-      if (e.notFound) {
+      if (e.code === 'NOT_FOUND') {
         return undefined;
       }
       throw e;
@@ -253,64 +288,88 @@ class DB {
     keyPath: KeyPath | string | Buffer,
     value: any,
     raw?: false,
+    sync?: boolean,
   ): Promise<void>;
   public async put(
     keyPath: KeyPath | string | Buffer,
     value: Buffer,
     raw: true,
+    sync?: boolean,
   ): Promise<void>;
   @ready(new errors.ErrorDBNotRunning())
   public async put(
     keyPath: KeyPath | string | Buffer,
     value: any,
     raw: boolean = false,
+    sync: boolean = false,
   ): Promise<void> {
     keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
-    return this._put(keyPath, value, raw as any);
+    return this._put(keyPath, value, raw as any, sync);
   }
 
   /**
    * Put from root level
    * @internal
    */
-  public async _put(keyPath: KeyPath, value: any, raw?: false): Promise<void>;
+  public async _put(
+    keyPath: KeyPath,
+    value: any,
+    raw?: false,
+    sync?: boolean,
+  ): Promise<void>;
   /**
    * @internal
    */
-  public async _put(keyPath: KeyPath, value: Buffer, raw: true): Promise<void>;
+  public async _put(
+    keyPath: KeyPath,
+    value: Buffer,
+    raw: true,
+    sync?: boolean,
+  ): Promise<void>;
   public async _put(
     keyPath: KeyPath,
     value: any,
     raw: boolean = false,
+    sync: boolean = false,
   ): Promise<void> {
     const data = await this.serializeEncrypt(value, raw as any);
-    return this._db.put(utils.keyPathToKey(keyPath), data);
+    const key = utils.keyPathToKey(keyPath);
+    await rocksdbP.dbPut(this._db, key, data, { sync });
+    return;
   }
 
   /**
    * Deletes a key from the DB
    */
   @ready(new errors.ErrorDBNotRunning())
-  public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
+  public async del(
+    keyPath: KeyPath | string | Buffer,
+    sync: boolean = false,
+  ): Promise<void> {
     keyPath = utils.toKeyPath(keyPath);
     keyPath = ['data', ...keyPath];
-    return this._del(keyPath);
+    return this._del(keyPath, sync);
   }
 
   /**
    * Delete from root level
    * @internal
    */
-  public async _del(keyPath: KeyPath): Promise<void> {
-    return this._db.del(utils.keyPathToKey(keyPath));
+  public async _del(keyPath: KeyPath, sync: boolean = false): Promise<void> {
+    const key = utils.keyPathToKey(keyPath);
+    await rocksdbP.dbDel(this._db, key, { sync });
+    return;
   }
 
   /**
    * Batches operations together atomically
    */
   @ready(new errors.ErrorDBNotRunning())
-  public async batch(ops: Readonly<DBOps>): Promise<void> {
+  public async batch(
+    ops: Readonly<DBOps>,
+    sync: boolean = false,
+  ): Promise<void> {
     const opsP: Array<Promise<DBBatch> | DBBatch> = [];
     for (const op of ops) {
       op.keyPath = utils.toKeyPath(op.keyPath);
@@ -333,14 +392,18 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    return this._db.batch(opsB);
+    await rocksdbP.batchDo(this._db, opsB, { sync });
+    return;
   }
 
   /**
    * Batch from root level
    * @internal
    */
-  public async _batch(ops: Readonly<DBOps>): Promise<void> {
+  public async _batch(
+    ops: Readonly<DBOps>,
+    sync: boolean = false,
+  ): Promise<void> {
     const opsP: Array<Promise<DBBatch> | DBBatch> = [];
     for (const op of ops) {
       if (!Array.isArray(op.keyPath)) {
@@ -364,7 +427,8 @@ class DB {
       }
     }
     const opsB = await Promise.all(opsP);
-    return this._db.batch(opsB);
+    await rocksdbP.batchDo(this._db, opsB, { sync });
+    return;
   }
 
   /**
@@ -373,36 +437,39 @@ class DB {
    * You must have at least one of them being true or undefined
    */
   public iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; values: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
   public iterator<V>(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, V>;
   public iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
   public iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { values: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, undefined>;
   public iterator<V>(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, V>;
   public iterator(
-    options?: DBIteratorOptions,
     levelPath?: LevelPath,
+    options?: DBIteratorOptions,
   ): DBIterator<KeyPath, Buffer>;
   @ready(new errors.ErrorDBNotRunning())
   public iterator(
-    options?: DBIteratorOptions & { keyAsBuffer?: any; valueAsBuffer?: any },
     levelPath: LevelPath = [],
+    options: DBIteratorOptions & {
+      keyAsBuffer?: any;
+      valueAsBuffer?: any;
+    } = {},
   ): DBIterator<any, any> {
     levelPath = ['data', ...levelPath];
-    return this._iterator(options, levelPath);
+    return this._iterator(levelPath, options);
   }
 
   /**
@@ -410,132 +477,54 @@ class DB {
    * @internal
    */
   public _iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; values: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, undefined>;
   /**
    * @internal
    */
   public _iterator<V>(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false; valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, V>;
   /**
    * @internal
    */
   public _iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { keys: false },
-    levelPath?: LevelPath,
   ): DBIterator<undefined, Buffer>;
   /**
    * @internal
    */
   public _iterator(
+    levelPath: LevelPath | undefined,
     options: DBIteratorOptions & { values: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, undefined>;
   /**
    * @internal
    */
   public _iterator<V>(
+    levelPath: LevelPath | undefined,
     options?: DBIteratorOptions & { valueAsBuffer: false },
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, V>;
   /**
    * @internal
    */
   public _iterator(
+    levelPath?: LevelPath | undefined,
     options?: DBIteratorOptions,
-    levelPath?: LevelPath,
   ): DBIterator<KeyPath, Buffer>;
   public _iterator<V>(
-    options?: DBIteratorOptions,
     levelPath: LevelPath = [],
+    options: DBIteratorOptions = {},
   ): DBIterator<KeyPath | undefined, Buffer | V | undefined> {
-    const options_ = {
-      ...(options ?? {}),
-      // Internally we always use the buffer
-      keyAsBuffer: true,
-      valueAsBuffer: true,
-    };
-    if (options_.gt != null) {
-      options_.gt = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.gt)),
-      );
-    }
-    if (options_.gte != null) {
-      options_.gte = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.gte)),
-      );
-    }
-    if (options_.gt == null && options_.gte == null) {
-      options_.gte = utils.levelPathToKey(levelPath);
-    }
-    if (options_.lt != null) {
-      options_.lt = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.lt)),
-      );
-    }
-    if (options_.lte != null) {
-      options_.lte = utils.keyPathToKey(
-        levelPath.concat(utils.toKeyPath(options_.lte)),
-      );
-    }
-    if (options_.lt == null && options_.lte == null) {
-      const levelKeyEnd = utils.levelPathToKey(levelPath);
-      levelKeyEnd[levelKeyEnd.length - 1] += 1;
-      options_.lt = levelKeyEnd;
-    }
-    const iterator_ = this._db.iterator(options_);
-    const iterator = {
-      seek: (keyPath: KeyPath | Buffer | string): void => {
-        iterator_.seek(
-          utils.keyPathToKey(levelPath.concat(utils.toKeyPath(keyPath))),
-        );
-      },
-      end: async () => {
-        // @ts-ignore AbstractIterator type is outdated
-        // eslint-disable-next-line @typescript-eslint/await-thenable
-        await iterator_.end();
-      },
-      next: async () => {
-        // @ts-ignore AbstractIterator type is outdated
-        // eslint-disable-next-line @typescript-eslint/await-thenable
-        const kv = (await iterator_.next()) as any;
-        // If kv is undefined, we have reached the end of iteration
-        if (kv == null) return kv;
-        // Handle keys: false
-        if (kv[0] != null) {
-          // Truncate level path so the returned key is relative to the level path
-          const keyPath = utils.parseKey(kv[0]).slice(levelPath.length);
-          if (options?.keyAsBuffer === false) {
-            kv[0] = keyPath.map((k) => k.toString('utf-8'));
-          } else {
-            kv[0] = keyPath;
-          }
-        }
-        // Handle values: false
-        if (kv[1] != null) {
-          if (options?.valueAsBuffer === false) {
-            kv[1] = await this.deserializeDecrypt<V>(kv[1], false);
-          } else {
-            kv[1] = await this.deserializeDecrypt(kv[1], true);
-          }
-        }
-        return kv;
-      },
-      [Symbol.asyncIterator]: async function* () {
-        try {
-          let kv: [KeyPath | undefined, any] | undefined;
-          while ((kv = await iterator.next()) !== undefined) {
-            yield kv;
-          }
-        } finally {
-          if (!iterator_._ended) await iterator.end();
-        }
-      },
-    };
-    return iterator;
+    return new DBIterator({
+      db: this,
+      levelPath,
+      logger: this.logger.getChild(DBIterator.name),
+      ...options,
+    });
   }
 
   /**
@@ -543,31 +532,45 @@ class DB {
    * This is not atomic, it will iterate over a snapshot of the DB
    */
   @ready(new errors.ErrorDBNotRunning())
-  public async clear(levelPath: LevelPath = []): Promise<void> {
+  public async clear(
+    levelPath: LevelPath = [],
+    options: DBClearOptions = {},
+  ): Promise<void> {
     levelPath = ['data', ...levelPath];
-    await this._clear(levelPath);
+    await this._clear(levelPath, options);
   }
 
   /**
    * Clear from root level
    * @internal
    */
-  public async _clear(levelPath: LevelPath = []): Promise<void> {
-    for await (const [keyPath] of this._iterator(
-      { values: false },
-      levelPath,
-    )) {
-      await this._del(levelPath.concat(keyPath));
-    }
+  public async _clear(
+    levelPath: LevelPath = [],
+    options: DBClearOptions = {},
+  ): Promise<void> {
+    const options_ = utils.iterationOptions(options, levelPath);
+    return rocksdbP.dbClear(this._db, options_);
   }
 
   @ready(new errors.ErrorDBNotRunning())
-  public async count(levelPath: LevelPath = []): Promise<number> {
-    let count = 0;
-    for await (const _ of this.iterator({ values: false }, levelPath)) {
-      count++;
-    }
-    return count;
+  public async count(
+    levelPath: LevelPath = [],
+    options: DBCountOptions = {},
+  ): Promise<number> {
+    levelPath = ['data', ...levelPath];
+    return this._count(levelPath, options);
+  }
+
+  /**
+   * Count from root level
+   * @internal
+   */
+  public async _count(
+    levelPath: LevelPath = [],
+    options: DBCountOptions = {},
+  ): Promise<number> {
+    const options_ = utils.iterationOptions(options, levelPath);
+    return rocksdbP.dbCount(this._db, options_);
   }
 
   /**
@@ -597,13 +600,10 @@ class DB {
       levelPath = ['data', ...levelPath];
     }
     const records: Array<[KeyPath, any]> = [];
-    for await (const [keyPath, v] of this._iterator(
-      {
-        keyAsBuffer: raw,
-        valueAsBuffer: raw,
-      },
-      levelPath,
-    )) {
+    for await (const [keyPath, v] of this._iterator(levelPath, {
+      keyAsBuffer: raw,
+      valueAsBuffer: raw,
+    })) {
       records.push([keyPath, v]);
     }
     return records;
@@ -686,7 +686,8 @@ class DB {
 
   protected async setupDb(
     dbPath: string,
-  ): Promise<LevelDB<string | Buffer, Buffer>> {
+    options: RocksDBDatabaseOptions = {},
+  ): Promise<RocksDBDatabase> {
     try {
       await this.fs.promises.mkdir(dbPath);
     } catch (e) {
@@ -694,26 +695,11 @@ class DB {
         throw new errors.ErrorDBCreate(e.message, { cause: e });
       }
     }
-    let db: LevelDB<string | Buffer, Buffer>;
+    const db = rocksdbP.dbInit();
+    // Mutates options object which is copied from this.start
+    utils.filterUndefined(options);
     try {
-      db = await new Promise<LevelDB<string | Buffer, Buffer>>(
-        (resolve, reject) => {
-          const db = level(
-            dbPath,
-            {
-              keyEncoding: 'binary',
-              valueEncoding: 'binary',
-            },
-            (e) => {
-              if (e) {
-                reject(e);
-              } else {
-                resolve(db);
-              }
-            },
-          );
-        },
-      );
+      await rocksdbP.dbOpen(db, dbPath, options);
     } catch (e) {
       throw new errors.ErrorDBCreate(e.message, { cause: e });
     }
@@ -721,8 +707,7 @@ class DB {
   }
 
   protected async setupRootLevels(): Promise<void> {
-    // Clear any dirty state in transactions
-    await this._clear(['transactions']);
+    // Nothing to do yet
   }
 
   protected async canaryCheck(): Promise<void> {

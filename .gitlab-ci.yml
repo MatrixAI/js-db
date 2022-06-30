@@ -65,13 +65,17 @@ check:test:
     - >
         nix-shell --run '
         npm run build --verbose;
-        npm test -- --ci;
+        npm test -- --ci --coverage;
         '
   artifacts:
     when: always
     reports:
       junit:
-        - ./tmp/junit.xml
+        - ./tmp/junit/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: ./tmp/coverage/cobertura-coverage.xml
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
   rules:
     # Runs on staging commits and ignores version commits
     - if: $CI_COMMIT_BRANCH =~ /^feature.*$/ && $CI_COMMIT_TITLE !~ /^[0-9]+\.[0-9]+\.[0-9]+(?:-.*[0-9]+)?$/
@@ -114,17 +118,21 @@ build:linux:
     - >
         nix-shell --run '
         npm run build --verbose;
-        npm test -- --ci;
+        npm test -- --ci --coverage;
         '
   artifacts:
     when: always
     reports:
       junit:
-        - ./tmp/junit.xml
+        - ./tmp/junit/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: ./tmp/coverage/cobertura-coverage.xml
     paths:
       - ./prebuilds/
       # Only the build:linux preserves the dist
       - ./dist
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
   rules:
     # Runs on staging commits and ignores version commits
     - if: $CI_COMMIT_BRANCH == 'staging' && $CI_COMMIT_TITLE !~ /^[0-9]+\.[0-9]+\.[0-9]+(?:-.*[0-9]+)?$/
@@ -150,7 +158,7 @@ build:windows:
     when: always
     reports:
       junit:
-        - ./tmp/junit.xml
+        - ./tmp/junit/junit.xml
     paths:
       - ./prebuilds/
   rules:
@@ -169,6 +177,7 @@ build:macos:
     HOMEBREW_NO_INSTALL_UPGRADE: "true"
     HOMEBREW_NO_INSTALL_CLEANUP: "true"
   before_script:
+    - eval "$(brew shellenv)"
     - brew install node@16
     - brew link --overwrite node@16
     - brew install python@3.9
@@ -184,7 +193,7 @@ build:macos:
     when: always
     reports:
       junit:
-        - ./tmp/junit.xml
+        - ./tmp/junit/junit.xml
     paths:
       - ./prebuilds/
   rules:
@@ -208,6 +217,26 @@ build:prerelease:
     - >
         nix-shell --run '
         npm publish --tag prerelease --access public;
+        '
+    - >
+      for d in prebuilds/*; do
+        tar \
+          --create \
+          --verbose \
+          --file="prebuilds/$(basename $d).tar" \
+          --directory=prebuilds \
+          "$(basename $d)";
+      done
+    - >
+        nix-shell -I nixpkgs=./pkgs.nix --packages gitAndTools.gh --run '
+        gh release \
+          create "$CI_COMMIT_TAG" \
+          prebuilds/*.tar \
+          --title "${CI_COMMIT_TAG}-$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+          --notes "" \
+          --prerelease \
+          --target staging \
+          --repo "$GH_PROJECT_PATH";
         '
   after_script:
     - rm -f ./.npmrc
@@ -271,6 +300,25 @@ release:distribution:
     - >
         nix-shell --run '
         npm publish --access public;
+        '
+    - >
+      for d in prebuilds/*; do
+        tar \
+          --create \
+          --verbose \
+          --file="prebuilds/$(basename $d).tar" \
+          --directory=prebuilds \
+          "$(basename $d)";
+      done
+    - >
+        nix-shell -I nixpkgs=./pkgs.nix --packages gitAndTools.gh --run '
+        gh release \
+          create "$CI_COMMIT_TAG" \
+          prebuilds/*.tar \
+          --title "${CI_COMMIT_TAG}-$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+          --notes "" \
+          --target master \
+          --repo "$GH_PROJECT_PATH";
         '
   after_script:
     - rm -f ./.npmrc

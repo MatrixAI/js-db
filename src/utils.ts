@@ -1,4 +1,4 @@
-import type { KeyPath, LevelPath } from './types';
+import type { Callback, Merge, KeyPath, LevelPath } from './types';
 import * as errors from './errors';
 
 /**
@@ -90,6 +90,7 @@ function decodePart(data: Buffer): Buffer {
 
 /**
  * Used to convert possible KeyPath into legal KeyPath
+ * Returns a copy which can be mutated
  */
 function toKeyPath(keyPath: KeyPath | string | Buffer): KeyPath {
   if (!Array.isArray(keyPath)) {
@@ -274,6 +275,125 @@ function fromArrayBuffer(
   return Buffer.from(b, offset, length);
 }
 
+/**
+ * Convert callback-style to promise-style
+ * If this is applied to overloaded function
+ * it will only choose one of the function signatures to use
+ */
+function promisify<
+  T extends Array<unknown>,
+  P extends Array<unknown>,
+  R extends T extends [] ? void : T extends [unknown] ? T[0] : T,
+>(
+  f: (...args: [...params: P, callback: Callback<T>]) => unknown,
+): (...params: P) => Promise<R> {
+  // Uses a regular function so that `this` can be bound
+  const g = function (...params: P): Promise<R> {
+    return new Promise((resolve, reject) => {
+      const callback = (error, ...values) => {
+        if (error != null) {
+          return reject(error);
+        }
+        if (values.length === 0) {
+          (resolve as () => void)();
+        } else if (values.length === 1) {
+          resolve(values[0] as R);
+        } else {
+          resolve(values as R);
+        }
+        return;
+      };
+      params.push(callback);
+      f.apply(this, params);
+    });
+  };
+  Object.defineProperty(g, 'name', { value: f.name });
+  return g;
+}
+
+/**
+ * Native addons expect strict optional properties
+ * Properties that have the value undefined may be misinterpreted
+ * Apply these to options objects before passing them to the native addon
+ */
+function filterUndefined(o: object): void {
+  Object.keys(o).forEach((k) => {
+    if (o[k] === undefined) {
+      delete o[k];
+    }
+  });
+}
+
+function iterationOptions<
+  O extends {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+  },
+>(
+  options: O,
+  levelPath: LevelPath,
+): Merge<
+  O,
+  {
+    gt?: Buffer;
+    gte?: Buffer;
+    lt?: Buffer;
+    lte?: Buffer;
+    keyEncoding: 'buffer';
+    valueEncoding: 'buffer';
+  }
+> {
+  const options_ = {
+    ...options,
+    // Internally we always use the buffer
+    keyEncoding: 'buffer' as const,
+    valueEncoding: 'buffer' as const,
+  } as Merge<
+    O,
+    {
+      gt?: Buffer;
+      gte?: Buffer;
+      lt?: Buffer;
+      lte?: Buffer;
+      keyEncoding: 'buffer';
+      valueEncoding: 'buffer';
+    }
+  >;
+  if (options?.gt != null) {
+    options_.gt = keyPathToKey(levelPath.concat(toKeyPath(options.gt)));
+  }
+  if (options?.gte != null) {
+    options_.gte = keyPathToKey(levelPath.concat(toKeyPath(options.gte)));
+  }
+  if (options?.gt == null && options?.gte == null) {
+    // If the level path is empty then all keys are allowed
+    if (levelPath.length > 0) {
+      options_.gt = levelPathToKey(levelPath);
+    }
+  }
+  if (options?.lt != null) {
+    options_.lt = keyPathToKey(levelPath.concat(toKeyPath(options.lt)));
+  }
+  if (options?.lte != null) {
+    options_.lte = keyPathToKey(levelPath.concat(toKeyPath(options.lte)));
+  }
+  if (options?.lt == null && options?.lte == null) {
+    // If the level path is empty then all keys are allowed
+    if (levelPath.length > 0) {
+      const levelKeyEnd = levelPathToKey(levelPath);
+      // This works because the separator byte is 0x00
+      // Therefore we have `sep level sep`
+      // and we can acquire keys less than `sep level sep+1`
+      levelKeyEnd[levelKeyEnd.length - 1] += 1;
+      options_.lt = levelKeyEnd;
+    }
+  }
+  filterUndefined(options_);
+  return options_;
+}
+
 export {
   sep,
   encodePart,
@@ -287,4 +407,7 @@ export {
   deserialize,
   toArrayBuffer,
   fromArrayBuffer,
+  promisify,
+  filterUndefined,
+  iterationOptions,
 };

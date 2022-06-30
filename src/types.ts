@@ -1,11 +1,55 @@
-import type { AbstractBatch } from 'abstract-leveldown';
 import type fs from 'fs';
+import type { RWLockWriter } from '@matrixai/async-locks';
 import type { WorkerManagerInterface } from '@matrixai/workers';
+import type {
+  RocksDBDatabaseOptions,
+  RocksDBIteratorOptions,
+  RocksDBBatchPutOperation,
+  RocksDBBatchDelOperation,
+  RocksDBClearOptions,
+  RocksDBCountOptions,
+  RocksDBSnapshot,
+  RocksDBTransactionSnapshot,
+} from './rocksdb/types';
 
 /**
  * Plain data dictionary
  */
 type POJO = { [key: string]: any };
+
+/**
+ * Any type that can be turned into a string
+ */
+interface ToString {
+  toString(): string;
+}
+
+/**
+ * Opaque types are wrappers of existing types
+ * that require smart constructors
+ */
+type Opaque<K, T> = T & { readonly [brand]: K };
+declare const brand: unique symbol;
+
+/**
+ * Generic callback
+ */
+type Callback<P extends Array<any> = [], R = any, E extends Error = Error> = {
+  (e: E, ...params: Partial<P>): R;
+  (e?: null | undefined, ...params: P): R;
+};
+
+/**
+ * Merge A property types with B property types
+ * while B's property types override A's property types
+ */
+type Merge<A, B> = {
+  [K in keyof (A & B)]: K extends keyof B
+    ? B[K]
+    : K extends keyof A
+    ? A[K]
+    : never;
+};
 
 interface FileSystem {
   promises: {
@@ -40,6 +84,11 @@ type KeyPath = Readonly<Array<string | Buffer>>;
  */
 type LevelPath = Readonly<Array<string | Buffer>>;
 
+type DBOptions = Omit<
+  RocksDBDatabaseOptions,
+  'createIfMissing' | 'errorIfExists'
+>;
+
 /**
  * Iterator options
  * The `keyAsBuffer` property controls
@@ -48,30 +97,45 @@ type LevelPath = Readonly<Array<string | Buffer>>;
  * The `valueAsBuffer` property controls value type
  * It should be considered to default to true
  */
-type DBIteratorOptions = {
-  gt?: KeyPath | Buffer | string;
-  gte?: KeyPath | Buffer | string;
-  lt?: KeyPath | Buffer | string;
-  lte?: KeyPath | Buffer | string;
-  limit?: number;
-  keys?: boolean;
-  values?: boolean;
-  keyAsBuffer?: boolean;
-  valueAsBuffer?: boolean;
-  reverse?: boolean;
-};
+type DBIteratorOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Merge<
+  Omit<RocksDBIteratorOptions<S>, 'keyEncoding' | 'valueEncoding'>,
+  {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+    keyAsBuffer?: boolean;
+    valueAsBuffer?: boolean;
+  }
+>;
 
-/**
- * Iterator
- */
-type DBIterator<K extends KeyPath | undefined, V> = {
-  seek: (k: KeyPath | string | Buffer) => void;
-  end: () => Promise<void>;
-  next: () => Promise<[K, V] | undefined>;
-  [Symbol.asyncIterator]: () => AsyncGenerator<[K, V]>;
-};
+type DBClearOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Merge<
+  RocksDBClearOptions<S>,
+  {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+  }
+>;
 
-type DBBatch = AbstractBatch;
+type DBCountOptions<
+  S extends RocksDBSnapshot | RocksDBTransactionSnapshot = RocksDBSnapshot,
+> = Merge<
+  RocksDBCountOptions<S>,
+  {
+    gt?: KeyPath | Buffer | string;
+    gte?: KeyPath | Buffer | string;
+    lt?: KeyPath | Buffer | string;
+    lte?: KeyPath | Buffer | string;
+  }
+>;
+
+type DBBatch = RocksDBBatchPutOperation | RocksDBBatchDelOperation;
 
 type DBOp_ =
   | {
@@ -95,16 +159,28 @@ type DBOp =
 
 type DBOps = Array<DBOp>;
 
+type MultiLockRequest = [
+  key: ToString,
+  ...lockingParams: Parameters<RWLockWriter['lock']>,
+];
+
 export type {
   POJO,
+  ToString,
+  Opaque,
+  Callback,
+  Merge,
   FileSystem,
   Crypto,
   DBWorkerManagerInterface,
   KeyPath,
   LevelPath,
+  DBOptions,
   DBIteratorOptions,
-  DBIterator,
+  DBClearOptions,
+  DBCountOptions,
   DBBatch,
   DBOp,
   DBOps,
+  MultiLockRequest,
 };

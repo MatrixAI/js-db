@@ -1,22 +1,24 @@
-import type { KeyPath } from '@';
+import type { KeyPath } from '@/types';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { withF } from '@matrixai/resources';
+import { errors as locksErrors } from '@matrixai/async-locks';
 import DB from '@/DB';
 import DBTransaction from '@/DBTransaction';
-import * as testUtils from './utils';
+import * as errors from '@/errors';
+import * as testsUtils from './utils';
 
 describe(DBTransaction.name, () => {
   const logger = new Logger(`${DBTransaction.name} test`, LogLevel.WARN, [
     new StreamHandler(),
   ]);
   const crypto = {
-    key: testUtils.generateKeySync(256),
+    key: testsUtils.generateKeySync(256),
     ops: {
-      encrypt: testUtils.encrypt,
-      decrypt: testUtils.decrypt,
+      encrypt: testsUtils.encrypt,
+      decrypt: testsUtils.decrypt,
     },
   };
   let dataDir: string;
@@ -35,24 +37,6 @@ describe(DBTransaction.name, () => {
       recursive: true,
     });
   });
-  test('snapshot state is cleared after releasing transactions', async () => {
-    const acquireTran1 = db.transaction();
-    const [releaseTran1, tran1] = await acquireTran1();
-    await tran1!.put('hello', 'world');
-    const acquireTran2 = db.transaction();
-    const [releaseTran2, tran2] = await acquireTran2();
-    await tran2!.put('hello', 'world');
-    expect(await db.dump(['transactions'], false, true)).toStrictEqual([
-      [['0', 'data', 'hello'], 'world'],
-      [['1', 'data', 'hello'], 'world'],
-    ]);
-    await releaseTran1();
-    expect(await db.dump(['transactions'], false, true)).toStrictEqual([
-      [['1', 'data', 'hello'], 'world'],
-    ]);
-    await releaseTran2();
-    expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
-  });
   test('get, put and del', async () => {
     const p = withF([db.transaction()], async ([tran]) => {
       expect(await tran.get('foo')).toBeUndefined();
@@ -63,15 +47,11 @@ describe(DBTransaction.name, () => {
       expect(await tran.get('foo')).toBe('bar');
       expect(await tran.get('hello')).toBe('world');
       expect(await tran.dump()).toStrictEqual([
-        [['data', 'foo'], 'bar'],
-        [['data', 'hello'], 'world'],
+        [['foo'], 'bar'],
+        [['hello'], 'world'],
       ]);
       // Delete hello -> world
       await tran.del('hello');
-      // Transaction state should be used
-      expect(
-        Object.entries(await db.dump(['transactions'], false, true)).length > 0,
-      ).toBe(true);
     });
     // While the transaction is executed, there is no data
     expect(await db.dump(['data'], false, true)).toStrictEqual([]);
@@ -80,8 +60,6 @@ describe(DBTransaction.name, () => {
     expect(await db.dump(['data'], false, true)).toStrictEqual([
       [['foo'], 'bar'],
     ]);
-    // Transaction state is cleared
-    expect(await db.dump(['transactions'], false, true)).toStrictEqual([]);
   });
   test('transactional clear', async () => {
     await db.put('1', '1');
@@ -117,6 +95,20 @@ describe(DBTransaction.name, () => {
       expect(await tran.count(['level1'])).toBe(2);
     });
   });
+  test('snapshot is lazily initiated on the first operation', async () => {
+    await db.put('foo', 'first');
+    expect(await db.get('foo')).toBe('first');
+    await withF([db.transaction()], async ([tran]) => {
+      await db.put('foo', 'second');
+      expect(await tran.get('foo')).toBe('second');
+      expect(await db.get('foo')).toBe('second');
+      await db.put('foo', 'third');
+      // Transaction still sees it as `second`
+      expect(await tran.get('foo')).toBe('second');
+      // Database sees it as `third`
+      expect(await db.get('foo')).toBe('third');
+    });
+  });
   test('no dirty reads', async () => {
     await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get('hello')).toBeUndefined();
@@ -127,53 +119,67 @@ describe(DBTransaction.name, () => {
       });
     });
     await db.clear();
+    await expect(
+      withF([db.transaction()], async ([tran1]) => {
+        expect(await tran1.get('hello')).toBeUndefined();
+        await tran1.put('hello', 'foo');
+        // This transaction commits, but the outside transaction will fail
+        await withF([db.transaction()], async ([tran2]) => {
+          // `tran1` has not yet committed
+          expect(await tran2.get('hello')).toBeUndefined();
+          // This will cause a conflict with the external transaction
+          await tran2.put('hello', 'bar');
+          // `tran2` has not yet committed
+          expect(await tran1.get('hello')).toBe('foo');
+        });
+      }),
+    ).rejects.toThrow(errors.ErrorDBTransactionConflict);
+  });
+  test('repeatable reads', async () => {
     await withF([db.transaction()], async ([tran1]) => {
       expect(await tran1.get('hello')).toBeUndefined();
-      await tran1.put('hello', 'foo');
-      await withF([db.transaction()], async ([tran2]) => {
-        // `tran1` has not yet committed
-        expect(await tran2.get('hello')).toBeUndefined();
-        await tran2.put('hello', 'bar');
-        // `tran2` has not yet committed
-        expect(await tran1.get('hello')).toBe('foo');
-      });
-    });
-  });
-  test('non-repeatable reads', async () => {
-    await withF([db.transaction()], async ([tran1]) => {
+      await db.put('hello', '?');
       expect(await tran1.get('hello')).toBeUndefined();
       await db.withTransactionF(async (tran2) => {
         await tran2.put('hello', 'world');
       });
-      // `tran2` is now committed
-      expect(await tran1.get('hello')).toBe('world');
-    });
-    await db.clear();
-    await db.withTransactionF(async (tran1) => {
+      // Even though `tran2` is now committed
+      // the snapshot was taken when `hello` was still undefined
       expect(await tran1.get('hello')).toBeUndefined();
-      await tran1.put('hello', 'foo');
-      await withF([db.transaction()], async ([tran2]) => {
-        // `tran1` has not yet committed
-        expect(await tran2.get('hello')).toBeUndefined();
-        await tran2.put('hello', 'bar');
-      });
-      // `tran2` is now committed
-      // however because `foo` has been written in tran1, it stays as `foo`
-      expect(await tran1.get('hello')).toBe('foo');
     });
+    expect(await db.get('hello')).toBe('world');
+    await db.clear();
+    await expect(
+      db.withTransactionF(async (tran1) => {
+        expect(await tran1.get('hello')).toBeUndefined();
+        await tran1.put('hello', 'foo');
+        await expect(
+          withF([db.transaction()], async ([tran2]) => {
+            // `tran1` has not yet committed
+            expect(await tran2.get('hello')).toBeUndefined();
+            await tran2.put('hello', 'bar');
+          }),
+        ).resolves.toBeUndefined();
+        // `tran2` is now committed
+        // however because `foo` has been written in tran1, it stays as `foo`
+        expect(await tran1.get('hello')).toBe('foo');
+        // `hello` -> `foo` conflicts with `hello` -> `bar`
+      }),
+    ).rejects.toThrow(errors.ErrorDBTransactionConflict);
+    expect(await db.get('hello')).toBe('bar');
   });
-  test('phantom reads', async () => {
+  test('no phantom reads', async () => {
     await db.put('1', '1');
     await db.put('2', '2');
     await db.put('3', '3');
     let rows: Array<[string, string]>;
     await withF([db.transaction()], async ([tran1]) => {
       rows = [];
-      for await (const [k, v] of tran1.iterator<string>({
+      for await (const [kP, v] of tran1.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
-        rows.push([k.toString(), v]);
+        rows.push([kP.join(), v]);
       }
       expect(rows).toStrictEqual([
         ['1', '1'],
@@ -184,11 +190,11 @@ describe(DBTransaction.name, () => {
         await tran2.del('1');
         await tran2.put('4', '4');
         rows = [];
-        for await (const [k, v] of tran1.iterator<string>({
+        for await (const [kP, v] of tran1.iterator<string>([], {
           keyAsBuffer: false,
           valueAsBuffer: false,
         })) {
-          rows.push([k.toString(), v]);
+          rows.push([kP.join(), v]);
         }
         expect(rows).toStrictEqual([
           ['1', '1'],
@@ -197,29 +203,49 @@ describe(DBTransaction.name, () => {
         ]);
       });
       rows = [];
-      for await (const [k, v] of tran1.iterator<string>({
+      for await (const [kP, v] of tran1.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
-        rows.push([k.toString(), v]);
+        rows.push([kP.toString(), v]);
       }
+      // This is the same as repeatable read
+      // but this applied to different key-values
       expect(rows).toStrictEqual([
+        ['1', '1'],
         ['2', '2'],
         ['3', '3'],
-        ['4', '4'],
       ]);
     });
+    // Starting a new iterator, see the new results
+    rows = [];
+    for await (const [kP, v] of db.iterator<string>([], {
+      keyAsBuffer: false,
+      valueAsBuffer: false,
+    })) {
+      rows.push([kP.toString(), v]);
+    }
+    expect(rows).toStrictEqual([
+      ['2', '2'],
+      ['3', '3'],
+      ['4', '4'],
+    ]);
   });
-  test('lost updates', async () => {
-    await withF([db.transaction()], async ([tran1]) => {
+  test('no lost updates', async () => {
+    const p = withF([db.transaction()], async ([tran1]) => {
       await tran1.put('hello', 'foo');
       await withF([db.transaction()], async ([tran2]) => {
         await tran2.put('hello', 'bar');
       });
+      // `tran1` sees `foo`
       expect(await tran1.get('hello')).toBe('foo');
+      // However `db` sees `bar` as that's what is committed
+      expect(await db.get('hello')).toBe('bar');
     });
-    // `tran2` write is lost because `tran1` committed last
-    expect(await db.get('hello')).toBe('foo');
+    // Even though `tran1` committed last, the `tran2` write is not lost,
+    // instead `tran1` results in a conflict
+    await expect(p).rejects.toThrow(errors.ErrorDBTransactionConflict);
+    expect(await db.get('hello')).toBe('bar');
   });
   test('get after delete consistency', async () => {
     await db.put('hello', 'world');
@@ -228,11 +254,97 @@ describe(DBTransaction.name, () => {
       await tran.put('hello', 'another');
       expect(await tran.get('hello')).toBe('another');
       await tran.del('hello');
-      expect(await tran.dump()).toStrictEqual([[['tombstone', 'hello'], true]]);
       expect(await tran.get('hello')).toBeUndefined();
       expect(await db.get('hello')).toBe('world');
     });
     expect(await db.get('hello')).toBeUndefined();
+  });
+  test('getForUpdate addresses write-skew by promoting gets into same-value puts', async () => {
+    // Snapshot isolation allows write skew anomalies to occur
+    // A write skew means that 2 transactions concurrently read from overlapping keys
+    // then make disjoint updates to the keys, that breaks a consistency constraint on those keys
+    // For example:
+    // T1 reads from k1, k2, writes to k1
+    // T2 reads from k1, k2, writes to k2
+    // Where k1 + k2 >= 0
+    await db.put('balance1', '100');
+    await db.put('balance2', '100');
+    const t1 = withF([db.transaction()], async ([tran]) => {
+      let balance1 = parseInt((await tran.getForUpdate('balance1'))!);
+      const balance2 = parseInt((await tran.getForUpdate('balance2'))!);
+      balance1 -= 100;
+      expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
+      await tran.put('balance1', balance1.toString());
+    });
+    const t2 = withF([db.transaction()], async ([tran]) => {
+      const balance1 = parseInt((await tran.getForUpdate('balance1'))!);
+      let balance2 = parseInt((await tran.getForUpdate('balance2'))!);
+      balance2 -= 100;
+      expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
+      await tran.put('balance2', balance2.toString());
+    });
+    // By using getForUpdate, we promote the read to a write, where it writes the same value
+    // this causes a write-write conflict
+    const results = await Promise.allSettled([t1, t2]);
+    // One will succeed, one will fail
+    expect(results.some((result) => result.status === 'fulfilled')).toBe(true);
+    expect(
+      results.some((result) => {
+        return (
+          result.status === 'rejected' &&
+          result.reason instanceof errors.ErrorDBTransactionConflict
+        );
+      }),
+    ).toBe(true);
+  });
+  test('locking to prevent thrashing for racing counters', async () => {
+    await db.put('counter', '0');
+    let t1 = withF([db.transaction()], async ([tran]) => {
+      // Can also use `getForUpdate`, but a conflict exists even for `get`
+      let counter = parseInt((await tran.get('counter'))!);
+      counter++;
+      await tran.put('counter', counter.toString());
+    });
+    let t2 = withF([db.transaction()], async ([tran]) => {
+      // Can also use `getForUpdate`, but a conflict exists even for `get`
+      let counter = parseInt((await tran.get('counter'))!);
+      counter++;
+      await tran.put('counter', counter.toString());
+    });
+    let results = await Promise.allSettled([t1, t2]);
+    expect(results.some((result) => result.status === 'fulfilled')).toBe(true);
+    expect(
+      results.some((result) => {
+        return (
+          result.status === 'rejected' &&
+          result.reason instanceof errors.ErrorDBTransactionConflict
+        );
+      }),
+    ).toBe(true);
+    expect(await db.get('counter')).toBe('1');
+    // In OCC, concurrent requests to update an atomic counter would result
+    // in race thrashing where only 1 request succeeds, and all other requests
+    // keep failing. The only way to prevent this thrashing is to use PCC locking
+    await db.put('counter', '0');
+    t1 = withF([db.transaction()], async ([tran]) => {
+      // Enforces mutual exclusion
+      await tran.lock('counter');
+      // Can also use `get`, no difference here
+      let counter = parseInt((await tran.getForUpdate('counter'))!);
+      counter++;
+      await tran.put('counter', counter.toString());
+    });
+    t2 = withF([db.transaction()], async ([tran]) => {
+      // Enforces mutual exclusion
+      await tran.lock('counter');
+      // Can also use `get`, no difference here
+      let counter = parseInt((await tran.getForUpdate('counter'))!);
+      counter++;
+      await tran.put('counter', counter.toString());
+    });
+    results = await Promise.allSettled([t1, t2]);
+    expect(results.every((result) => result.status === 'fulfilled'));
+    expect(await db.get('counter')).toBe('2');
   });
   test('iterator get after delete consistency', async () => {
     await db.put('hello', 'world');
@@ -266,10 +378,10 @@ describe(DBTransaction.name, () => {
     const results: Array<[string, string]> = [];
     await withF([db.transaction()], async ([tran]) => {
       await tran.del(['a', 'b']);
-      for await (const [kP, v] of tran.iterator<string>(
-        { keyAsBuffer: false, valueAsBuffer: false },
-        ['a'],
-      )) {
+      for await (const [kP, v] of tran.iterator<string>(['a'], {
+        keyAsBuffer: false,
+        valueAsBuffer: false,
+      })) {
         results.push([kP[0] as string, v]);
       }
     });
@@ -277,7 +389,7 @@ describe(DBTransaction.name, () => {
   });
   test('iterator with multiple entombed keys', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | X        |        |
       | b    | b = b |          | b = b  |
@@ -308,7 +420,7 @@ describe(DBTransaction.name, () => {
       await tran.del('h');
       await tran.put('j', '10');
       await tran.del('k');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
@@ -322,7 +434,7 @@ describe(DBTransaction.name, () => {
         ['j', '10'],
       ]);
       results = [];
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
         reverse: true,
@@ -340,7 +452,7 @@ describe(DBTransaction.name, () => {
   });
   test('iterator with same largest key', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -368,7 +480,7 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
@@ -387,9 +499,9 @@ describe(DBTransaction.name, () => {
       ['k', '11'],
     ]);
   });
-  test('iterator with same largest key in reverse', async () => {
+  test('iterator with same largest key reversed', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -417,7 +529,7 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
         reverse: true,
@@ -439,9 +551,9 @@ describe(DBTransaction.name, () => {
       ].reverse(),
     );
   });
-  test('iterator with snapshot largest key', async () => {
+  test('iterator with largest key in transaction', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -466,7 +578,7 @@ describe(DBTransaction.name, () => {
       await tran.put('e', '5');
       await tran.put('f', '6');
       await tran.put('j', '10');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
@@ -484,9 +596,9 @@ describe(DBTransaction.name, () => {
       ['j', '10'],
     ]);
   });
-  test('iterator with snapshot largest key in reverse', async () => {
+  test('iterator with largest key in transaction reversed', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -511,7 +623,7 @@ describe(DBTransaction.name, () => {
       await tran.put('e', '5');
       await tran.put('f', '6');
       await tran.put('j', '10');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
         reverse: true,
@@ -532,9 +644,9 @@ describe(DBTransaction.name, () => {
       ].reverse(),
     );
   });
-  test('iterator with db largest key', async () => {
+  test('iterator with largest key in db', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -556,7 +668,7 @@ describe(DBTransaction.name, () => {
       await tran.put('c', '3');
       await tran.put('e', '5');
       await tran.put('f', '6');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
@@ -573,7 +685,7 @@ describe(DBTransaction.name, () => {
       ['h', 'h'],
     ]);
   });
-  test('iterator with db largest key in reverse', async () => {
+  test('iterator with largest key in db reversed', async () => {
     /*
       | KEYS | DB    | SNAPSHOT | RESULT |
       |------|-------|----------|--------|
@@ -597,7 +709,7 @@ describe(DBTransaction.name, () => {
       await tran.put('c', '3');
       await tran.put('e', '5');
       await tran.put('f', '6');
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
         reverse: true,
@@ -619,7 +731,7 @@ describe(DBTransaction.name, () => {
   });
   test('iterator with undefined values', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -647,7 +759,7 @@ describe(DBTransaction.name, () => {
       await tran.put('f', '6');
       await tran.put('j', '10');
       await tran.put('k', '11');
-      for await (const [kP, v] of tran.iterator({
+      for await (const [kP, v] of tran.iterator([], {
         keyAsBuffer: false,
         values: false,
       })) {
@@ -668,7 +780,7 @@ describe(DBTransaction.name, () => {
   });
   test('iterator using seek and next', async () => {
     /*
-      | KEYS | DB    | SNAPSHOT | RESULT |
+      | KEYS | DB    | TRAN     | RESULT |
       |------|-------|----------|--------|
       | a    | a = a | a = 1    | a = 1  |
       | b    | b = b |          | b = b  |
@@ -724,7 +836,7 @@ describe(DBTransaction.name, () => {
         [Buffer.from('j')],
         Buffer.from('"10"'),
       ]);
-      await iterator.end();
+      await iterator.destroy();
     });
   });
   test('iterator with async generator yield', async () => {
@@ -733,7 +845,7 @@ describe(DBTransaction.name, () => {
     const g = db.withTransactionG(async function* (
       tran: DBTransaction,
     ): AsyncGenerator<[string, string]> {
-      for await (const [kP, v] of tran.iterator<string>({
+      for await (const [kP, v] of tran.iterator<string>([], {
         keyAsBuffer: false,
         valueAsBuffer: false,
       })) {
@@ -856,16 +968,167 @@ describe(DBTransaction.name, () => {
     await db.put('1', 'a');
     await db.put('2', 'b');
     const mockFailure = jest.fn();
+    const mockFinally = jest.fn();
+    const e = new Error('Oh no!');
     await expect(
       db.withTransactionF(async (tran) => {
         await tran.put('1', '1');
         await tran.put('2', '2');
         tran.queueFailure(mockFailure);
-        throw new Error('Oh no!');
+        tran.queueFinally(mockFinally);
+        throw e;
       }),
-    ).rejects.toThrow('Oh no!');
-    expect(mockFailure).toBeCalled();
+    ).rejects.toThrow(e);
+    expect(mockFailure).toBeCalledWith(e);
+    expect(mockFinally).toBeCalledWith(e);
     expect(await db.get('1')).toBe('a');
     expect(await db.get('2')).toBe('b');
+  });
+  test('locking and unlocking', async () => {
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo');
+      await tran.unlock('foo');
+      expect(tran.locks.size).toBe(0);
+    });
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo', 'bar');
+      await tran.unlock('bar');
+      expect(tran.locks.size).toBe(1);
+      expect(tran.locks.has('foo')).toBe(true);
+    });
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo', 'bar');
+      await tran.unlock('bar', 'foo');
+      expect(tran.locks.size).toBe(0);
+    });
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('bar', 'foo');
+      await tran.unlock('bar', 'foo');
+      expect(tran.locks.size).toBe(0);
+    });
+    // Duplicates are eliminated
+    await db.withTransactionF(async (tran) => {
+      await tran.lock('foo', 'foo');
+      expect(tran.locks.size).toBe(1);
+      await tran.unlock('foo', 'foo');
+      expect(tran.locks.size).toBe(0);
+    });
+  });
+  test('read and write locking', async () => {
+    await db.withTransactionF(async (tran1) => {
+      await tran1.lock(['foo', 'read']);
+      await tran1.lock(['bar', 'write']);
+      // There is no automatic lock upgrade or downgrade
+      await expect(tran1.lock(['foo', 'write'])).rejects.toThrow(
+        errors.ErrorDBTransactionLockType,
+      );
+      await expect(tran1.lock(['bar', 'read'])).rejects.toThrow(
+        errors.ErrorDBTransactionLockType,
+      );
+      await db.withTransactionF(async (tran2) => {
+        await tran2.lock(['foo', 'read']);
+        await expect(tran2.lock(['bar', 'write', 0])).rejects.toThrow(
+          locksErrors.ErrorAsyncLocksTimeout,
+        );
+        expect(tran1.locks.size).toBe(2);
+        expect(tran1.locks.has('foo')).toBe(true);
+        expect(tran1.locks.get('foo')!.type).toBe('read');
+        expect(tran2.locks.size).toBe(1);
+        expect(tran2.locks.has('foo')).toBe(true);
+        expect(tran2.locks.get('foo')!.type).toBe('read');
+      });
+      expect(tran1.locks.size).toBe(2);
+      await tran1.unlock('bar');
+      await db.withTransactionF(async (tran2) => {
+        await tran2.lock(['foo', 'read']);
+        await tran2.lock(['bar', 'write']);
+        expect(tran1.locks.size).toBe(1);
+        expect(tran1.locks.has('foo')).toBe(true);
+        expect(tran1.locks.get('foo')!.type).toBe('read');
+        expect(tran2.locks.size).toBe(2);
+        expect(tran2.locks.has('foo')).toBe(true);
+        expect(tran2.locks.get('foo')!.type).toBe('read');
+        expect(tran2.locks.has('bar')).toBe(true);
+        expect(tran2.locks.get('bar')!.type).toBe('write');
+      });
+    });
+  });
+  test('locks are unlocked in reverse order', async () => {
+    const order: Array<string> = [];
+    let p1, p2;
+    await db.withTransactionF(async (tran) => {
+      // '1' and '2' are in sort order
+      await tran.lock('1');
+      await tran.lock('2');
+      p1 = db.withTransactionF(async (tran) => {
+        await tran.lock('1');
+        order.push('1');
+      });
+      p2 = db.withTransactionF(async (tran) => {
+        await tran.lock('2');
+        order.push('2');
+      });
+    });
+    await Promise.all([p2, p1]);
+    expect(order).toStrictEqual(['2', '1']);
+  });
+  test('lock re-entrancy', async () => {
+    await db.withTransactionF(async (tran) => {
+      // Locking with the same keys is idempotent
+      await tran.lock('key1', 'key2');
+      await tran.lock('key1', 'key2');
+      await tran.lock('key1');
+      await tran.lock('key2');
+    });
+  });
+  test('locks are isolated per transaction', async () => {
+    await db.withTransactionF(async (tran1) => {
+      await tran1.lock('key1', 'key2');
+      expect(tran1.locks.size).toBe(2);
+      await db.withTransactionF(async (tran2) => {
+        // This is a noop, because `tran1` owns `key1` and `key2`
+        await tran2.unlock('key1', 'key2');
+        // This fails because `key1` is still locked by `tran1`
+        await expect(tran2.lock(['key1', 'write', 0])).rejects.toThrow(
+          locksErrors.ErrorAsyncLocksTimeout,
+        );
+        await tran1.unlock('key1');
+        expect(tran1.locks.size).toBe(1);
+        // This succeeds because `key1` is now unlocked
+        await tran2.lock('key1');
+        expect(tran2.locks.size).toBe(1);
+        // This is a noop, because `tran2` owns `key1`
+        await tran1.unlock('key1');
+        expect(tran2.locks.has('key1')).toBe(true);
+        expect(tran1.locks.has('key1')).toBe(false);
+        await expect(tran1.lock(['key1', 'write', 0])).rejects.toThrow(
+          locksErrors.ErrorAsyncLocksTimeout,
+        );
+      });
+      await tran1.lock('key1');
+      expect(tran1.locks.has('key1')).toBe(true);
+      expect(tran1.locks.has('key2')).toBe(true);
+    });
+  });
+  test('deadlock', async () => {
+    await db.withTransactionF(async (tran1) => {
+      await db.withTransactionF(async (tran2) => {
+        await tran1.lock('foo');
+        await tran2.lock('bar');
+        // Currently a deadlock can happen, and the only way to avoid is to use timeouts
+        // In the future, we want to have `DBTransaction` detect deadlocks
+        // and automatically give us `ErrorDBTransactionDeadlock` exception
+        const p1 = tran1.lock(['bar', 'write', 50]);
+        const p2 = tran2.lock(['foo', 'write', 50]);
+        const results = await Promise.allSettled([p1, p2]);
+        expect(
+          results.every(
+            (r) =>
+              r.status === 'rejected' &&
+              r.reason instanceof locksErrors.ErrorAsyncLocksTimeout,
+          ),
+        ).toBe(true);
+      });
+    });
   });
 });

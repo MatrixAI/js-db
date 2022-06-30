@@ -1,67 +1,51 @@
+import type { ResourceRelease } from '@matrixai/resources';
+import type {
+  LockBox,
+  MultiLockRequest as AsyncLocksMultiLockRequest,
+} from '@matrixai/async-locks';
 import type DB from './DB';
 import type {
+  ToString,
   KeyPath,
   LevelPath,
-  DBIterator,
-  DBOps,
   DBIteratorOptions,
+  DBClearOptions,
+  DBCountOptions,
+  MultiLockRequest,
 } from './types';
+import type {
+  RocksDBTransaction,
+  RocksDBTransactionOptions,
+  RocksDBTransactionSnapshot,
+} from './rocksdb/types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { RWLockWriter } from '@matrixai/async-locks';
+import DBIterator from './DBIterator';
+import { rocksdbP } from './rocksdb';
 import * as utils from './utils';
 import * as errors from './errors';
 
-/**
- * Minimal read-committed transaction system
- *
- * Properties:
- *   - No dirty reads - cannot read uncommitted writes from other transactions
- *   - Non-repeatable reads - multiple reads on the same key may read
- *                            different values due to other committed
- *                            transactions
- *   - Phantom reads - can read entries that are added or deleted by other
- *                     transactions
- *   - Lost updates - can lose writes if 2 transactions commit writes to the
- *                    same key
- *
- * To prevent non-repeatable reads, phantom-reads or lost-updates, it is up to the
- * user to use advisory read/write locking on relevant keys or ranges of keys.
- *
- * This does not use LevelDB snapshots provided by the `iterator` method
- * which would provide "repeatable-read" isolation level by default
- *
- * See: https://en.wikipedia.org/wiki/Isolation_(database_systems)
- */
 interface DBTransaction extends CreateDestroy {}
 @CreateDestroy()
 class DBTransaction {
-  public static async createTransaction({
-    db,
-    transactionId,
-    logger = new Logger(this.name),
-  }: {
-    db: DB;
-    transactionId: number;
-    logger?: Logger;
-  }): Promise<DBTransaction> {
-    logger.debug(`Creating ${this.name} ${transactionId}`);
-    const tran = new this({
-      db,
-      transactionId,
-      logger,
-    });
-    logger.debug(`Created ${this.name} ${transactionId}`);
-    return tran;
-  }
+  public readonly id: number;
 
-  public readonly transactionId: number;
-  public readonly transactionPath: LevelPath;
-  public readonly transactionDataPath: LevelPath;
-  public readonly transactionTombstonePath: LevelPath;
-
-  protected db: DB;
+  protected _db: DB;
   protected logger: Logger;
-  protected _ops: DBOps = [];
+  protected lockBox: LockBox<RWLockWriter>;
+  protected _locks: Map<
+    string,
+    {
+      lock: RWLockWriter;
+      type: 'read' | 'write';
+      release: ResourceRelease;
+    }
+  > = new Map();
+  protected _options: RocksDBTransactionOptions;
+  protected _transaction: RocksDBTransaction;
+  protected _snapshot: RocksDBTransactionSnapshot;
+  protected _iteratorRefs: Set<DBIterator<any, any>> = new Set();
   protected _callbacksSuccess: Array<() => any> = [];
   protected _callbacksFailure: Array<(e?: Error) => any> = [];
   protected _callbacksFinally: Array<(e?: Error) => any> = [];
@@ -70,38 +54,54 @@ class DBTransaction {
 
   public constructor({
     db,
-    transactionId,
+    lockBox,
     logger,
+    ...options
   }: {
     db: DB;
-    transactionId: number;
-    logger: Logger;
-  }) {
+    lockBox: LockBox<RWLockWriter>;
+    logger?: Logger;
+  } & RocksDBTransactionOptions) {
+    logger = logger ?? new Logger(this.constructor.name);
+    logger.debug(`Constructing ${this.constructor.name}`);
     this.logger = logger;
-    this.db = db;
-    this.transactionId = transactionId;
-    this.transactionPath = ['transactions', this.transactionId.toString()];
-    // Data path contains the COW overlay
-    this.transactionDataPath = [...this.transactionPath, 'data'];
-    // Tombstone path tracks whether key has been deleted
-    // If `undefined`, it has not been deleted
-    // If `true`, then it has been deleted
-    // When deleted, the COW overlay entry must also be deleted
-    this.transactionTombstonePath = [...this.transactionPath, 'tombstone'];
+    this._db = db;
+    this.lockBox = lockBox;
+    const options_ = {
+      ...options,
+      // Transactions should be synchronous
+      sync: true,
+    };
+    utils.filterUndefined(options_);
+    this._options = options_;
+    this._transaction = rocksdbP.transactionInit(db.db, options_);
+    db.transactionRefs.add(this);
+    this.id = rocksdbP.transactionId(this._transaction);
+    logger.debug(`Constructed ${this.constructor.name} ${this.id}`);
   }
 
+  /**
+   * Destroy the transaction
+   * This cannot be called until the transaction is committed or rollbacked
+   */
   public async destroy() {
-    this.logger.debug(
-      `Destroying ${this.constructor.name} ${this.transactionId}`,
-    );
-    await this.db._clear(this.transactionPath),
-      this.logger.debug(
-        `Destroyed ${this.constructor.name} ${this.transactionId}`,
-      );
+    this.logger.debug(`Destroying ${this.constructor.name} ${this.id}`);
+    if (!this._committed && !this._rollbacked) {
+      throw new errors.ErrorDBTransactionNotCommittedNorRollbacked();
+    }
+    this._db.transactionRefs.delete(this);
+    // Unlock all locked keys in reverse
+    const lockedKeys = [...this._locks.keys()].reverse();
+    await this.unlock(...lockedKeys);
+    this.logger.debug(`Destroyed ${this.constructor.name} ${this.id}`);
   }
 
-  get ops(): Readonly<DBOps> {
-    return this._ops;
+  get db(): Readonly<DB> {
+    return this._db;
+  }
+
+  get transaction(): Readonly<RocksDBTransaction> {
+    return this._transaction;
   }
 
   get callbacksSuccess(): Readonly<Array<() => any>> {
@@ -112,12 +112,108 @@ class DBTransaction {
     return this._callbacksFailure;
   }
 
+  get callbacksFinally(): Readonly<Array<() => any>> {
+    return this._callbacksFinally;
+  }
+
   get committed(): boolean {
     return this._committed;
   }
 
   get rollbacked(): boolean {
     return this._rollbacked;
+  }
+
+  get locks(): ReadonlyMap<
+    string,
+    {
+      lock: RWLockWriter;
+      type: 'read' | 'write';
+      release: ResourceRelease;
+    }
+  > {
+    return this._locks;
+  }
+
+  /**
+   * @internal
+   */
+  get iteratorRefs(): Readonly<Set<DBIterator<any, any>>> {
+    return this._iteratorRefs;
+  }
+
+  /**
+   * Lock a sequence of lock requests
+   * If the lock request doesn't specify, it
+   * defaults to using `RWLockWriter` with `write` type
+   * Keys are locked in string sorted order
+   * Even though keys can be arbitrary strings, by convention, you should use
+   * keys that correspond to keys in the database
+   * Locking with the same key is idempotent therefore lock re-entrancy is enabled
+   * Keys are automatically unlocked in reverse sorted order
+   * when the transaction is destroyed
+   * There is no support for lock upgrading or downgrading
+   * There is no deadlock detection
+   */
+  public async lock(
+    ...requests: Array<MultiLockRequest | string>
+  ): Promise<void> {
+    const requests_: Array<AsyncLocksMultiLockRequest<RWLockWriter>> = [];
+    for (const request of requests) {
+      if (Array.isArray(request)) {
+        const [key, ...lockingParams] = request;
+        const key_ = key.toString();
+        const lock = this._locks.get(key_);
+        // Default the lock type to `write`
+        const lockType = (lockingParams[0] = lockingParams[0] ?? 'write');
+        if (lock == null) {
+          requests_.push([key_, RWLockWriter, ...lockingParams]);
+        } else if (lock.type !== lockType) {
+          throw new errors.ErrorDBTransactionLockType();
+        }
+      } else {
+        const key_ = request.toString();
+        const lock = this._locks.get(key_);
+        if (lock == null) {
+          // Default to using `RWLockWriter` write lock for just string keys
+          requests_.push([key_, RWLockWriter, 'write']);
+        } else if (lock.type !== 'write') {
+          throw new errors.ErrorDBTransactionLockType();
+        }
+      }
+    }
+    if (requests_.length > 0) {
+      // Duplicates are eliminated, and the returned acquisitions are sorted
+      const lockAcquires = this.lockBox.lockMulti(...requests_);
+      for (const [key, lockAcquire, ...lockingParams] of lockAcquires) {
+        const [lockRelease, lock] = await lockAcquire();
+        // The `Map` will maintain insertion order
+        // these must be unlocked in reverse order
+        // when the transaction is destroyed
+        this._locks.set(key as string, {
+          lock: lock!,
+          type: lockingParams[0]!, // The `type` is defaulted to `write`
+          release: lockRelease,
+        });
+      }
+    }
+  }
+
+  /**
+   * Unlock a sequence of lock keys
+   * Unlocking will be done in the order of the keys
+   * A transaction instance is only allowed to unlock keys that it previously
+   * locked, all keys that are not part of the `this._locks` is ignored
+   * Unlocking the same keys is idempotent
+   */
+  public async unlock(...keys: Array<ToString>): Promise<void> {
+    for (const key of keys) {
+      const key_ = key.toString();
+      const lock = this._locks.get(key_);
+      if (lock == null) continue;
+      this._locks.delete(key_);
+      await lock.release();
+    }
   }
 
   public async get<T>(
@@ -134,23 +230,55 @@ class DBTransaction {
     raw: boolean = false,
   ): Promise<T | Buffer | undefined> {
     keyPath = utils.toKeyPath(keyPath);
-    let value = await this.db._get<T>(
-      [...this.transactionDataPath, ...keyPath],
-      raw as any,
-    );
-    if (value === undefined) {
-      if (
-        (await this.db._get<boolean>([
-          ...this.transactionTombstonePath,
-          ...keyPath,
-        ])) !== true
-      ) {
-        value = await this.db.get<T>(keyPath, raw as any);
+    keyPath = ['data', ...keyPath];
+    let data: Buffer;
+    try {
+      const key = utils.keyPathToKey(keyPath);
+      data = await rocksdbP.transactionGet(this._transaction, key, {
+        valueEncoding: 'buffer',
+        snapshot: this.setupSnapshot(),
+      });
+    } catch (e) {
+      if (e.code === 'NOT_FOUND') {
+        return undefined;
       }
-      // Don't set it in the transaction DB
-      // Because this is not a repeatable-read "snapshot"
+      throw e;
     }
-    return value;
+    return this._db.deserializeDecrypt<T>(data, raw as any);
+  }
+
+  /**
+   * Use this for to address write skews
+   */
+  public async getForUpdate<T>(
+    keyPath: KeyPath | string | Buffer,
+    raw?: false,
+  ): Promise<T | undefined>;
+  public async getForUpdate(
+    keyPath: KeyPath | string | Buffer,
+    raw: true,
+  ): Promise<Buffer | undefined>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public async getForUpdate<T>(
+    keyPath: KeyPath | string | Buffer,
+    raw: boolean = false,
+  ): Promise<T | Buffer | undefined> {
+    keyPath = utils.toKeyPath(keyPath);
+    keyPath = ['data', ...keyPath];
+    let data: Buffer;
+    try {
+      const key = utils.keyPathToKey(keyPath);
+      data = await rocksdbP.transactionGetForUpdate(this._transaction, key, {
+        valueEncoding: 'buffer',
+        snapshot: this.setupSnapshot(),
+      });
+    } catch (e) {
+      if (e.code === 'NOT_FOUND') {
+        return undefined;
+      }
+      throw e;
+    }
+    return this._db.deserializeDecrypt<T>(data, raw as any);
   }
 
   public async put(
@@ -169,218 +297,96 @@ class DBTransaction {
     value: any,
     raw: boolean = false,
   ): Promise<void> {
+    this.setupSnapshot();
     keyPath = utils.toKeyPath(keyPath);
-    await this.db._put(
-      [...this.transactionDataPath, ...keyPath],
-      value,
-      raw as any,
-    );
-    await this.db._del([...this.transactionTombstonePath, ...keyPath]);
-    this._ops.push({
-      type: 'put',
-      keyPath,
-      value,
-      raw,
-    });
+    keyPath = ['data', ...keyPath];
+    const key = utils.keyPathToKey(keyPath);
+    const data = await this._db.serializeEncrypt(value, raw as any);
+    return rocksdbP.transactionPut(this._transaction, key, data);
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async del(keyPath: KeyPath | string | Buffer): Promise<void> {
+    this.setupSnapshot();
     keyPath = utils.toKeyPath(keyPath);
-    await this.db._del([...this.transactionDataPath, ...keyPath]);
-    await this.db._put([...this.transactionTombstonePath, ...keyPath], true);
-    this._ops.push({
-      type: 'del',
-      keyPath,
+    keyPath = ['data', ...keyPath];
+    const key = utils.keyPathToKey(keyPath);
+    return rocksdbP.transactionDel(this._transaction, key);
+  }
+
+  public iterator(
+    levelPath: LevelPath | undefined,
+    options: DBIteratorOptions<RocksDBTransactionSnapshot> & {
+      keys: false;
+      values: false;
+    },
+  ): DBIterator<undefined, undefined>;
+  public iterator<V>(
+    levelPath: LevelPath | undefined,
+    options: DBIteratorOptions<RocksDBTransactionSnapshot> & {
+      keys: false;
+      valueAsBuffer: false;
+    },
+  ): DBIterator<undefined, V>;
+  public iterator(
+    levelPath: LevelPath | undefined,
+    options: DBIteratorOptions<RocksDBTransactionSnapshot> & { keys: false },
+  ): DBIterator<undefined, Buffer>;
+  public iterator(
+    levelPath: LevelPath | undefined,
+    options: DBIteratorOptions<RocksDBTransactionSnapshot> & { values: false },
+  ): DBIterator<KeyPath, undefined>;
+  public iterator<V>(
+    levelPath: LevelPath | undefined,
+    options: DBIteratorOptions<RocksDBTransactionSnapshot> & {
+      valueAsBuffer: false;
+    },
+  ): DBIterator<KeyPath, V>;
+  public iterator(
+    levelPath?: LevelPath | undefined,
+    options?: DBIteratorOptions<RocksDBTransactionSnapshot>,
+  ): DBIterator<KeyPath, Buffer>;
+  @ready(new errors.ErrorDBTransactionDestroyed())
+  public iterator<V>(
+    levelPath: LevelPath = [],
+    options: DBIteratorOptions<RocksDBTransactionSnapshot> = {},
+  ): DBIterator<KeyPath | undefined, Buffer | V | undefined> {
+    levelPath = ['data', ...levelPath];
+    return new DBIterator({
+      ...options,
+      db: this._db,
+      transaction: this,
+      levelPath,
+      logger: this.logger.getChild(DBIterator.name),
+      snapshot: this.setupSnapshot(),
     });
   }
 
-  public iterator(
-    options: DBIteratorOptions & { values: false },
-    levelPath?: LevelPath,
-  ): DBIterator<KeyPath, undefined>;
-  public iterator(
-    options?: DBIteratorOptions & { valueAsBuffer?: true },
-    levelPath?: LevelPath,
-  ): DBIterator<KeyPath, Buffer>;
-  public iterator<V>(
-    options?: DBIteratorOptions & { valueAsBuffer: false },
-    levelPath?: LevelPath,
-  ): DBIterator<KeyPath, V>;
   @ready(new errors.ErrorDBTransactionDestroyed())
-  public iterator<V>(
-    options?: DBIteratorOptions,
+  public async clear(
     levelPath: LevelPath = [],
-  ): DBIterator<KeyPath, Buffer | V | undefined> {
-    const dataIterator = this.db._iterator(
-      {
-        ...options,
-        keys: true,
-        keyAsBuffer: true,
-      },
-      ['data', ...levelPath],
-    );
-    const tranIterator = this.db._iterator(
-      {
-        ...options,
-        keys: true,
-        keyAsBuffer: true,
-      },
-      [...this.transactionDataPath, ...levelPath],
-    );
-    const order = options?.reverse ? 'desc' : 'asc';
-    const processKV = (
-      kv: [KeyPath, Buffer | V | undefined],
-    ): [KeyPath, Buffer | V | undefined] => {
-      if (options?.keyAsBuffer === false) {
-        kv[0] = kv[0].map((k) => k.toString('utf-8'));
-      }
-      return kv;
-    };
-    const iterator = {
-      _ended: false,
-      _nexting: false,
-      seek: (keyPath: KeyPath | Buffer | string): void => {
-        if (iterator._ended) {
-          throw new Error('cannot call seek() after end()');
-        }
-        if (iterator._nexting) {
-          throw new Error('cannot call seek() before next() has completed');
-        }
-        dataIterator.seek(keyPath);
-        tranIterator.seek(keyPath);
-      },
-      end: async () => {
-        if (iterator._ended) {
-          throw new Error('end() already called on iterator');
-        }
-        iterator._ended = true;
-        await dataIterator.end();
-        await tranIterator.end();
-      },
-      next: async () => {
-        if (iterator._ended) {
-          throw new Error('cannot call next() after end()');
-        }
-        if (iterator._nexting) {
-          throw new Error(
-            'cannot call next() before previous next() has completed',
-          );
-        }
-        iterator._nexting = true;
-        try {
-          while (true) {
-            const tranKV = (await tranIterator.next()) as
-              | [KeyPath, Buffer | undefined]
-              | undefined;
-            const dataKV = (await dataIterator.next()) as
-              | [KeyPath, Buffer | undefined]
-              | undefined;
-            // If both are finished, iterator is finished
-            if (tranKV == null && dataKV == null) {
-              return undefined;
-            }
-            // If tranIterator is not finished but dataIterator is finished
-            // continue with tranIterator
-            if (tranKV != null && dataKV == null) {
-              return processKV(tranKV);
-            }
-            // If tranIterator is finished but dataIterator is not finished
-            // continue with the dataIterator
-            if (tranKV == null && dataKV != null) {
-              // If the dataKey is entombed, skip iteration
-              if (
-                (await this.db._get<boolean>(
-                  this.transactionTombstonePath.concat(levelPath, dataKV[0]),
-                )) === true
-              ) {
-                continue;
-              }
-              return processKV(dataKV);
-            }
-            const [tranKeyPath, tranData] = tranKV as [
-              KeyPath,
-              Buffer | V | undefined,
-            ];
-            const [dataKeyPath, dataData] = dataKV as [
-              KeyPath,
-              Buffer | V | undefined,
-            ];
-            const keyCompare = Buffer.compare(
-              utils.keyPathToKey(tranKeyPath),
-              utils.keyPathToKey(dataKeyPath),
-            );
-            if (keyCompare < 0) {
-              if (order === 'asc') {
-                dataIterator.seek(tranKeyPath);
-                return processKV([tranKeyPath, tranData]);
-              } else if (order === 'desc') {
-                tranIterator.seek(dataKeyPath);
-                // If the dataKey is entombed, skip iteration
-                if (
-                  (await this.db._get<boolean>(
-                    this.transactionTombstonePath.concat(
-                      levelPath,
-                      dataKeyPath,
-                    ),
-                  )) === true
-                ) {
-                  continue;
-                }
-                return processKV([dataKeyPath, dataData]);
-              }
-            } else if (keyCompare > 0) {
-              if (order === 'asc') {
-                tranIterator.seek(dataKeyPath);
-                // If the dataKey is entombed, skip iteration
-                if (
-                  (await this.db._get<boolean>(
-                    this.transactionTombstonePath.concat(
-                      levelPath,
-                      dataKeyPath,
-                    ),
-                  )) === true
-                ) {
-                  continue;
-                }
-                return processKV([dataKeyPath, dataData]);
-              } else if (order === 'desc') {
-                dataIterator.seek(tranKeyPath);
-                return processKV([tranKeyPath, tranData]);
-              }
-            } else {
-              return processKV([tranKeyPath, tranData]);
-            }
-          }
-        } finally {
-          iterator._nexting = false;
-        }
-      },
-      [Symbol.asyncIterator]: async function* () {
-        try {
-          let kv: [KeyPath, any] | undefined;
-          while ((kv = await iterator.next()) !== undefined) {
-            yield kv;
-          }
-        } finally {
-          if (!iterator._ended) await iterator.end();
-        }
-      },
-    };
-    return iterator;
+    options: DBClearOptions<RocksDBTransactionSnapshot> = {},
+  ): Promise<void> {
+    levelPath = ['data', ...levelPath];
+    const options_ = utils.iterationOptions(options, levelPath);
+    return rocksdbP.transactionClear(this._transaction, {
+      ...options_,
+      snapshot: this.setupSnapshot(),
+    });
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
-  public async clear(levelPath: LevelPath = []): Promise<void> {
-    for await (const [keyPath] of this.iterator({ values: false }, levelPath)) {
-      await this.del(levelPath.concat(keyPath));
-    }
-  }
-
-  @ready(new errors.ErrorDBTransactionDestroyed())
-  public async count(levelPath: LevelPath = []): Promise<number> {
+  public async count(
+    levelPath: LevelPath = [],
+    options: DBCountOptions<RocksDBTransactionSnapshot> = {},
+  ): Promise<number> {
+    const options_ = {
+      ...options,
+      keys: true,
+      values: false,
+    };
     let count = 0;
-    for await (const _ of this.iterator({ values: false }, levelPath)) {
+    for await (const _ of this.iterator(levelPath, options_)) {
       count++;
     }
     return count;
@@ -404,11 +410,14 @@ class DBTransaction {
     levelPath: LevelPath = [],
     raw: boolean = false,
   ): Promise<Array<[KeyPath, any]>> {
-    return await this.db.dump(
-      this.transactionPath.concat(levelPath),
-      raw as any,
-      true,
-    );
+    const records: Array<[KeyPath, any]> = [];
+    for await (const [keyPath, v] of this.iterator(levelPath, {
+      keyAsBuffer: raw,
+      valueAsBuffer: raw,
+    })) {
+      records.push([keyPath, v]);
+    }
+    return records;
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -434,19 +443,41 @@ class DBTransaction {
     if (this._committed) {
       return;
     }
-    this.logger.debug(
-      `Committing ${this.constructor.name} ${this.transactionId}`,
-    );
+    this.logger.debug(`Committing ${this.constructor.name} ${this.id}`);
+    for (const iterator of this._iteratorRefs) {
+      await iterator.destroy();
+    }
     this._committed = true;
     try {
-      await this.db.batch(this._ops);
-    } catch (e) {
-      this._committed = false;
-      throw e;
+      try {
+        // If this fails, the `DBTransaction` is still considered committed
+        // it must be destroyed, it cannot be reused
+        await rocksdbP.transactionCommit(this._transaction);
+      } catch (e) {
+        if (e.code === 'TRANSACTION_CONFLICT') {
+          this.logger.debug(
+            `Failed Committing ${this.constructor.name} ${this.id} due to ${errors.ErrorDBTransactionConflict.name}`,
+          );
+          throw new errors.ErrorDBTransactionConflict(undefined, {
+            cause: e,
+          });
+        } else {
+          this.logger.debug(
+            `Failed Committing ${this.constructor.name} ${this.id} due to ${e.message}`,
+          );
+          throw e;
+        }
+      }
+      for (const f of this._callbacksSuccess) {
+        await f();
+      }
+    } finally {
+      for (const f of this._callbacksFinally) {
+        await f();
+      }
     }
-    this.logger.debug(
-      `Committed ${this.constructor.name} ${this.transactionId}`,
-    );
+    await this.destroy();
+    this.logger.debug(`Committed ${this.constructor.name} ${this.id}`);
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
@@ -457,41 +488,50 @@ class DBTransaction {
     if (this._rollbacked) {
       return;
     }
-    this.logger.debug(
-      `Rollbacking ${this.constructor.name} ${this.transactionId}`,
-    );
+    this.logger.debug(`Rollbacking ${this.constructor.name} ${this.id}`);
+    for (const iterator of this._iteratorRefs) {
+      await iterator.destroy();
+    }
     this._rollbacked = true;
-    for (const f of this._callbacksFailure) {
-      await f(e);
+    try {
+      // If this fails, the `DBTransaction` is still considered rollbacked
+      // it must be destroyed, it cannot be reused
+      await rocksdbP.transactionRollback(this._transaction);
+      for (const f of this._callbacksFailure) {
+        await f(e);
+      }
+    } finally {
+      for (const f of this._callbacksFinally) {
+        await f(e);
+      }
     }
-    for (const f of this._callbacksFinally) {
-      await f(e);
-    }
-    this.logger.debug(
-      `Rollbacked ${this.constructor.name} ${this.transactionId}`,
-    );
+    await this.destroy();
+    this.logger.debug(`Rollbacked ${this.constructor.name} ${this.id}`);
   }
 
+  /**
+   * Set the snapshot manually
+   * This ensures that consistent reads and writes start
+   * after this method is executed
+   * This is idempotent
+   * Note that normally snapshots are set lazily upon the first
+   * transaction db operation
+   */
   @ready(new errors.ErrorDBTransactionDestroyed())
-  public async finalize(): Promise<void> {
-    if (this._rollbacked) {
-      throw new errors.ErrorDBTransactionRollbacked();
+  public setSnapshot(): void {
+    this.setupSnapshot();
+  }
+
+  /**
+   * Sets up the snapshot
+   * This is executed lazily, not at this construction,
+   * but at the first transactional operation
+   */
+  protected setupSnapshot(): RocksDBTransactionSnapshot {
+    if (this._snapshot == null) {
+      this._snapshot = rocksdbP.transactionSnapshot(this._transaction);
     }
-    if (!this._committed) {
-      throw new errors.ErrorDBTransactionNotCommitted();
-    }
-    this.logger.debug(
-      `Finalize ${this.constructor.name} ${this.transactionId}`,
-    );
-    for (const f of this._callbacksSuccess) {
-      await f();
-    }
-    for (const f of this._callbacksFinally) {
-      await f();
-    }
-    this.logger.debug(
-      `Finalized ${this.constructor.name} ${this.transactionId}`,
-    );
+    return this._snapshot;
   }
 }
 

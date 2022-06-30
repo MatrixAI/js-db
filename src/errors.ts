@@ -40,20 +40,51 @@ class ErrorDBParseValue<T> extends ErrorDB<T> {
   static description = 'DB value parsing failed';
 }
 
-class ErrorDBTransactionDestroyed<T> extends ErrorDB<T> {
+class ErrorDBIterator<T> extends ErrorDB<T> {
+  static description = 'DBIterator error';
+}
+
+class ErrorDBIteratorDestroyed<T> extends ErrorDBIterator<T> {
+  static description = 'DBIterator is destroyed';
+}
+
+class ErrorDBIteratorBusy<T> extends ErrorDBIterator<T> {
+  static description = 'DBIterator is busy';
+}
+
+class ErrorDBTransaction<T> extends ErrorDB<T> {
+  static description = 'DBTransaction error';
+}
+
+class ErrorDBTransactionDestroyed<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction is destroyed';
 }
 
-class ErrorDBTransactionCommitted<T> extends ErrorDB<T> {
+class ErrorDBTransactionCommitted<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction is committed';
 }
 
-class ErrorDBTransactionNotCommitted<T> extends ErrorDB<T> {
+class ErrorDBTransactionNotCommitted<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction is not comitted';
 }
 
-class ErrorDBTransactionRollbacked<T> extends ErrorDB<T> {
+class ErrorDBTransactionRollbacked<T> extends ErrorDBTransaction<T> {
   static description = 'DBTransaction is rollbacked';
+}
+
+class ErrorDBTransactionNotCommittedNorRollbacked<
+  T,
+> extends ErrorDBTransaction<T> {
+  static description = 'DBTransaction is not comitted nor rollbacked';
+}
+
+class ErrorDBTransactionConflict<T> extends ErrorDBTransaction<T> {
+  static description = 'DBTransaction cannot commit due to conflicting writes';
+}
+
+class ErrorDBTransactionLockType<T> extends ErrorDBTransaction<T> {
+  static description =
+    'DBTransaction does not support upgrading or downgrading the lock type';
 }
 
 export {
@@ -67,8 +98,15 @@ export {
   ErrorDBDecrypt,
   ErrorDBParseKey,
   ErrorDBParseValue,
+  ErrorDBIterator,
+  ErrorDBIteratorDestroyed,
+  ErrorDBIteratorBusy,
+  ErrorDBTransaction,
   ErrorDBTransactionDestroyed,
   ErrorDBTransactionCommitted,
   ErrorDBTransactionNotCommitted,
   ErrorDBTransactionRollbacked,
+  ErrorDBTransactionNotCommittedNorRollbacked,
+  ErrorDBTransactionConflict,
+  ErrorDBTransactionLockType,
 };
