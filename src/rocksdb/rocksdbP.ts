@@ -287,3 +287,5 @@ const rocksdbP: RocksDBP = {
 };
 
 export default rocksdbP;
+
+export type { RocksDBP };

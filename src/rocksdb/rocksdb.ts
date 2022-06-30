@@ -274,3 +274,5 @@ interface RocksDB {
 const rocksdb: RocksDB = nodeGypBuild(path.join(__dirname, '../../'));
 
 export default rocksdb;
+
+export type { RocksDB };
