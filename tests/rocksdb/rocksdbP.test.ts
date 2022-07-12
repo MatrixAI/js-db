@@ -1,8 +1,8 @@
-import type { RocksDBDatabase } from '@/rocksdb/types';
+import type { RocksDBDatabase } from '@/native/types';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
-import rocksdbP from '@/rocksdb/rocksdbP';
+import rocksdbP from '@/native/rocksdbP';
 
 describe('rocksdbP', () => {
   let dataDir: string;

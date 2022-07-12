@@ -1,6 +1,6 @@
 {
   'targets': [{
-    'target_name': 'rocksdb',
+    'target_name': 'native',
     'include_dirs': [
       "<!(node -e \"require('napi-macros')\")"
     ],
@@ -8,20 +8,20 @@
       '<(module_root_dir)/deps/rocksdb/rocksdb.gyp:rocksdb'
     ],
     'sources': [
-      './src/rocksdb/napi/batch.cpp',
-      './src/rocksdb/napi/database.cpp',
-      './src/rocksdb/napi/debug.cpp',
-      './src/rocksdb/napi/index.cpp',
-      './src/rocksdb/napi/iterator.cpp',
-      './src/rocksdb/napi/snapshot.cpp',
-      './src/rocksdb/napi/transaction.cpp',
-      './src/rocksdb/napi/utils.cpp',
-      './src/rocksdb/napi/worker.cpp',
-      './src/rocksdb/napi/workers/batch_workers.cpp',
-      './src/rocksdb/napi/workers/database_workers.cpp',
-      './src/rocksdb/napi/workers/iterator_workers.cpp',
-      './src/rocksdb/napi/workers/transaction_workers.cpp',
-      './src/rocksdb/napi/workers/snapshot_workers.cpp'
+      './src/native/napi/batch.cpp',
+      './src/native/napi/database.cpp',
+      './src/native/napi/debug.cpp',
+      './src/native/napi/index.cpp',
+      './src/native/napi/iterator.cpp',
+      './src/native/napi/snapshot.cpp',
+      './src/native/napi/transaction.cpp',
+      './src/native/napi/utils.cpp',
+      './src/native/napi/worker.cpp',
+      './src/native/napi/workers/batch_workers.cpp',
+      './src/native/napi/workers/database_workers.cpp',
+      './src/native/napi/workers/iterator_workers.cpp',
+      './src/native/napi/workers/transaction_workers.cpp',
+      './src/native/napi/workers/snapshot_workers.cpp'
     ],
     'conditions': [
       ['OS=="linux"', {
