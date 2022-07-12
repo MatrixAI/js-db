@@ -5,9 +5,6 @@ workflow:
       when: never
     - when: always
 
-default:
-  interruptible: true
-
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   GH_PROJECT_PATH: "MatrixAI/${CI_PROJECT_NAME}"
@@ -21,6 +18,13 @@ variables:
   TS_CACHED_TRANSPILE_PORTABLE: "true"
   # Homebrew cache only used by macos runner
   HOMEBREW_CACHE: "${CI_PROJECT_DIR}/tmp/Homebrew"
+
+default:
+  interruptible: true
+  before_script:
+    # Replace this in windows runners that use powershell
+    # with `mkdir -Force "$CI_PROJECT_DIR/tmp"`
+    - mkdir -p "$CI_PROJECT_DIR/tmp"
 
 # Cached directories shared between jobs & pipelines per-branch per-runner
 cache:
@@ -156,6 +160,7 @@ build:windows:
     npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"
     npm_config_nodedir: "${CI_PROJECT_DIR}/tmp/node-gyp/$npm_config_target"
   before_script:
+    - mkdir -Force "$CI_PROJECT_DIR/tmp"
     - choco install nodejs --version="$npm_config_target" -y
     - choco install python --version=3.9.12 -y
     - refreshenv
