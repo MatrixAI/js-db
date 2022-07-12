@@ -9,9 +9,9 @@ default:
   interruptible: true
 
 variables:
+  GIT_SUBMODULE_STRATEGY: recursive
   GH_PROJECT_PATH: "MatrixAI/${CI_PROJECT_NAME}"
   GH_PROJECT_URL: "https://${GITHUB_TOKEN}@github.com/${GH_PROJECT_PATH}.git"
-  GIT_SUBMODULE_STRATEGY: recursive
   # Cache .npm
   npm_config_cache: "${CI_PROJECT_DIR}/tmp/npm"
   # Prefer offline node module installation
