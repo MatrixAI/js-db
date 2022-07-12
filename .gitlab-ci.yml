@@ -123,6 +123,9 @@ build:merge:
 build:linux:
   stage: build
   needs: []
+  variables:
+    # Only x64 architecture is needed
+    npm_config_arch: "x64"
   script:
     - >
         nix-shell --run '
@@ -154,21 +157,18 @@ build:windows:
   tags:
     - windows
   variables:
-    # Target node version must match nixpkgs `pkgs.nodejs.version`
-    npm_config_target: '16.14.2'
     # Location node-gyp installed headers and static libraries
     npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"
-    npm_config_nodedir: "${CI_PROJECT_DIR}/tmp/node-gyp/$npm_config_target"
+    # Only x64 architecture is needed
+    npm_config_arch: "x64"
   before_script:
     - mkdir -Force "$CI_PROJECT_DIR/tmp"
-    - choco install nodejs --version="$npm_config_target" -y
+    - choco install nodejs --version="16.15.1" -y
     - choco install python --version=3.9.12 -y
     - refreshenv
   script:
-    - npm config set msvs_version 2019 --location project
     - npm install --ignore-scripts
     - $env:Path = "$(npm bin);" + $env:Path
-    - node-gyp install --ensure
     - npm run build --verbose
     - npm test -- --ci
   artifacts:
@@ -193,6 +193,10 @@ build:macos:
   variables:
     HOMEBREW_NO_INSTALL_UPGRADE: "true"
     HOMEBREW_NO_INSTALL_CLEANUP: "true"
+    # Location node-gyp installed headers and static libraries
+    npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"
+    # Produce universal binary
+    npm_config_arch: 'x64+arm64'
   before_script:
     - eval "$(brew shellenv)"
     - brew install node@16
@@ -203,7 +207,6 @@ build:macos:
   script:
     - npm install --ignore-scripts
     - export PATH="$(npm bin):$PATH"
-    - export PREBUILD_ARCH=x64+arm64
     - npm run build --verbose
     - npm test -- --ci
   artifacts:

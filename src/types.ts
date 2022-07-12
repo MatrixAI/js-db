@@ -10,7 +10,7 @@ import type {
   RocksDBCountOptions,
   RocksDBSnapshot,
   RocksDBTransactionSnapshot,
-} from './rocksdb/types';
+} from './native/types';
 
 /**
  * Plain data dictionary

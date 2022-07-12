@@ -8,7 +8,7 @@ import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import DB from '@/DB';
 import DBIterator from '@/DBIterator';
-import rocksdbP from '@/rocksdb/rocksdbP';
+import rocksdbP from '@/native/rocksdbP';
 import * as testsUtils from './utils';
 
 describe(DBIterator.name, () => {

@@ -13,7 +13,7 @@ import type {
   DBClearOptions,
   DBCountOptions,
 } from './types';
-import type { RocksDBDatabase, RocksDBDatabaseOptions } from './rocksdb';
+import type { RocksDBDatabase, RocksDBDatabaseOptions } from './native';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
@@ -24,7 +24,7 @@ import {
 import { LockBox } from '@matrixai/async-locks';
 import DBIterator from './DBIterator';
 import DBTransaction from './DBTransaction';
-import { rocksdbP } from './rocksdb';
+import { rocksdbP } from './native';
 import * as utils from './utils';
 import * as errors from './errors';
 

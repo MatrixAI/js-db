@@ -17,12 +17,12 @@ import type {
   RocksDBTransaction,
   RocksDBTransactionOptions,
   RocksDBTransactionSnapshot,
-} from './rocksdb/types';
+} from './native/types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
 import { RWLockWriter } from '@matrixai/async-locks';
 import DBIterator from './DBIterator';
-import { rocksdbP } from './rocksdb';
+import { rocksdbP } from './native';
 import * as utils from './utils';
 import * as errors from './errors';
 

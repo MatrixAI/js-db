@@ -14,15 +14,15 @@
   "scripts": {
     "prepare": "tsc -p ./tsconfig.build.json",
     "install": "node-gyp-build",
-    "prebuild": "prebuildify --napi --strip",
+    "prebuild": "node ./scripts/prebuild.js",
     "build": "rimraf ./dist && tsc -p ./tsconfig.build.json",
     "postversion": "npm install --package-lock-only --ignore-scripts --silent",
     "ts-node": "ts-node -r tsconfig-paths/register",
     "test": "jest",
-    "lint": "eslint '{src,tests,benches}/**/*.{js,ts}'",
-    "lintfix": "eslint '{src,tests,benches}/**/*.{js,ts}' --fix",
-    "lint-native": "find ./src -type f -regextype posix-extended -regex '.*\\.(c|cc|cpp|h|hh|hpp)' -exec clang-format --dry-run -Werror {} +",
-    "lintfix-native": "find ./src -type f -regextype posix-extended -regex '.*\\.(c|cc|cpp|h|hh|hpp)' -exec clang-format -i {} +",
+    "lint": "eslint '{src,tests,scripts,benches}/**/*.{js,ts}'",
+    "lintfix": "eslint '{src,tests,scripts,benches}/**/*.{js,ts}' --fix",
+    "lint-native": "find ./src ./tests -type f -regextype posix-extended -regex '.*\\.(c|cc|cpp|h|hh|hpp)' -exec clang-format --dry-run -Werror {} +",
+    "lintfix-native": "find ./src ./tests -type f -regextype posix-extended -regex '.*\\.(c|cc|cpp|h|hh|hpp)' -exec clang-format -i {} +",
     "docs": "rimraf ./docs && typedoc --gitRevision master --tsconfig ./tsconfig.build.json --out ./docs src",
     "bench": "rimraf ./benches/results && ts-node -r tsconfig-paths/register ./benches"
   },
@@ -53,14 +53,18 @@
     "napi-macros": "^2.0.0",
     "node-forge": "^1.3.1",
     "node-gyp": "9.0.0",
-    "prebuildify": "^5.0.0",
     "prettier": "^2.6.2",
     "rimraf": "^3.0.2",
+    "semver": "^7.3.7",
     "systeminformation": "^5.8.9",
     "ts-jest": "^27.0.5",
     "ts-node": "^10.4.0",
     "tsconfig-paths": "^3.9.0",
     "typedoc": "^0.22.15",
     "typescript": "^4.5.2"
+  },
+  "engines": {
+    "node": "^16.15.0",
+    "msvs": "2019"
   }
 }
