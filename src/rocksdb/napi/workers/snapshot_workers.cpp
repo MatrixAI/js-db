@@ -2,7 +2,7 @@
 
 #include "snapshot_workers.h"
 
-#include <node/node_api.h>
+#include <node_api.h>
 
 #include "../worker.h"
 #include "../snapshot.h"

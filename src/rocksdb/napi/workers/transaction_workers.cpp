@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <node/node_api.h>
+#include <node_api.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/status.h>
 

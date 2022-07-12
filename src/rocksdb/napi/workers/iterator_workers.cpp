@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cassert>
 
-#include <node/node_api.h>
+#include <node_api.h>
 
 #include "../worker.h"
 #include "../iterator.h"

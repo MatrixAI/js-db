@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-#include <node/node_api.h>
+#include <node_api.h>
 #include <rocksdb/snapshot.h>
 
 #include "database.h"

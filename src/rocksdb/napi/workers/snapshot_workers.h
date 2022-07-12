@@ -4,7 +4,7 @@
 #define NAPI_VERSION 3
 #endif
 
-#include <node/node_api.h>
+#include <node_api.h>
 
 #include "../worker.h"
 #include "../snapshot.h"

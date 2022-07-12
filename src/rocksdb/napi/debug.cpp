@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 
-#include <node/node_api.h>
+#include <node_api.h>
 #include <napi-macros.h>
 
 bool is_log_debug_enabled = false;

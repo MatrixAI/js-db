@@ -6,7 +6,7 @@
 #include <vector>
 
 #include <napi-macros.h>
-#include <node/node_api.h>
+#include <node_api.h>
 #include <rocksdb/db.h>
 #include <rocksdb/status.h>
 #include <rocksdb/slice.h>

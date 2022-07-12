@@ -2,7 +2,7 @@
 
 #include "batch_workers.h"
 
-#include <node/node_api.h>
+#include <node_api.h>
 #include <rocksdb/write_batch.h>
 
 #include "../worker.h"

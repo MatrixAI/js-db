@@ -5,7 +5,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include <node/node_api.h>
+#include <node_api.h>
 #include <napi-macros.h>
 #include <rocksdb/slice.h>
 #include <rocksdb/status.h>
