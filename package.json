@@ -14,7 +14,7 @@
   "scripts": {
     "prepare": "tsc -p ./tsconfig.build.json",
     "install": "node-gyp-build",
-    "prebuild": "prebuildify --napi --strip --target=16.14.2",
+    "prebuild": "prebuildify --napi --strip",
     "build": "rimraf ./dist && tsc -p ./tsconfig.build.json",
     "postversion": "npm install --package-lock-only --ignore-scripts --silent",
     "ts-node": "ts-node -r tsconfig-paths/register",

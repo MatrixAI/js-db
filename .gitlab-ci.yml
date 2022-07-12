@@ -13,9 +13,9 @@ variables:
   GH_PROJECT_URL: "https://${GITHUB_TOKEN}@github.com/${GH_PROJECT_PATH}.git"
   GIT_SUBMODULE_STRATEGY: recursive
   # Cache .npm
-  NPM_CONFIG_CACHE: "${CI_PROJECT_DIR}/tmp/npm"
+  npm_config_cache: "${CI_PROJECT_DIR}/tmp/npm"
   # Prefer offline node module installation
-  NPM_CONFIG_PREFER_OFFLINE: "true"
+  npm_config_prefer_offline: "true"
   # `ts-node` has its own cache
   TS_CACHED_TRANSPILE_CACHE: "${CI_PROJECT_DIR}/tmp/ts-node-cache"
   TS_CACHED_TRANSPILE_PORTABLE: "true"
@@ -32,6 +32,8 @@ cache:
     - ./tmp/Homebrew
     # `jest` cache is configured in jest.config.js
     - ./tmp/jest/
+    # `node-gyp` cache used by windows and macos
+    - ./tmp/node-gyp
 
 stages:
   - check       # Linting, unit tests
@@ -144,14 +146,21 @@ build:windows:
   needs: []
   tags:
     - windows
+  variables:
+    # Target node version must match nixpkgs `pkgs.nodejs.version`
+    npm_config_target: '16.14.2'
+    # Location node-gyp installed headers and static libraries
+    npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"
+    npm_config_nodedir: "${CI_PROJECT_DIR}/tmp/node-gyp/$npm_config_target"
   before_script:
-    - choco install nodejs --version=16.14.2 -y
+    - choco install nodejs --version="$npm_config_target" -y
     - choco install python --version=3.9.12 -y
     - refreshenv
   script:
     - npm config set msvs_version 2019 --location project
     - npm install --ignore-scripts
     - $env:Path = "$(npm bin);" + $env:Path
+    - node-gyp install --ensure
     - npm run build --verbose
     - npm test -- --ci
   artifacts:
