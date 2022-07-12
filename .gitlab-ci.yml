@@ -149,7 +149,7 @@ build:windows:
     - choco install python --version=3.9.12 -y
     - refreshenv
   script:
-    - npm config set msvs_version 2019
+    - npm config set msvs_version 2019 --location project
     - npm install --ignore-scripts
     - $env:Path = "$(npm bin);" + $env:Path
     - npm run build --verbose
