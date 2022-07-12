@@ -11,7 +11,7 @@ mkShell {
   NIX_DONT_SET_RPATH = true;
   NIX_NO_SELF_RPATH = true;
   shellHook = ''
-    echo 'Entering js-db'
+    echo "Entering $(npm pkg get name)"
     set -o allexport
     . ./.env
     set +o allexport
