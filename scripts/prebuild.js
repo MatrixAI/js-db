@@ -78,7 +78,7 @@ async function main(argv = process.argv) {
       stdio: ['inherit', 'inherit', 'inherit'],
       windowsHide: true,
       encoding: 'utf-8',
-      shell: (platform === 'win32') ? true : false,
+      shell: platform === 'win32' ? true : false,
     });
   } else {
     console.error('Skipping node-gyp install due to specified `nodedir`');
@@ -101,7 +101,7 @@ async function main(argv = process.argv) {
     stdio: ['inherit', 'inherit', 'inherit'],
     windowsHide: true,
     encoding: 'utf-8',
-    shell: (platform === 'win32') ? true : false,
+    shell: platform === 'win32' ? true : false,
   });
 
   const buildArgs = [
@@ -124,7 +124,7 @@ async function main(argv = process.argv) {
     stdio: ['inherit', 'inherit', 'inherit'],
     windowsHide: true,
     encoding: 'utf-8',
-    shell: (platform === 'win32') ? true : false,
+    shell: platform === 'win32' ? true : false,
   });
 
   const projectRoot = path.join(__dirname, '..');
