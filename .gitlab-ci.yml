@@ -36,6 +36,8 @@ cache:
     - ./tmp/ts-node-cache/
     # Homebrew cache is only used by the macos runner
     - ./tmp/Homebrew
+    # Chocolatey cache is only used by the windows runner
+    - ./tmp/chocolatey/
     # `jest` cache is configured in jest.config.js
     - ./tmp/jest/
     # `node-gyp` cache used by windows and macos
@@ -163,10 +165,9 @@ build:windows:
     npm_config_arch: "x64"
   before_script:
     - mkdir -Force "$CI_PROJECT_DIR/tmp"
-    - choco install nodejs --version="16.15.1" -y
-    - choco install python --version=3.9.12 -y
-    - refreshenv
   script:
+    - .\scripts\choco-install.ps1
+    - refreshenv
     - npm install --ignore-scripts
     - $env:Path = "$(npm bin);" + $env:Path
     - npm run build --verbose
@@ -193,6 +194,8 @@ build:macos:
   variables:
     HOMEBREW_NO_INSTALL_UPGRADE: "true"
     HOMEBREW_NO_INSTALL_CLEANUP: "true"
+    HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "true"
+    HOMEBREW_NO_AUTO_UPDATE: "true"
     # Location node-gyp installed headers and static libraries
     npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"
     # Produce universal binary
