@@ -40,7 +40,7 @@ cache:
     - ./tmp/chocolatey/
     # `jest` cache is configured in jest.config.js
     - ./tmp/jest/
-    # `node-gyp` cache used by windows and macos
+    # `npm_config_devdir` cache for `node-gyp` headers and libraries used by windows and macos
     - ./tmp/node-gyp
 
 stages:
@@ -166,7 +166,7 @@ build:windows:
   before_script:
     - mkdir -Force "$CI_PROJECT_DIR/tmp"
   script:
-    - .\scripts\choco-install.ps1
+    - ./scripts/choco-install.ps1
     - refreshenv
     - npm install --ignore-scripts
     - $env:Path = "$(npm bin);" + $env:Path
@@ -192,22 +192,14 @@ build:macos:
     - shared-macos-amd64
   image: macos-11-xcode-12
   variables:
-    HOMEBREW_NO_INSTALL_UPGRADE: "true"
-    HOMEBREW_NO_INSTALL_CLEANUP: "true"
-    HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "true"
-    HOMEBREW_NO_AUTO_UPDATE: "true"
     # Location node-gyp installed headers and static libraries
     npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"
     # Produce universal binary
     npm_config_arch: 'x64+arm64'
-  before_script:
-    - eval "$(brew shellenv)"
-    - brew install node@16
-    - brew link --overwrite node@16
-    - brew install python@3.9
-    - brew link --overwrite python@3.9
-    - hash -r
   script:
+    - eval "$(brew shellenv)"
+    - ./scripts/brew-install.sh
+    - hash -r
     - npm install --ignore-scripts
     - export PATH="$(npm bin):$PATH"
     - npm run build --verbose
