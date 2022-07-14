@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@matrixai/async-init": "^1.8.1",
-    "@matrixai/async-locks": "^3.0.0",
+    "@matrixai/async-locks": "^3.1.1",
     "@matrixai/errors": "^1.1.2",
     "@matrixai/logger": "^2.3.0",
     "@matrixai/resources": "^1.1.3",

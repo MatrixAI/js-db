@@ -2,6 +2,7 @@ import type { RocksDBDatabase } from '@/native/types';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
+import { Barrier } from '@matrixai/async-locks';
 import rocksdbP from '@/native/rocksdbP';
 
 describe('rocksdbP', () => {
@@ -240,6 +241,8 @@ describe('rocksdbP', () => {
         );
       });
       test('transactionGetForUpdate addresses write skew by promoting gets into same-value puts', async () => {
+        // Ensure deterministic concurrency
+        const barrier = await Barrier.createBarrier(2);
         // Snapshot isolation allows write skew anomalies to occur
         // A write skew means that 2 transactions concurrently read from overlapping keys
         // then make disjoint updates to the keys, that breaks a consistency constraint on those keys
@@ -257,6 +260,7 @@ describe('rocksdbP', () => {
           const balance2 = parseInt(
             await rocksdbP.transactionGetForUpdate(tran1, 'balance2', {}),
           );
+          await barrier.wait();
           balance1 -= 100;
           expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
           await rocksdbP.transactionPut(tran1, 'balance1', balance1.toString());
@@ -270,6 +274,7 @@ describe('rocksdbP', () => {
           let balance2 = parseInt(
             await rocksdbP.transactionGetForUpdate(tran2, 'balance2', {}),
           );
+          await barrier.wait();
           balance2 -= 100;
           expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
           await rocksdbP.transactionPut(tran2, 'balance2', balance2.toString());
@@ -292,6 +297,8 @@ describe('rocksdbP', () => {
         ).toBe(true);
       });
       test('transactionMultiGetForUpdate addresses write skew by promoting gets into same-value puts', async () => {
+        // Ensure deterministic concurrency
+        const barrier = await Barrier.createBarrier(2);
         // Snapshot isolation allows write skew anomalies to occur
         // A write skew means that 2 transactions concurrently read from overlapping keys
         // then make disjoint updates to the keys, that breaks a consistency constraint on those keys
@@ -321,6 +328,7 @@ describe('rocksdbP', () => {
               )
             )[0],
           );
+          await barrier.wait();
           balance1 -= 100;
           expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
           await rocksdbP.transactionPut(tran1, 'balance1', balance1.toString());
@@ -346,6 +354,7 @@ describe('rocksdbP', () => {
               )
             )[0],
           );
+          await barrier.wait();
           balance2 -= 100;
           expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
           await rocksdbP.transactionPut(tran2, 'balance2', balance2.toString());

@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { withF } from '@matrixai/resources';
-import { errors as locksErrors } from '@matrixai/async-locks';
+import { Barrier, errors as locksErrors } from '@matrixai/async-locks';
 import DB from '@/DB';
 import DBTransaction from '@/DBTransaction';
 import * as errors from '@/errors';
@@ -260,6 +260,8 @@ describe(DBTransaction.name, () => {
     expect(await db.get('hello')).toBeUndefined();
   });
   test('getForUpdate addresses write-skew by promoting gets into same-value puts', async () => {
+    // Ensure deterministic concurrency
+    const barrier = await Barrier.createBarrier(2);
     // Snapshot isolation allows write skew anomalies to occur
     // A write skew means that 2 transactions concurrently read from overlapping keys
     // then make disjoint updates to the keys, that breaks a consistency constraint on those keys
@@ -272,6 +274,7 @@ describe(DBTransaction.name, () => {
     const t1 = withF([db.transaction()], async ([tran]) => {
       let balance1 = parseInt((await tran.getForUpdate('balance1'))!);
       const balance2 = parseInt((await tran.getForUpdate('balance2'))!);
+      await barrier.wait();
       balance1 -= 100;
       expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
       await tran.put('balance1', balance1.toString());
@@ -279,6 +282,7 @@ describe(DBTransaction.name, () => {
     const t2 = withF([db.transaction()], async ([tran]) => {
       const balance1 = parseInt((await tran.getForUpdate('balance1'))!);
       let balance2 = parseInt((await tran.getForUpdate('balance2'))!);
+      await barrier.wait();
       balance2 -= 100;
       expect(balance1 + balance2).toBeGreaterThanOrEqual(0);
       await tran.put('balance2', balance2.toString());
@@ -298,16 +302,20 @@ describe(DBTransaction.name, () => {
     ).toBe(true);
   });
   test('locking to prevent thrashing for racing counters', async () => {
+    // Ensure deterministic concurrency
+    const barrier = await Barrier.createBarrier(2);
     await db.put('counter', '0');
     let t1 = withF([db.transaction()], async ([tran]) => {
       // Can also use `getForUpdate`, but a conflict exists even for `get`
       let counter = parseInt((await tran.get('counter'))!);
+      await barrier.wait();
       counter++;
       await tran.put('counter', counter.toString());
     });
     let t2 = withF([db.transaction()], async ([tran]) => {
       // Can also use `getForUpdate`, but a conflict exists even for `get`
       let counter = parseInt((await tran.get('counter'))!);
+      await barrier.wait();
       counter++;
       await tran.put('counter', counter.toString());
     });
