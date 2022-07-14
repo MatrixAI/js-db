@@ -4,10 +4,10 @@ set -o errexit   # abort on nonzero exitstatus
 set -o nounset   # abort on unbound variable
 set -o pipefail  # don't hide errors within pipes
 
-export HOMEBREW_NO_INSTALL_UPGRADE='true'
-export HOMEBREW_NO_INSTALL_CLEANUP='true'
-export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK='true'
-export HOMEBREW_NO_AUTO_UPDATE='true'
+export HOMEBREW_NO_INSTALL_UPGRADE=1
+export HOMEBREW_NO_INSTALL_CLEANUP=1
+export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+export HOMEBREW_NO_AUTO_UPDATE=1
 
 brew install node@16
 brew link --overwrite node@16
