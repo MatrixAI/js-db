@@ -1,11 +1,11 @@
 import os from 'os';
-import crypto from 'crypto';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import b from 'benny';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import DB from '@/DB';
-import packageJson from '../package.json';
+import { suiteCommon } from './utils';
 
 const logger = new Logger('DB1MiB Bench', LogLevel.WARN, [new StreamHandler()]);
 
@@ -18,7 +18,7 @@ async function main() {
   const data0 = crypto.randomBytes(0);
   const data1MiB = crypto.randomBytes(1024 * 1024);
   const summary = await b.suite(
-    'DB1MiB',
+    path.basename(__filename, path.extname(__filename)),
     b.add('get 1 MiB of data', async () => {
       await db.put('1mib', data1MiB, true);
       return async () => {
@@ -35,19 +35,7 @@ async function main() {
       await db.put('0', data0, true);
       await db.del('0');
     }),
-    b.cycle(),
-    b.complete(),
-    b.save({
-      file: 'DB1MiB',
-      folder: 'benches/results',
-      version: packageJson.version,
-      details: true,
-    }),
-    b.save({
-      file: 'DB1MiB',
-      folder: 'benches/results',
-      format: 'chart.html',
-    }),
+    ...suiteCommon,
   );
   await db.stop();
   await fs.promises.rm(dataDir, {

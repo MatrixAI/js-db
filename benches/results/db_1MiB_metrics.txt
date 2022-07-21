@@ -1,0 +1,17 @@
+# TYPE db_1MiB_ops gauge
+db_1MiB_ops{name="get 1 MiB of data"} 801
+db_1MiB_ops{name="put 1 MiB of data"} 615
+db_1MiB_ops{name="put zero data"} 37543
+db_1MiB_ops{name="put zero data then del"} 18640
+
+# TYPE db_1MiB_margin gauge
+db_1MiB_margin{name="get 1 MiB of data"} 0.69
+db_1MiB_margin{name="put 1 MiB of data"} 0.53
+db_1MiB_margin{name="put zero data"} 1.6
+db_1MiB_margin{name="put zero data then del"} 2.42
+
+# TYPE db_1MiB_samples counter
+db_1MiB_samples{name="get 1 MiB of data"} 86
+db_1MiB_samples{name="put 1 MiB of data"} 87
+db_1MiB_samples{name="put zero data"} 75
+db_1MiB_samples{name="put zero data then del"} 77
