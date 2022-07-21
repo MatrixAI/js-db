@@ -1,35 +1,35 @@
 # TYPE db_1KiB_ops gauge
-db_1KiB_ops{name="get 1 KiB of data"} 47051
-db_1KiB_ops{name="put 1 KiB of data"} 35108
-db_1KiB_ops{name="put zero data"} 38993
-db_1KiB_ops{name="put zero data then del"} 18983
+db_1KiB_ops{name="get 1 KiB of data"} 48563
+db_1KiB_ops{name="put 1 KiB of data"} 39043
+db_1KiB_ops{name="put zero data"} 40984
+db_1KiB_ops{name="put zero data then del"} 21108
 
 # TYPE db_1KiB_margin gauge
-db_1KiB_margin{name="get 1 KiB of data"} 1.97
-db_1KiB_margin{name="put 1 KiB of data"} 1.67
-db_1KiB_margin{name="put zero data"} 0.78
-db_1KiB_margin{name="put zero data then del"} 1.83
+db_1KiB_margin{name="get 1 KiB of data"} 0.64
+db_1KiB_margin{name="put 1 KiB of data"} 2.21
+db_1KiB_margin{name="put zero data"} 1.85
+db_1KiB_margin{name="put zero data then del"} 3.34
 
 # TYPE db_1KiB_samples counter
-db_1KiB_samples{name="get 1 KiB of data"} 79
-db_1KiB_samples{name="put 1 KiB of data"} 79
-db_1KiB_samples{name="put zero data"} 87
-db_1KiB_samples{name="put zero data then del"} 79
+db_1KiB_samples{name="get 1 KiB of data"} 82
+db_1KiB_samples{name="put 1 KiB of data"} 77
+db_1KiB_samples{name="put zero data"} 78
+db_1KiB_samples{name="put zero data then del"} 78
 
 # TYPE db_1MiB_ops gauge
-db_1MiB_ops{name="get 1 MiB of data"} 801
-db_1MiB_ops{name="put 1 MiB of data"} 615
-db_1MiB_ops{name="put zero data"} 37543
-db_1MiB_ops{name="put zero data then del"} 18640
+db_1MiB_ops{name="get 1 MiB of data"} 821
+db_1MiB_ops{name="put 1 MiB of data"} 638
+db_1MiB_ops{name="put zero data"} 41831
+db_1MiB_ops{name="put zero data then del"} 20022
 
 # TYPE db_1MiB_margin gauge
-db_1MiB_margin{name="get 1 MiB of data"} 0.69
-db_1MiB_margin{name="put 1 MiB of data"} 0.53
-db_1MiB_margin{name="put zero data"} 1.6
-db_1MiB_margin{name="put zero data then del"} 2.42
+db_1MiB_margin{name="get 1 MiB of data"} 0.67
+db_1MiB_margin{name="put 1 MiB of data"} 0.88
+db_1MiB_margin{name="put zero data"} 2.4
+db_1MiB_margin{name="put zero data then del"} 2.34
 
 # TYPE db_1MiB_samples counter
-db_1MiB_samples{name="get 1 MiB of data"} 86
-db_1MiB_samples{name="put 1 MiB of data"} 87
-db_1MiB_samples{name="put zero data"} 75
-db_1MiB_samples{name="put zero data then del"} 77
+db_1MiB_samples{name="get 1 MiB of data"} 87
+db_1MiB_samples{name="put 1 MiB of data"} 84
+db_1MiB_samples{name="put zero data"} 74
+db_1MiB_samples{name="put zero data then del"} 76
