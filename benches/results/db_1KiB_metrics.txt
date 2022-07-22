@@ -1,0 +1,17 @@
+# TYPE db_1KiB_ops gauge
+db_1KiB_ops{name="get 1 KiB of data"} 48563
+db_1KiB_ops{name="put 1 KiB of data"} 39043
+db_1KiB_ops{name="put zero data"} 40984
+db_1KiB_ops{name="put zero data then del"} 21108
+
+# TYPE db_1KiB_margin gauge
+db_1KiB_margin{name="get 1 KiB of data"} 0.64
+db_1KiB_margin{name="put 1 KiB of data"} 2.21
+db_1KiB_margin{name="put zero data"} 1.85
+db_1KiB_margin{name="put zero data then del"} 3.34
+
+# TYPE db_1KiB_samples counter
+db_1KiB_samples{name="get 1 KiB of data"} 82
+db_1KiB_samples{name="put 1 KiB of data"} 77
+db_1KiB_samples{name="put zero data"} 78
+db_1KiB_samples{name="put zero data then del"} 78
