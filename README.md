@@ -11,6 +11,7 @@ This forks classic-level's C++ binding code around LevelDB 1.20. Differences fro
 * Supports Snapshot-Isolation based transactions via `DBTransaction`
 * API supports "key paths" which can be used to manipulate "levels" of nested keys
 * Value encryption (key-encryption is not supported yet) - requires additional work with block-encryption
+* Uses RocksDB
 
 ## Installation
 
