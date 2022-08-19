@@ -1,4 +1,6 @@
+import type DBTransaction from '@/DBTransaction';
 import type { KeyPath } from '@/types';
+import type { ResourceRelease } from '@matrixai/resources';
 import type { DBWorkerModule } from './workers/dbWorkerModule';
 import os from 'os';
 import path from 'path';
@@ -568,5 +570,69 @@ describe(DB.name, () => {
       [[Buffer.from('canary')], Buffer.from(JSON.stringify('deadbeef'))],
     ]);
     await db.stop();
+  });
+  test('dangling transactions are automatically rollbacked', async () => {
+    const dbPath = `${dataDir}/db`;
+    let db = await DB.createDB({ dbPath, crypto, logger });
+    // This is a pending transaction to be committed
+    // however it hasn't started committing until it's already rollbacked
+    const p = expect(
+      db.withTransactionF(async (tran) => {
+        await tran.put('foo', 'bar');
+        expect(tran.committing).toBe(false);
+      }),
+    ).rejects.toThrow(errors.ErrorDBTransactionRollbacked);
+    await db.stop();
+    await p;
+    db = await DB.createDB({ dbPath, crypto, logger });
+    const acquireTran = db.transaction();
+    const [releaseTran, tran] = (await acquireTran()) as [
+      ResourceRelease,
+      DBTransaction,
+    ];
+    await tran.put('foo', 'bar');
+    expect(tran.rollbacking).toBe(false);
+    expect(tran.rollbacked).toBe(false);
+    await db.stop();
+    expect(tran.rollbacking).toBe(true);
+    expect(tran.rollbacked).toBe(true);
+    await expect(releaseTran()).rejects.toThrow(
+      errors.ErrorDBTransactionRollbacked,
+    );
+  });
+  test('dangling committing transactions are waited for', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    const acquireTran = db.transaction();
+    const [releaseTran, tran] = (await acquireTran()) as [
+      ResourceRelease,
+      DBTransaction,
+    ];
+    await tran.put('foo', 'bar');
+    const p = releaseTran();
+    expect(tran.committing).toBe(true);
+    expect(tran.committed).toBe(false);
+    // This will wait for the transaction to be committed
+    await db.stop();
+    await p;
+    expect(tran.committing).toBe(true);
+    expect(tran.committed).toBe(true);
+  });
+  test('dangling rollbacking transactions are waited for', async () => {
+    const dbPath = `${dataDir}/db`;
+    const db = await DB.createDB({ dbPath, crypto, logger });
+    const acquireTran = db.transaction();
+    const [releaseTran, tran] = (await acquireTran()) as [
+      ResourceRelease,
+      DBTransaction,
+    ];
+    await tran.put('foo', 'bar');
+    const p = releaseTran(new Error('Trigger Rollback'));
+    expect(tran.rollbacking).toBe(true);
+    expect(tran.rollbacked).toBe(false);
+    await db.stop();
+    await p;
+    expect(tran.rollbacking).toBe(true);
+    expect(tran.rollbacked).toBe(true);
   });
 });

@@ -20,7 +20,7 @@ import type {
 } from './native/types';
 import Logger from '@matrixai/logger';
 import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
-import { RWLockWriter } from '@matrixai/async-locks';
+import { Lock, RWLockWriter } from '@matrixai/async-locks';
 import DBIterator from './DBIterator';
 import { rocksdbP } from './native';
 import * as utils from './utils';
@@ -49,8 +49,11 @@ class DBTransaction {
   protected _callbacksSuccess: Array<() => any> = [];
   protected _callbacksFailure: Array<(e?: Error) => any> = [];
   protected _callbacksFinally: Array<(e?: Error) => any> = [];
+  protected _committing: boolean = false;
   protected _committed: boolean = false;
+  protected _rollbacking: boolean = false;
   protected _rollbacked: boolean = false;
+  protected commitOrRollbackLock: Lock = new Lock();
 
   public constructor({
     db,
@@ -86,9 +89,12 @@ class DBTransaction {
    */
   public async destroy() {
     this.logger.debug(`Destroying ${this.constructor.name} ${this.id}`);
-    if (!this._committed && !this._rollbacked) {
+    if (!this._committing && !this._rollbacking) {
       throw new errors.ErrorDBTransactionNotCommittedNorRollbacked();
     }
+    // Wait for commit or rollback to finish
+    // this then allows the destruction to proceed
+    await this.commitOrRollbackLock.waitForUnlock();
     this._db.transactionRefs.delete(this);
     // Unlock all locked keys in reverse
     const lockedKeys = [...this._locks.keys()].reverse();
@@ -116,10 +122,30 @@ class DBTransaction {
     return this._callbacksFinally;
   }
 
+  /**
+   * Indicates when `this.commit` is first called
+   */
+  get committing(): boolean {
+    return this._committing;
+  }
+
+  /**
+   * Indicates when the transaction is committed
+   */
   get committed(): boolean {
     return this._committed;
   }
 
+  /**
+   * Indicates when `this.rollback` is first called
+   */
+  get rollbacking(): boolean {
+    return this._rollbacking;
+  }
+
+  /**
+   * Indicates when the transaction is rollbacked
+   */
   get rollbacked(): boolean {
     return this._rollbacked;
   }
@@ -437,75 +463,79 @@ class DBTransaction {
 
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async commit(): Promise<void> {
-    if (this._rollbacked) {
+    if (this._rollbacking) {
       throw new errors.ErrorDBTransactionRollbacked();
     }
-    if (this._committed) {
+    if (this._committing) {
       return;
     }
+    this._committing = true;
     this.logger.debug(`Committing ${this.constructor.name} ${this.id}`);
-    for (const iterator of this._iteratorRefs) {
-      await iterator.destroy();
-    }
-    this._committed = true;
-    try {
+    await this.commitOrRollbackLock.withF(async () => {
+      for (const iterator of this._iteratorRefs) {
+        await iterator.destroy();
+      }
       try {
-        // If this fails, the `DBTransaction` is still considered committed
-        // it must be destroyed, it cannot be reused
-        await rocksdbP.transactionCommit(this._transaction);
-      } catch (e) {
-        if (e.code === 'TRANSACTION_CONFLICT') {
-          this.logger.debug(
-            `Failed Committing ${this.constructor.name} ${this.id} due to ${errors.ErrorDBTransactionConflict.name}`,
-          );
-          throw new errors.ErrorDBTransactionConflict(undefined, {
-            cause: e,
-          });
-        } else {
-          this.logger.debug(
-            `Failed Committing ${this.constructor.name} ${this.id} due to ${e.message}`,
-          );
-          throw e;
+        try {
+          // If this fails, the `DBTransaction` is still considered committed
+          // it must be destroyed, it cannot be reused
+          await rocksdbP.transactionCommit(this._transaction);
+        } catch (e) {
+          if (e.code === 'TRANSACTION_CONFLICT') {
+            this.logger.debug(
+              `Failed Committing ${this.constructor.name} ${this.id} due to ${errors.ErrorDBTransactionConflict.name}`,
+            );
+            throw new errors.ErrorDBTransactionConflict(undefined, {
+              cause: e,
+            });
+          } else {
+            this.logger.debug(
+              `Failed Committing ${this.constructor.name} ${this.id} due to ${e.message}`,
+            );
+            throw e;
+          }
+        }
+        for (const f of this._callbacksSuccess) {
+          await f();
+        }
+      } finally {
+        for (const f of this._callbacksFinally) {
+          await f();
         }
       }
-      for (const f of this._callbacksSuccess) {
-        await f();
-      }
-    } finally {
-      for (const f of this._callbacksFinally) {
-        await f();
-      }
-    }
-    await this.destroy();
+      this._committed = true;
+    });
     this.logger.debug(`Committed ${this.constructor.name} ${this.id}`);
   }
 
   @ready(new errors.ErrorDBTransactionDestroyed())
   public async rollback(e?: Error): Promise<void> {
-    if (this._committed) {
+    if (this._committing) {
       throw new errors.ErrorDBTransactionCommitted();
     }
-    if (this._rollbacked) {
+    if (this._rollbacking) {
       return;
     }
+    this._rollbacking = true;
     this.logger.debug(`Rollbacking ${this.constructor.name} ${this.id}`);
-    for (const iterator of this._iteratorRefs) {
-      await iterator.destroy();
-    }
-    this._rollbacked = true;
-    try {
-      // If this fails, the `DBTransaction` is still considered rollbacked
-      // it must be destroyed, it cannot be reused
-      await rocksdbP.transactionRollback(this._transaction);
-      for (const f of this._callbacksFailure) {
-        await f(e);
+    await this.commitOrRollbackLock.withF(async () => {
+      for (const iterator of this._iteratorRefs) {
+        await iterator.destroy();
       }
-    } finally {
-      for (const f of this._callbacksFinally) {
-        await f(e);
+      try {
+        // If this fails, the `DBTransaction` is still considered rollbacked
+        // it must be destroyed, it cannot be reused
+        await rocksdbP.transactionRollback(this._transaction);
+        for (const f of this._callbacksFailure) {
+          await f(e);
+        }
+      } finally {
+        for (const f of this._callbacksFinally) {
+          await f(e);
+        }
       }
-    }
-    await this.destroy();
+      this._rollbacked = true;
+    });
     this.logger.debug(`Rollbacked ${this.constructor.name} ${this.id}`);
   }
 

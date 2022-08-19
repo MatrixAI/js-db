@@ -1,4 +1,4 @@
-import type { KeyPath } from '@';
+import type { KeyPath } from '@/types';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
