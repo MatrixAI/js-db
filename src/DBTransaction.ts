@@ -156,7 +156,7 @@ class DBTransaction {
    * There is no deadlock detection
    */
   public async lock(
-    ...requests: Array<MultiLockRequest | string>
+    ...requests: Array<MultiLockRequest | ToString>
   ): Promise<void> {
     const requests_: Array<AsyncLocksMultiLockRequest<RWLockWriter>> = [];
     for (const request of requests) {
