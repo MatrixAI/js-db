@@ -168,7 +168,15 @@ class DB {
       await iterator.destroy();
     }
     for (const transaction of this._transactionRefs) {
-      await transaction.rollback();
+      if (!transaction.committing && !transaction.rollbacking) {
+        // If any transactions is still pending at this point
+        // then if they try to commit, that will be an error because
+        // the transaction is already rollbacked
+        await transaction.rollback();
+      } else {
+        // This will wait for committing or rollbacking to complete
+        await transaction.destroy();
+      }
     }
     await rocksdbP.dbClose(this._db);
     this.logger.info(`Stopped ${this.constructor.name}`);
@@ -212,6 +220,9 @@ class DB {
               await tran.rollback(e);
             }
           } finally {
+            // If already destroyed, this is a noop
+            // this will only have affect if there was an
+            // exception during commit or rollback
             await tran.destroy();
           }
         },
