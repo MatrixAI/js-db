@@ -54,11 +54,14 @@ class DB {
     logger.info(`Creating ${this.name}`);
     const db = new this({
       dbPath,
-      crypto,
       fs,
       logger,
     });
-    await db.start({ fresh, ...dbOptions });
+    await db.start({
+      crypto,
+      fresh,
+      ...dbOptions,
+    });
     logger.info(`Created ${this.name}`);
     return db;
   }
@@ -106,28 +109,27 @@ class DB {
 
   constructor({
     dbPath,
-    crypto,
     fs,
     logger,
   }: {
     dbPath: string;
-    crypto?: {
-      key: Buffer;
-      ops: Crypto;
-    };
     fs: FileSystem;
     logger: Logger;
   }) {
     this.logger = logger;
     this.dbPath = dbPath;
-    this.crypto = crypto;
     this.fs = fs;
   }
 
   public async start({
+    crypto,
     fresh = false,
     ...dbOptions
   }: {
+    crypto?: {
+      key: Buffer;
+      ops: Crypto;
+    };
     fresh?: boolean;
   } & DBOptions = {}) {
     this.logger.info(`Starting ${this.constructor.name}`);
@@ -142,6 +144,7 @@ class DB {
         throw new errors.ErrorDBDelete(e.message, { cause: e });
       }
     }
+    this.crypto = crypto;
     const db = await this.setupDb(this.dbPath, {
       ...dbOptions,
       createIfMissing: true,
@@ -179,6 +182,7 @@ class DB {
       }
     }
     await rocksdbP.dbClose(this._db);
+    delete this.crypto;
     this.logger.info(`Stopped ${this.constructor.name}`);
   }
 

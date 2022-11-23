@@ -21,7 +21,6 @@ npm install --save @matrixai/db
 
 ## Usage
 
-
 ```ts
 import { DB } from '@matrixai/db';
 
@@ -75,6 +74,8 @@ async function main () {
 
 main();
 ```
+
+If you created the `DB` with a `crypto` object, then upon restarting the `DB`, you must pass in the same `crypto` object.
 
 ## Development
 

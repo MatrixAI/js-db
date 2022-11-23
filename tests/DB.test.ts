@@ -57,7 +57,7 @@ describe(DB.name, () => {
     await db.start();
     await db.put('a', 'value0');
     await db.stop();
-    await db.start();
+    await db.start({ crypto });
     expect(await db.get('a')).toBe('value0');
     await db.stop();
   });
@@ -98,7 +98,7 @@ describe(DB.name, () => {
     await db._put(['canary'], 'bad ju ju');
     await db.stop();
     // Start will fail, the DB will still be stopped
-    await expect(db.start()).rejects.toThrow(errors.ErrorDBKey);
+    await expect(db.start({ crypto })).rejects.toThrow(errors.ErrorDBKey);
     // DB is still corrupted at this point
     await expect(DB.createDB({ dbPath, crypto, logger })).rejects.toThrow(
       errors.ErrorDBKey,
