@@ -34,14 +34,14 @@ async function main () {
   const encrypt = async (
     key: ArrayBuffer,
     plainText: ArrayBuffer
-  ): Promise<ArrayBuffer> {
+  ): Promise<ArrayBuffer> => {
     return plainText;
   };
 
   const decrypt = async (
     key: ArrayBuffer,
     cipherText: ArrayBuffer
-  ): Promise<ArrayBuffer | undefined> {
+  ): Promise<ArrayBuffer | undefined> => {
     return cipherText;
   }
 
@@ -63,9 +63,11 @@ async function main () {
 
   await db.del(['level', Buffer.from([0x30, 0x32]), 'c']);
 
-  for await (const [kP, v] of db.iterator({
-    lt: [Buffer.from([0x30, 0x32]), ''],
-  }, ['level'])) {
+  for await (const [kP, v] of db.iterator(
+    ['level'],
+    {
+      lt: [Buffer.from([0x30, 0x32]), ''],
+    })) {
     console.log(kP, v);
   }
 
