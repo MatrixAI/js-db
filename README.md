@@ -79,6 +79,8 @@ If you created the `DB` with a `crypto` object, then upon restarting the `DB`, y
 
 ## Development
 
+This project uses Git submodules to bring in rocksdb. **Make sure to clone recursively.**
+
 Run `nix-shell`, and once you're inside, you can use:
 
 ```sh
