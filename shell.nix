@@ -30,7 +30,7 @@ mkShell {
     mkdir --parents "$(pwd)/tmp"
 
     # Built executables and NPM executables
-    export PATH="$(pwd)/dist/bin:$(npm bin):$PATH"
+    export PATH="$(pwd)/dist/bin:$(npm root)/.bin:$PATH"
 
     # Path to headers used by node-gyp for native addons
     export npm_config_nodedir="${nodejs}"
