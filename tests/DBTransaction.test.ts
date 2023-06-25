@@ -1035,9 +1035,9 @@ describe(DBTransaction.name, () => {
       );
       await db.withTransactionF(async (tran2) => {
         await tran2.lock(['foo', 'read']);
-        await expect(tran2.lock(['bar', 'write', 0])).rejects.toThrow(
-          locksErrors.ErrorAsyncLocksTimeout,
-        );
+        await expect(
+          tran2.lock(['bar', 'write', { timer: 0 }]),
+        ).rejects.toThrow(locksErrors.ErrorAsyncLocksTimeout);
         expect(tran1.locks.size).toBe(2);
         expect(tran1.locks.has('foo')).toBe(true);
         expect(tran1.locks.get('foo')!.type).toBe('read');
@@ -1097,9 +1097,9 @@ describe(DBTransaction.name, () => {
         // This is a noop, because `tran1` owns `key1` and `key2`
         await tran2.unlock('key1', 'key2');
         // This fails because `key1` is still locked by `tran1`
-        await expect(tran2.lock(['key1', 'write', 0])).rejects.toThrow(
-          locksErrors.ErrorAsyncLocksTimeout,
-        );
+        await expect(
+          tran2.lock(['key1', 'write', { timer: 0 }]),
+        ).rejects.toThrow(locksErrors.ErrorAsyncLocksTimeout);
         await tran1.unlock('key1');
         expect(tran1.locks.size).toBe(1);
         // This succeeds because `key1` is now unlocked
@@ -1109,9 +1109,9 @@ describe(DBTransaction.name, () => {
         await tran1.unlock('key1');
         expect(tran2.locks.has('key1')).toBe(true);
         expect(tran1.locks.has('key1')).toBe(false);
-        await expect(tran1.lock(['key1', 'write', 0])).rejects.toThrow(
-          locksErrors.ErrorAsyncLocksTimeout,
-        );
+        await expect(
+          tran1.lock(['key1', 'write', { timer: 0 }]),
+        ).rejects.toThrow(locksErrors.ErrorAsyncLocksTimeout);
       });
       await tran1.lock('key1');
       expect(tran1.locks.has('key1')).toBe(true);
@@ -1126,8 +1126,8 @@ describe(DBTransaction.name, () => {
         // Currently a deadlock can happen, and the only way to avoid is to use timeouts
         // In the future, we want to have `DBTransaction` detect deadlocks
         // and automatically give us `ErrorDBTransactionDeadlock` exception
-        const p1 = tran1.lock(['bar', 'write', 50]);
-        const p2 = tran2.lock(['foo', 'write', 50]);
+        const p1 = tran1.lock(['bar', 'write', { timer: 50 }]);
+        const p2 = tran2.lock(['foo', 'write', { timer: 50 }]);
         const results = await Promise.allSettled([p1, p2]);
         expect(
           results.every(
