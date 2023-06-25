@@ -87,6 +87,10 @@ class ErrorDBTransactionLockType<T> extends ErrorDBTransaction<T> {
     'DBTransaction does not support upgrading or downgrading the lock type';
 }
 
+class ErrorDBTransactionDeadlock<T> extends ErrorDBTransaction<T> {
+  static description = 'DBTransaction encountered a pessimistic deadlock';
+}
+
 export {
   ErrorDB,
   ErrorDBRunning,
@@ -109,4 +113,5 @@ export {
   ErrorDBTransactionNotCommittedNorRollbacked,
   ErrorDBTransactionConflict,
   ErrorDBTransactionLockType,
+  ErrorDBTransactionDeadlock,
 };

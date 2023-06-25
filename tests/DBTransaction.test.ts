@@ -1139,4 +1139,30 @@ describe(DBTransaction.name, () => {
       });
     });
   });
+  test('deadlock detection', async () => {
+    const dbPath = `${dataDir}/db2`;
+    const db = await DB.createDB({ dbPath, crypto, deadlock: true, logger });
+    const barrier = await Barrier.createBarrier(2);
+    const results = await Promise.allSettled([
+      db.withTransactionF(async (tran1) => {
+        await tran1.lock('foo');
+        await barrier.wait();
+        await tran1.lock('bar');
+      }),
+      db.withTransactionF(async (tran2) => {
+        await tran2.lock('bar');
+        await barrier.wait();
+        await tran2.lock('foo');
+      }),
+    ]);
+    expect(
+      results.some(
+        (r) =>
+          r.status === 'rejected' &&
+          r.reason instanceof errors.ErrorDBTransactionDeadlock,
+      ),
+    ).toBe(true);
+    expect(results.some((r) => r.status === 'fulfilled')).toBe(true);
+    await db.stop();
+  });
 });
