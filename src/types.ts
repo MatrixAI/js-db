@@ -1,5 +1,4 @@
 import type fs from 'fs';
-import type { RWLockWriter } from '@matrixai/async-locks';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 import type {
   RocksDBDatabaseOptions,
@@ -16,13 +15,6 @@ import type {
  * Plain data dictionary
  */
 type POJO = { [key: string]: any };
-
-/**
- * Any type that can be turned into a string
- */
-interface ToString {
-  toString(): string;
-}
 
 /**
  * Opaque types are wrappers of existing types
@@ -159,14 +151,8 @@ type DBOp =
 
 type DBOps = Array<DBOp>;
 
-type MultiLockRequest = [
-  key: ToString,
-  ...lockingParams: Parameters<RWLockWriter['lock']>,
-];
-
 export type {
   POJO,
-  ToString,
   Opaque,
   Callback,
   Merge,
@@ -182,5 +168,4 @@ export type {
   DBBatch,
   DBOp,
   DBOps,
-  MultiLockRequest,
 };

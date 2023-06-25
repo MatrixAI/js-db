@@ -37,6 +37,7 @@ class DB {
   public static async createDB({
     dbPath,
     crypto,
+    deadlock = false,
     fs = require('fs'),
     logger = new Logger(this.name),
     fresh = false,
@@ -47,6 +48,7 @@ class DB {
       key: Buffer;
       ops: Crypto;
     };
+    deadlock?: boolean;
     fs?: FileSystem;
     logger?: Logger;
     fresh?: boolean;
@@ -54,6 +56,7 @@ class DB {
     logger.info(`Creating ${this.name}`);
     const db = new this({
       dbPath,
+      deadlock,
       fs,
       logger,
     });
@@ -75,6 +78,7 @@ class DB {
   protected logger: Logger;
   protected workerManager?: DBWorkerManagerInterface;
   protected _lockBox: LockBox<RWLockWriter> = new LockBox();
+  protected _locksPending?: Map<string, { count: number }>;
   protected _db: RocksDBDatabase;
   /**
    * References to iterators
@@ -109,15 +113,20 @@ class DB {
 
   constructor({
     dbPath,
+    deadlock,
     fs,
     logger,
   }: {
     dbPath: string;
+    deadlock: boolean;
     fs: FileSystem;
     logger: Logger;
   }) {
     this.logger = logger;
     this.dbPath = dbPath;
+    if (deadlock) {
+      this._locksPending = new Map();
+    }
     this.fs = fs;
   }
 
@@ -213,6 +222,7 @@ class DB {
       const tran = new DBTransaction({
         db: this,
         lockBox: this._lockBox,
+        locksPending: this._locksPending,
         logger: this.logger,
       });
       return [
