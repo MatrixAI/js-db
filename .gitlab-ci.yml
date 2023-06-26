@@ -209,8 +209,8 @@ build:macos:
   stage: build
   needs: []
   tags:
-    - shared-macos-amd64
-  image: macos-11-xcode-12
+    - saas-macos-medium-m1
+  image: macos-12-xcode-14
   variables:
     # Location node-gyp installed headers and static libraries
     npm_config_devdir: "${CI_PROJECT_DIR}/tmp/node-gyp"

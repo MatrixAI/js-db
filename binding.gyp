@@ -52,7 +52,7 @@
           },
           'VCLinkerTool': {
             'AdditionalDependencies': [
-              # SDK import libs
+              # Windows SDK libs required for rocksdb
               'Shlwapi.lib',
               'rpcrt4.lib'
             ]
@@ -68,8 +68,8 @@
         'cflags+': [ '-fvisibility=hidden' ],
         'cflags_cc+': [ '-fvisibility=hidden' ],
         'xcode_settings': {
-          # Minimum mac osx target version (matches node v16.14.2)
-          'MACOSX_DEPLOYMENT_TARGET': '10.13',
+          # Minimum mac osx target version (matches node v18.15.0 common.gypi)
+          'MACOSX_DEPLOYMENT_TARGET': '10.15',
           # This is also needed to prevent exporting of symbols
           'GCC_SYMBOLS_PRIVATE_EXTERN': 'YES',
           'OTHER_CFLAGS': [
