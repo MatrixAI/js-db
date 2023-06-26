@@ -1,0 +1,12 @@
+diff --git a/benches/index.ts b/benches/index.ts
+index 5c96be7..ff58cec 100644
+--- a/benches/index.ts
++++ b/benches/index.ts
+@@ -32,7 +32,6 @@ async function main(): Promise<void> {
+   }
+   await metricsFile.close();
+   const systemData = await si.get({
+-    cpu: '*',
+     osInfo: 'platform, distro, release, kernel, arch',
+     system: 'model, manufacturer',
+   });

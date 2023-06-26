@@ -14,5 +14,3 @@ brew install node@18
 brew link --overwrite node@18
 brew install python@3.9
 brew link --overwrite python@3.9
-brew install grep
-brew link --overwrite grep
