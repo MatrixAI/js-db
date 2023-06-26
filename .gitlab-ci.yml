@@ -224,6 +224,7 @@ build:macos:
     - export PATH="$(npm root)/.bin:$PATH"
     - npm run prebuild --verbose
     - npm test -- --ci --coverage
+    - which grep
     - npm run bench
   artifacts:
     when: always
