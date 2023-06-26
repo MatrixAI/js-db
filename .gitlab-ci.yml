@@ -224,9 +224,6 @@ build:macos:
     - export PATH="$(npm root)/.bin:$PATH"
     - npm run prebuild --verbose
     - npm test -- --ci --coverage
-    # Temporary fix for m1 mac runners: https://github.com/MatrixAI/js-db/pull/64#issuecomment-1607109864
-    # Remove when upstream has fixed and you have updated `systeminformation` package
-    - patch ./benches/index.ts < ./scripts/systeminformation-cpu.patch
     - npm run bench
   artifacts:
     when: always
