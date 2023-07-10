@@ -19,7 +19,6 @@ import type {
   RocksDBCountOptions,
 } from './types';
 import path from 'path';
-import nodeGypBuild from 'node-gyp-build';
 
 interface RocksDB {
   dbInit(): RocksDBDatabase;
@@ -271,8 +270,102 @@ interface RocksDB {
   ): void;
 }
 
-const rocksdb: RocksDB = nodeGypBuild(path.join(__dirname, '../../'));
+const projectRoot = path.join(__dirname, '../../');
+const prebuildPath = path.join(projectRoot, 'prebuild');
 
-export default rocksdb;
+/**
+ * Try require on all prebuild targets first, then
+ * try require on all npm targets second.
+ */
+function requireBinding(targets: Array<string>): RocksDB {
+  const prebuildTargets = targets.map((target) =>
+    path.join(prebuildPath, `db-${target}.node`),
+  );
+  for (const prebuildTarget of prebuildTargets) {
+    try {
+      return require(prebuildTarget);
+    } catch (e) {
+      if (e.code !== 'MODULE_NOT_FOUND') throw e;
+    }
+  }
+  const npmTargets = targets.map((target) => `@matrixai/db-${target}`);
+  for (const npmTarget of npmTargets) {
+    try {
+      return require(npmTarget);
+    } catch (e) {
+      if (e.code !== 'MODULE_NOT_FOUND') throw e;
+    }
+  }
+  throw new Error(
+    `Failed requiring possible native bindings: ${prebuildTargets.concat(
+      npmTargets,
+    )}`,
+  );
+}
+
+let nativeBinding: RocksDB;
+
+/**
+ * For desktop we only support win32, darwin and linux.
+ * Mobile OS support is pending.
+ */
+switch (process.platform) {
+  case 'win32':
+    switch (process.arch) {
+      case 'x64':
+        nativeBinding = requireBinding(['win32-x64']);
+        break;
+      case 'ia32':
+        nativeBinding = requireBinding(['win32-ia32']);
+        break;
+      case 'arm64':
+        nativeBinding = requireBinding(['win32-arm64']);
+        break;
+      default:
+        throw new Error(`Unsupported architecture on Windows: ${process.arch}`);
+    }
+    break;
+  case 'darwin':
+    switch (process.arch) {
+      case 'x64':
+        nativeBinding = requireBinding([
+          'darwin-x64',
+          'darwin-x64+arm64',
+          'darwin-arm64+x64',
+        ]);
+        break;
+      case 'arm64':
+        nativeBinding = requireBinding([
+          'darwin-arm64',
+          'darwin-arm64+x64',
+          'darwin-x64+arm64',
+        ]);
+        break;
+      default:
+        throw new Error(`Unsupported architecture on macOS: ${process.arch}`);
+    }
+    break;
+  case 'linux':
+    switch (process.arch) {
+      case 'x64':
+        nativeBinding = requireBinding(['linux-x64']);
+        break;
+      case 'arm64':
+        nativeBinding = requireBinding(['linux-arm64']);
+        break;
+      case 'arm':
+        nativeBinding = requireBinding(['linux-arm']);
+        break;
+      default:
+        throw new Error(`Unsupported architecture on Linux: ${process.arch}`);
+    }
+    break;
+  default:
+    throw new Error(
+      `Unsupported OS: ${process.platform}, architecture: ${process.arch}`,
+    );
+}
+
+export default nativeBinding;
 
 export type { RocksDB };
