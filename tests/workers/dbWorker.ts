@@ -1,6 +1,6 @@
-import type { DBWorkerModule } from './dbWorkerModule';
+import type { DBWorkerModule } from './dbWorkerModule.js';
 import { expose } from 'threads/worker';
-import dbWorker from './dbWorkerModule';
+import dbWorker from './dbWorkerModule.js';
 
 expose(dbWorker);
 

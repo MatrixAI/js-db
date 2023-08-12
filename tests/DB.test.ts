@@ -1,19 +1,22 @@
-import type DBTransaction from '@/DBTransaction';
-import type { KeyPath } from '@/types';
+import type DBTransaction from '#DBTransaction.js';
+import type { KeyPath } from '#types.js';
 import type { ResourceRelease } from '@matrixai/resources';
-import type { DBWorkerModule } from './workers/dbWorkerModule';
-import os from 'os';
-import path from 'path';
-import fs from 'fs';
-import nodeCrypto from 'crypto';
+import type { DBWorkerModule } from './workers/dbWorkerModule.js';
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import nodeCrypto from 'node:crypto';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-import { WorkerManager } from '@matrixai/workers';
+// import { WorkerManager } from '@matrixai/workers';
+import matrixaiWorkers from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
 import { spawn, Worker } from 'threads';
-import DB from '@/DB';
-import * as errors from '@/errors';
-import * as utils from '@/utils';
-import * as testsUtils from './utils';
+import DB from '#DB.js';
+import * as errors from '#errors.js';
+import * as utils from '#utils.js';
+import * as testsUtils from './utils.js';
+
+const { WorkerManager } = matrixaiWorkers;
 
 describe(DB.name, () => {
   const logger = new Logger(`${DB.name} Test`, LogLevel.WARN, [
