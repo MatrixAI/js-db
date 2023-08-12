@@ -1,4 +1,4 @@
-import type fs from 'fs';
+import type fs from 'node:fs';
 import type { WorkerManagerInterface } from '@matrixai/workers';
 import type {
   RocksDBDatabaseOptions,
@@ -9,7 +9,7 @@ import type {
   RocksDBCountOptions,
   RocksDBSnapshot,
   RocksDBTransactionSnapshot,
-} from './native/types';
+} from './native/types.js';
 
 /**
  * Plain data dictionary

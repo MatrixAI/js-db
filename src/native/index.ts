@@ -1,5 +1,5 @@
-export { default as rocksdb } from './rocksdb';
-export { default as rocksdbP } from './rocksdbP';
-export type { RocksDB } from './rocksdb';
-export type { RocksDBP } from './rocksdbP';
-export * from './types';
+export { default as rocksdb } from './rocksdb.js';
+export { default as rocksdbP } from './rocksdbP.js';
+export type { RocksDB } from './rocksdb.js';
+export type { RocksDBP } from './rocksdbP.js';
+export * from './types.js';

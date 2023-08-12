@@ -7,19 +7,18 @@
     "jest": true
   },
   "parser": "@typescript-eslint/parser",
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "plugin:prettier/recommended",
-    "prettier"
-  ],
-  "plugins": [
-    "import"
-  ],
   "parserOptions": {
     "project": "tsconfig.json",
     "sourceType": "module"
   },
+  "plugins": [
+    "import"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended"
+  ],
   "rules": {
     "linebreak-style": ["error", "unix"],
     "no-empty": 1,

@@ -1,4 +1,4 @@
-import type { Callback } from '../types';
+import type { Callback } from '../types.js';
 import type {
   RocksDBDatabase,
   RocksDBIterator,
@@ -17,8 +17,8 @@ import type {
   RocksDBBatchDelOperation,
   RocksDBBatchPutOperation,
   RocksDBCountOptions,
-} from './types';
-import path from 'path';
+} from './types.js';
+import path from 'node:path';
 import nodeGypBuild from 'node-gyp-build';
 
 interface RocksDB {

@@ -12,21 +12,21 @@ import type {
   DBIteratorOptions,
   DBClearOptions,
   DBCountOptions,
-} from './types';
-import type { RocksDBDatabase, RocksDBDatabaseOptions } from './native';
+} from './types.js';
+import type { RocksDBDatabase, RocksDBDatabaseOptions } from './native/index.js';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
 import {
   CreateDestroyStartStop,
   ready,
-} from '@matrixai/async-init/dist/CreateDestroyStartStop';
+} from '@matrixai/async-init/dist/CreateDestroyStartStop.js';
 import { LockBox } from '@matrixai/async-locks';
-import DBIterator from './DBIterator';
-import DBTransaction from './DBTransaction';
-import { rocksdbP } from './native';
-import * as utils from './utils';
-import * as errors from './errors';
+import DBIterator from './DBIterator.js';
+import DBTransaction from './DBTransaction.js';
+import { rocksdbP } from './native/index.js';
+import * as utils from './utils.js';
+import * as errors from './errors.js';
 
 interface DB extends CreateDestroyStartStop {}
 @CreateDestroyStartStop(

@@ -1,29 +1,29 @@
 import type { LockBox } from '@matrixai/async-locks';
-import type DB from './DB';
+import type DB from './DB.js';
 import type {
   KeyPath,
   LevelPath,
   DBIteratorOptions,
   DBClearOptions,
   DBCountOptions,
-} from './types';
+} from './types.js';
 import type {
   RocksDBTransaction,
   RocksDBTransactionOptions,
   RocksDBTransactionSnapshot,
-} from './native/types';
+} from './native/types.js';
 import Logger from '@matrixai/logger';
-import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy.js';
 import {
   Monitor,
   Lock,
   RWLockWriter,
   errors as asyncLocksErrors,
 } from '@matrixai/async-locks';
-import DBIterator from './DBIterator';
-import { rocksdbP } from './native';
-import * as utils from './utils';
-import * as errors from './errors';
+import DBIterator from './DBIterator.js';
+import { rocksdbP } from './native/index.js';
+import * as utils from './utils.js';
+import * as errors from './errors.js';
 
 interface DBTransaction extends CreateDestroy {}
 @CreateDestroy()
