@@ -20,7 +20,7 @@ import { withF, withG } from '@matrixai/resources';
 import {
   CreateDestroyStartStop,
   ready,
-} from '@matrixai/async-init/dist/CreateDestroyStartStop.js';
+} from '@matrixai/async-init/CreateDestroyStartStop.js';
 import { LockBox } from '@matrixai/async-locks';
 import DBIterator from './DBIterator.js';
 import DBTransaction from './DBTransaction.js';

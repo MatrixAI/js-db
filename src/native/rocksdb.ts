@@ -19,6 +19,7 @@ import type {
   RocksDBCountOptions,
 } from './types.js';
 import path from 'node:path';
+import url from 'node:url';
 import nodeGypBuild from 'node-gyp-build';
 
 interface RocksDB {
@@ -271,7 +272,11 @@ interface RocksDB {
   ): void;
 }
 
-const rocksdb: RocksDB = nodeGypBuild(path.join(__dirname, '../../'));
+const projectPath = path.dirname(
+  path.dirname(path.dirname(url.fileURLToPath(import.meta.url))),
+);
+
+const rocksdb: RocksDB = nodeGypBuild(projectPath);
 
 export default rocksdb;
 

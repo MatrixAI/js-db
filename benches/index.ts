@@ -3,8 +3,8 @@
 import fs from 'fs';
 import path from 'path';
 import si from 'systeminformation';
-import DB1KiB from './db_1KiB';
-import DB1MiB from './db_1MiB';
+import DB1KiB from './db_1KiB.js';
+import DB1MiB from './db_1MiB.js';
 
 async function main(): Promise<void> {
   await fs.promises.mkdir(path.join(__dirname, 'results'), { recursive: true });

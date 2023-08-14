@@ -8,7 +8,7 @@ import type {
   RocksDBTransactionSnapshot,
 } from './native/index.js';
 import Logger from '@matrixai/logger';
-import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy.js';
+import { CreateDestroy, ready } from '@matrixai/async-init/CreateDestroy.js';
 import { Lock } from '@matrixai/async-locks';
 import { rocksdbP } from './native/index.js';
 import * as errors from './errors.js';

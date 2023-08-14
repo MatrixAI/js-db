@@ -13,7 +13,7 @@ import type {
   RocksDBTransactionSnapshot,
 } from './native/types.js';
 import Logger from '@matrixai/logger';
-import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy.js';
+import { CreateDestroy, ready } from '@matrixai/async-init/CreateDestroy.js';
 import {
   Monitor,
   Lock,
