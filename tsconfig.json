@@ -29,5 +29,10 @@
     "./tests/**/*",
     "./scripts/**/*",
     "./benches/**/*"
-  ]
+  ],
+  "ts-node": {
+    "esm": true,
+    "transpileOnly": true,
+    "swc": true
+  }
 }

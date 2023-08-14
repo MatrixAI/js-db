@@ -14,6 +14,7 @@ import type {
   DBCountOptions,
 } from './types.js';
 import type { RocksDBDatabase, RocksDBDatabaseOptions } from './native/index.js';
+import nodeFs from 'node:fs';
 import { Transfer } from 'threads';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
@@ -38,7 +39,7 @@ class DB {
     dbPath,
     crypto,
     deadlock = false,
-    fs = require('fs'),
+    fs = nodeFs,
     logger = new Logger(this.name),
     fresh = false,
     ...dbOptions

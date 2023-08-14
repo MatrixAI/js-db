@@ -75,6 +75,7 @@
     "semver": "^7.3.7",
     "shx": "^0.3.4",
     "systeminformation": "^5.18.5",
+    "ts-node": "^10.9.1",
     "tsx": "^3.12.7",
     "typedoc": "^0.24.8",
     "typescript": "^5.1.6"
