@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
-const os = require('os');
-const fs = require('fs');
-const path = require('path');
-const process = require('process');
-const childProcess = require('child_process');
-const semver = require('semver');
-const packageJSON = require('../package.json');
+import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+import url from 'node:url';
+import process from 'node:process';
+import childProcess from 'node:child_process';
+import semver from 'semver';
+import packageJSON from '../package.json' assert { type: "json" };
+
+const projectPath = path.dirname(
+  path.dirname(url.fileURLToPath(import.meta.url)),
+);
 
 /**
  * Version of visual studio used for compilation on windows
@@ -127,9 +132,8 @@ async function main(argv = process.argv) {
     shell: platform === 'win32' ? true : false,
   });
 
-  const projectRoot = path.join(__dirname, '..');
-  const buildsPath = path.join(projectRoot, 'build', 'Release');
-  const prebuildsPath = path.join(projectRoot, 'prebuilds');
+  const buildsPath = path.join(projectPath, 'build', 'Release');
+  const prebuildsPath = path.join(projectPath, 'prebuilds');
 
   const buildNames = await fs.promises.readdir(buildsPath);
   const buildName = buildNames.find((filename) => /\.node$/.test(filename));
@@ -154,4 +158,9 @@ async function main(argv = process.argv) {
 }
 /* eslint-enable no-console */
 
-void main();
+if (import.meta.url.startsWith('file:')) {
+  const modulePath = url.fileURLToPath(import.meta.url);
+  if (process.argv[1] === modulePath) {
+    void main();
+  }
+}

@@ -1,18 +1,18 @@
-import type DB from './DB';
-import type DBTransaction from './DBTransaction';
-import type { Merge, KeyPath, LevelPath, DBIteratorOptions } from './types';
+import type DB from './DB.js';
+import type DBTransaction from './DBTransaction.js';
+import type { Merge, KeyPath, LevelPath, DBIteratorOptions } from './types.js';
 import type {
   RocksDBIterator,
   RocksDBIteratorOptions,
   RocksDBSnapshot,
   RocksDBTransactionSnapshot,
-} from './native';
+} from './native/index.js';
 import Logger from '@matrixai/logger';
-import { CreateDestroy, ready } from '@matrixai/async-init/dist/CreateDestroy';
+import { CreateDestroy, ready } from '@matrixai/async-init/CreateDestroy.js';
 import { Lock } from '@matrixai/async-locks';
-import { rocksdbP } from './native';
-import * as errors from './errors';
-import * as utils from './utils';
+import { rocksdbP } from './native/index.js';
+import * as errors from './errors.js';
+import * as utils from './utils.js';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface DBIterator<K extends KeyPath | undefined, V> extends CreateDestroy {}
