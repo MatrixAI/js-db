@@ -3,7 +3,7 @@
 with pkgs;
 mkShell {
   nativeBuildInputs = [
-    nodejs
+    nodejs_20
     nodejs.python
     clang-tools
     shellcheck
