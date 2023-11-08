@@ -38,6 +38,39 @@ describe(DBIterator.name, () => {
       recursive: true,
     });
   });
+  test('iteration with limit', async () => {
+    await db.put(Buffer.from([0x01]), Buffer.alloc(0));
+    await db.put(Buffer.from([0x00, 0x00, 0x00]), Buffer.alloc(0));
+    await db.put(Buffer.from([0x00, 0x00]), Buffer.alloc(0));
+    await db.put(Buffer.from([]), Buffer.alloc(0));
+    let keyPaths: Array<KeyPath> = [];
+    for await (const [kP] of db.iterator([])) {
+      keyPaths.push(kP);
+    }
+    expect(keyPaths).toHaveLength(4);
+    keyPaths = [];
+    for await (const [kP] of db.iterator([], { limit: 1 })) {
+      keyPaths.push(kP);
+    }
+    expect(keyPaths).toHaveLength(1);
+    keyPaths = [];
+    for await (const [kP] of db.iterator([], { limit: 2 })) {
+      keyPaths.push(kP);
+    }
+    expect(keyPaths).toHaveLength(2);
+    // Infinity is not supported, it becomes 0
+    keyPaths = [];
+    for await (const [kP] of db.iterator([], { limit: Infinity })) {
+      keyPaths.push(kP);
+    }
+    expect(keyPaths).toHaveLength(0);
+    // Negative numbers becomes Infinity
+    keyPaths = [];
+    for await (const [kP] of db.iterator([], { limit: -1 })) {
+      keyPaths.push(kP);
+    }
+    expect(keyPaths).toHaveLength(4);
+  });
   test('internal db lexicographic iteration order', async () => {
     const dbPath = `${dataDir}/leveldb`;
     const db = rocksdbP.dbInit();

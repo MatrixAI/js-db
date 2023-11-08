@@ -83,6 +83,12 @@ If you created the `DB` with a `crypto` object, then upon restarting the `DB`, y
 
 This project uses Git submodules to bring in rocksdb. **Make sure to clone recursively.**
 
+If you already cloned, run this:
+
+```sh
+git submodule update --init --recursive
+```
+
 Run `nix-shell`, and once you're inside, you can use:
 
 ```sh
