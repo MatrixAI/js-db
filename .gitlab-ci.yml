@@ -180,6 +180,7 @@ build:windows:
     npm_config_arch: "x64"
   before_script:
     - mkdir -Force "$CI_PROJECT_DIR/tmp"
+    - Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1  # Added line
   script:
     - ./scripts/choco-install.ps1
     - refreshenv
