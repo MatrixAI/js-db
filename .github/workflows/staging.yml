@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  use-library-js-staging:
+  use-native-library-js-staging:
     permissions:
       contents: write
       actions: write
