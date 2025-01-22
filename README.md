@@ -1,8 +1,5 @@
 # js-db
 
-staging: [![pipeline status](https://gitlab.com/MatrixAI/open-source/js-db/badges/staging/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-db/commits/staging)
-master: [![pipeline status](https://gitlab.com/MatrixAI/open-source/js-db/badges/master/pipeline.svg)](https://gitlab.com/MatrixAI/open-source/js-db/commits/master)
-
 DB is library managing key value state for MatrixAI's JavaScript/TypeScript applications.
 
 This forks classic-level's C++ binding code around LevelDB 1.20. Differences from classic-level:
@@ -89,7 +86,7 @@ If you already cloned, run this:
 git submodule update --init --recursive
 ```
 
-Run `nix-shell`, and once you're inside, you can use:
+Run `nix develop`, and once you're inside, you can use:
 
 ```sh
 # install (or reinstall packages from package.json)
