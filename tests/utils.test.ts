@@ -1,7 +1,7 @@
 import type { KeyPath } from '#types.js';
 import nodeCrypto from 'node:crypto';
-import * as utils from '#utils.js';
 import * as testUtils from './utils.js';
+import * as utils from '#utils.js';
 
 describe('utils', () => {
   const keyPaths: Array<KeyPath> = [

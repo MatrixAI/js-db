@@ -1,9 +1,9 @@
-import type { RocksDBDatabase } from '@/native/types';
+import type { RocksDBDatabase } from '#native/types.js';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import { Barrier } from '@matrixai/async-locks';
-import rocksdbP from '@/native/rocksdbP';
+import rocksdbP from '#native/rocksdbP.js';
 
 describe('rocksdbP', () => {
   let dataDir: string;

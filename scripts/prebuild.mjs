@@ -7,7 +7,7 @@ import url from 'node:url';
 import process from 'node:process';
 import childProcess from 'node:child_process';
 import semver from 'semver';
-import packageJSON from '../package.json' assert { type: "json" };
+import packageJSON from '../package.json' assert { type: 'json' };
 
 const projectPath = path.dirname(
   path.dirname(url.fileURLToPath(import.meta.url)),

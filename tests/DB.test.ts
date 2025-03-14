@@ -1,22 +1,20 @@
 import type DBTransaction from '#DBTransaction.js';
 import type { KeyPath } from '#types.js';
 import type { ResourceRelease } from '@matrixai/resources';
-import type { DBWorkerModule } from './workers/dbWorkerModule.js';
+import type { DBWorker } from './workers/dbWorker.js';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import nodeCrypto from 'node:crypto';
+import { Worker } from 'node:worker_threads';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-// import { WorkerManager } from '@matrixai/workers';
-import matrixaiWorkers from '@matrixai/workers';
+import { WorkerManager } from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
-import { spawn, Worker } from 'threads';
+import * as testsUtils from './utils.js';
+import dbWorker from './workers/dbWorker.js';
 import DB from '#DB.js';
 import * as errors from '#errors.js';
 import * as utils from '#utils.js';
-import * as testsUtils from './utils.js';
-
-const { WorkerManager } = matrixaiWorkers;
 
 describe(DB.name, () => {
   const logger = new Logger(`${DB.name} Test`, LogLevel.WARN, [
@@ -24,10 +22,7 @@ describe(DB.name, () => {
   ]);
   const crypto = {
     key: testsUtils.generateKeySync(256),
-    ops: {
-      encrypt: testsUtils.encrypt,
-      decrypt: testsUtils.decrypt,
-    },
+    ops: dbWorker,
   };
   let dataDir: string;
   beforeEach(async () => {
@@ -346,12 +341,12 @@ describe(DB.name, () => {
   test('parallelized get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const workerManager =
-      await WorkerManager.createWorkerManager<DBWorkerModule>({
-        workerFactory: () => spawn(new Worker('./workers/dbWorker')),
-        cores: 1,
-        logger,
-      });
+    const workerManager = await WorkerManager.createWorkerManager<DBWorker>({
+      workerFactory: () => new Worker('./workers/dbWorker'),
+      cores: 1,
+      manifest: dbWorker,
+      logger,
+    });
     db.setWorkerManager(workerManager);
     await db.start();
     await db.put('a', 'value0');
@@ -408,12 +403,12 @@ describe(DB.name, () => {
   test('parallelized batch put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const workerManager =
-      await WorkerManager.createWorkerManager<DBWorkerModule>({
-        workerFactory: () => spawn(new Worker('./workers/dbWorker')),
-        cores: 4,
-        logger,
-      });
+    const workerManager = await WorkerManager.createWorkerManager<DBWorker>({
+      workerFactory: () => new Worker('./workers/dbWorker'),
+      cores: 4,
+      manifest: dbWorker,
+      logger,
+    });
     db.setWorkerManager(workerManager);
     await db.start();
     await db.batch([
