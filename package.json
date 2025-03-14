@@ -47,9 +47,8 @@
     "@matrixai/errors": "^2.0.1",
     "@matrixai/logger": "^4.0.1",
     "@matrixai/resources": "^2.0.0",
-    "@matrixai/workers": "^1.4.0",
-    "node-gyp-build": "4.4.0",
-    "threads": "^1.6.5"
+    "@matrixai/workers": "^2.0.0",
+    "node-gyp-build": "4.4.0"
   },
   "devDependencies": {
     "@swc/core": "1.3.82",
