@@ -22,8 +22,8 @@
 <ul class="tsd-hierarchy">
 <li><span class="target">DB</span></li></ul></li></ul></section><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L31">src/DB.ts:31</a></li>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L36">src/DB.ts:36</a></li></ul></aside>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L34">src/DB.ts:34</a></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L39">src/DB.ts:39</a></li></ul></aside>
 <section class="tsd-panel-group tsd-index-group">
 <section class="tsd-panel tsd-index-panel">
 <details class="tsd-index-content tsd-index-accordion" open><summary class="tsd-accordion-summary tsd-index-summary">
@@ -53,7 +53,9 @@
 <a href="DB.html#_eventHandled_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handled]</span></a>
 <a href="DB.html#_eventHandlers_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handlers]</span></a>
 <a href="DB.html#_eventTarget_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Target]</span></a>
+<a href="DB.html#_handleEventError_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[handle<wbr/>Event<wbr/>Error]</span></a>
 <a href="DB.html#_running_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[running]</span></a>
+<a href="DB.html#_statusP_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status<wbr/>P]</span></a>
 <a href="DB.html#_status_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status]</span></a>
 <a href="DB.html#db" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>db</span></a>
 <a href="DB.html#lockBox" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>lock<wbr/>Box</span></a>
@@ -110,7 +112,7 @@
 <h4 class="tsd-returns-title">Returns <a href="DB.html" class="tsd-signature-type tsd-kind-class">DB</a></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.constructor</p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L114">src/DB.ts:114</a></li></ul></aside></li></ul></section></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L117">src/DB.ts:117</a></li></ul></aside></li></ul></section></section>
 <section class="tsd-panel-group tsd-member-group">
 <h2>Properties</h2>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_initLock_" class="tsd-anchor"></a>
@@ -118,12 +120,12 @@
 <div class="tsd-signature"><span class="tsd-kind-property">[init<wbr/>Lock]</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">RWLockWriter</span></div><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.[initLock]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroyStartStop.d.ts:9</li></ul></aside></section>
+<li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroyStartStop.d.ts:10</li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="_db" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>_db</span><a href="#_db" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">_db</span><span class="tsd-signature-symbol">:</span> <a href="../types/native.RocksDBDatabase.html" class="tsd-signature-type tsd-kind-type-alias">RocksDBDatabase</a></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L82">src/DB.ts:82</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L85">src/DB.ts:85</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="_iteratorRefs" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>_iterator<wbr/>Refs</span><a href="#_iteratorRefs" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">_iterator<wbr/>Refs</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Set</span><span class="tsd-signature-symbol">&lt;</span><a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = ...</span></div>
@@ -131,12 +133,12 @@
 </div>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L86">src/DB.ts:86</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L89">src/DB.ts:89</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="_lockBox" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>_lock<wbr/>Box</span><a href="#_lockBox" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">_lock<wbr/>Box</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">LockBox</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">RWLockWriter</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = ...</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L80">src/DB.ts:80</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L83">src/DB.ts:83</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="_locksPending" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <code class="tsd-tag ts-flagOptional">Optional</code> <span>_locks<wbr/>Pending</span><a href="#_locksPending" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">_locks<wbr/>Pending</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-type ">Map</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">count</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">&gt;</span></div>
@@ -146,7 +148,7 @@
 <li class="tsd-parameter">
 <h5><span class="tsd-kind-property">count</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span></h5></li></ul></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L81">src/DB.ts:81</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L84">src/DB.ts:84</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="_transactionRefs" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>_transaction<wbr/>Refs</span><a href="#_transactionRefs" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">_transaction<wbr/>Refs</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Set</span><span class="tsd-signature-symbol">&lt;</span><a href="DBTransaction.html" class="tsd-signature-type tsd-kind-class">DBTransaction</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> = ...</span></div>
@@ -154,7 +156,7 @@
 </div>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L90">src/DB.ts:90</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L93">src/DB.ts:93</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="crypto" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <code class="tsd-tag ts-flagOptional">Optional</code> <span>crypto</span><a href="#crypto" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">crypto</span><span class="tsd-signature-symbol">?:</span> <span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">key</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">ops</span><span class="tsd-signature-symbol">: </span><a href="../types/Crypto.html" class="tsd-signature-type tsd-kind-type-alias">Crypto</a><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></div>
@@ -166,27 +168,27 @@
 <li class="tsd-parameter">
 <h5><span class="tsd-kind-property">ops</span><span class="tsd-signature-symbol">: </span><a href="../types/Crypto.html" class="tsd-signature-type tsd-kind-type-alias">Crypto</a></h5></li></ul></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L73">src/DB.ts:73</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L76">src/DB.ts:76</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member"><a id="dbPath" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagReadonly">Readonly</code> <span>db<wbr/>Path</span><a href="#dbPath" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">db<wbr/>Path</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">string</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L72">src/DB.ts:72</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L75">src/DB.ts:75</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="fs" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>fs</span><a href="#fs" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">fs</span><span class="tsd-signature-symbol">:</span> <a href="../interfaces/FileSystem.html" class="tsd-signature-type tsd-kind-interface">FileSystem</a></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L77">src/DB.ts:77</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L80">src/DB.ts:80</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="logger" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>logger</span><a href="#logger" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">logger</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">Logger</span></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L78">src/DB.ts:78</a></li></ul></aside></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L81">src/DB.ts:81</a></li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="workerManager" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <code class="tsd-tag ts-flagOptional">Optional</code> <span>worker<wbr/>Manager</span><a href="#workerManager" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">worker<wbr/>Manager</span><span class="tsd-signature-symbol">?:</span> <a href="../types/DBWorkerManagerInterface.html" class="tsd-signature-type tsd-kind-type-alias">DBWorkerManagerInterface</a></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L79">src/DB.ts:79</a></li></ul></aside></section></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L82">src/DB.ts:82</a></li></ul></aside></section></section>
 <section class="tsd-panel-group tsd-member-group">
 <h2>Accessors</h2>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_destroyed_" class="tsd-anchor"></a>
@@ -201,21 +203,21 @@
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_eventHandled_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[event<wbr/>Handled]</span><a href="#_eventHandled_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
-<li class="tsd-signature" id="_eventHandled_._eventHandled_-1"><span class="tsd-signature-symbol">get</span> [eventHandled]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">WeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></li>
+<li class="tsd-signature" id="_eventHandled_._eventHandled_-1"><span class="tsd-signature-symbol">get</span> [eventHandled]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">ReadonlyWeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></li>
 <li class="tsd-description">
-<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">WeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">ReadonlyWeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.[eventHandled]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:5</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:7</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_eventHandlers_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[event<wbr/>Handlers]</span><a href="#_eventHandlers_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
-<li class="tsd-signature" id="_eventHandlers_._eventHandlers_-1"><span class="tsd-signature-symbol">get</span> [eventHandlers]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">WeakMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventListenerOrEventListenerObject</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">EventListener</span><span class="tsd-signature-symbol">&gt;</span></li>
+<li class="tsd-signature" id="_eventHandlers_._eventHandlers_-1"><span class="tsd-signature-symbol">get</span> [eventHandlers]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">ReadonlyMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Set</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventHandlerInfo</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></li>
 <li class="tsd-description">
-<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">WeakMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventListenerOrEventListenerObject</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">EventListener</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">ReadonlyMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Set</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventHandlerInfo</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.[eventHandlers]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:4</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:6</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_eventTarget_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[event<wbr/>Target]</span><a href="#_eventTarget_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -224,7 +226,27 @@
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">EventTarget</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.[eventTarget]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:3</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:5</li></ul></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_handleEventError_" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>[handle<wbr/>Event<wbr/>Error]</span><a href="#_handleEventError_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature" id="_handleEventError_._handleEventError_-1"><span class="tsd-signature-symbol">get</span> [handleEventError]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">evt</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span></li>
+<li class="tsd-description">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">evt</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span></h4>
+<ul class="tsd-parameters">
+<li class="tsd-parameter-signature">
+<ul class="tsd-signatures tsd-is-external">
+<li class="tsd-signature" id="_handleEventError_._handleEventError_-1.__type-1.__type-2"><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">evt</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+<li class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li>
+<h5><span class="tsd-kind-parameter">evt</span>: <span class="tsd-signature-type ">EventError</span></h5></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></li></ul></li></ul><aside class="tsd-sources">
+<p>Inherited from CreateDestroyStartStop.[handleEventError]</p>
+<ul>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:8</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_running_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[running]</span><a href="#_running_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -234,6 +256,15 @@
 <p>Inherited from CreateDestroyStartStop.[running]</p>
 <ul>
 <li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroyStartStop.d.ts:6</li></ul></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_statusP_" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>[status<wbr/>P]</span><a href="#_statusP_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature" id="_statusP_._statusP_-1"><span class="tsd-signature-symbol">get</span> [statusP]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Status</span><span class="tsd-signature-symbol">&gt;</span></li>
+<li class="tsd-description">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Status</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<p>Inherited from CreateDestroyStartStop.[statusP]</p>
+<ul>
+<li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroyStartStop.d.ts:9</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_status_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[status]</span><a href="#_status_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -250,7 +281,7 @@
 <li class="tsd-description">
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Readonly</span><span class="tsd-signature-symbol">&lt;</span><a href="../types/native.RocksDBDatabase.html" class="tsd-signature-type tsd-kind-type-alias">RocksDBDatabase</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L92">src/DB.ts:92</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L95">src/DB.ts:95</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="lockBox" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>lock<wbr/>Box</span><a href="#lockBox" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -258,7 +289,7 @@
 <li class="tsd-description">
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Readonly</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">LockBox</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">RWLockWriter</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L110">src/DB.ts:110</a></li></ul></aside></li></ul></section></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L113">src/DB.ts:113</a></li></ul></aside></li></ul></section></section>
 <section class="tsd-panel-group tsd-member-group">
 <h2>Methods</h2>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="addEventListener" class="tsd-anchor"></a>
@@ -278,7 +309,7 @@
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.addEventListener</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:6</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:9</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="batch" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>batch</span><a href="#batch" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -296,7 +327,7 @@
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L393">src/DB.ts:393</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L396">src/DB.ts:396</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="canaryCheck" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>canary<wbr/>Check</span><a href="#canaryCheck" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-protected">
@@ -304,7 +335,7 @@
 <li class="tsd-description">
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L738">src/DB.ts:738</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L748">src/DB.ts:748</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="clear" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>clear</span><a href="#clear" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -323,7 +354,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L559">src/DB.ts:559</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L562">src/DB.ts:562</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="count" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>count</span><a href="#count" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -338,7 +369,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h5><span class="tsd-kind-parameter">options</span>: <a href="../types/DBCountOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBCountOptions</a><span class="tsd-signature-symbol"> = {}</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L580">src/DB.ts:580</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L583">src/DB.ts:583</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="del" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>del</span><a href="#del" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -356,7 +387,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L370">src/DB.ts:370</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L373">src/DB.ts:373</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="deserializeDecrypt" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>deserialize<wbr/>Decrypt</span><a href="#deserializeDecrypt" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -376,7 +407,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h5><span class="tsd-kind-parameter">raw</span>: <span class="tsd-signature-type">false</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">T</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L671">src/DB.ts:671</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L676">src/DB.ts:676</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="deserializeDecrypt.deserializeDecrypt-2"><span class="tsd-kind-call-signature">deserialize<wbr/>Decrypt</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">cipherTextBuf</span>, <span class="tsd-kind-parameter">raw</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span><a href="#deserializeDecrypt.deserializeDecrypt-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -388,7 +419,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h5><span class="tsd-kind-parameter">raw</span>: <span class="tsd-signature-type">true</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L675">src/DB.ts:675</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L680">src/DB.ts:680</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited"><a id="destroy" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>destroy</span><a href="#destroy" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited">
@@ -397,7 +428,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.destroy</p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L198">src/DB.ts:198</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L201">src/DB.ts:201</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="dispatchEvent" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>dispatch<wbr/>Event</span><a href="#dispatchEvent" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -411,7 +442,7 @@ This is not atomic, it will iterate over a snapshot of the DB</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.dispatchEvent</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:8</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:11</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="dump" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>dump</span><a href="#dump" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -440,7 +471,7 @@ Set <code>root</code> to <code>true</code> if you want to dump from root levels<
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">[</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">]</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L608">src/DB.ts:608</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L611">src/DB.ts:611</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="dump.dump-2"><span class="tsd-kind-call-signature">dump</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">levelPath</span>, <span class="tsd-kind-parameter">raw</span>, <span class="tsd-kind-parameter">root</span><span class="tsd-signature-symbol">?</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">[</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">]</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span><a href="#dump.dump-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -454,7 +485,7 @@ Set <code>root</code> to <code>true</code> if you want to dump from root levels<
 <h5><code class="tsd-tag ts-flagOptional">Optional</code> <span class="tsd-kind-parameter">root</span>: <span class="tsd-signature-type">boolean</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">[</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">]</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L613">src/DB.ts:613</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L616">src/DB.ts:616</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="get" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>get</span><a href="#get" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -478,7 +509,7 @@ Use raw to return the raw decrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type tsd-kind-type-parameter">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L264">src/DB.ts:264</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L267">src/DB.ts:267</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="get.get-2"><span class="tsd-kind-call-signature">get</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">keyPath</span>, <span class="tsd-kind-parameter">raw</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span><a href="#get.get-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -490,7 +521,7 @@ Use raw to return the raw decrypted buffer</p>
 <h5><span class="tsd-kind-parameter">raw</span>: <span class="tsd-signature-type">true</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L268">src/DB.ts:268</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L271">src/DB.ts:271</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="iterator" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>iterator</span><a href="#iterator" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -510,7 +541,7 @@ You must have at least one of them being true or undefined</p>
 <h4 class="tsd-returns-title">Returns <a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L464">src/DB.ts:464</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L467">src/DB.ts:467</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="iterator.iterator-2"><span class="tsd-kind-call-signature">iterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">levelPath</span>, <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">&gt;</span><a href="#iterator.iterator-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <section class="tsd-panel">
@@ -527,7 +558,7 @@ You must have at least one of them being true or undefined</p>
 <h5><span class="tsd-kind-parameter">options</span>: <a href="../types/DBIteratorOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBIteratorOptions</a><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">keys</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">valueAsBuffer</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L468">src/DB.ts:468</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L471">src/DB.ts:471</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="iterator.iterator-3"><span class="tsd-kind-call-signature">iterator</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">levelPath</span>, <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span><a href="#iterator.iterator-3" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -539,7 +570,7 @@ You must have at least one of them being true or undefined</p>
 <h5><span class="tsd-kind-parameter">options</span>: <a href="../types/DBIteratorOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBIteratorOptions</a><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">keys</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L472">src/DB.ts:472</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L475">src/DB.ts:475</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="iterator.iterator-4"><span class="tsd-kind-call-signature">iterator</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">levelPath</span>, <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">&gt;</span><a href="#iterator.iterator-4" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -551,7 +582,7 @@ You must have at least one of them being true or undefined</p>
 <h5><span class="tsd-kind-parameter">options</span>: <a href="../types/DBIteratorOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBIteratorOptions</a><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">values</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L476">src/DB.ts:476</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L479">src/DB.ts:479</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="iterator.iterator-5"><span class="tsd-kind-call-signature">iterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">levelPath</span>, <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">&gt;</span><a href="#iterator.iterator-5" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <section class="tsd-panel">
@@ -568,7 +599,7 @@ You must have at least one of them being true or undefined</p>
 <h5><span class="tsd-kind-parameter">options</span>: <a href="../types/DBIteratorOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBIteratorOptions</a><span class="tsd-signature-symbol"> &amp; </span><span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">valueAsBuffer</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">V</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L480">src/DB.ts:480</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L483">src/DB.ts:483</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="iterator.iterator-6"><span class="tsd-kind-call-signature">iterator</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">levelPath</span><span class="tsd-signature-symbol">?</span>, <span class="tsd-kind-parameter">options</span><span class="tsd-signature-symbol">?</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span><a href="#iterator.iterator-6" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -580,7 +611,7 @@ You must have at least one of them being true or undefined</p>
 <h5><code class="tsd-tag ts-flagOptional">Optional</code> <span class="tsd-kind-parameter">options</span>: <a href="../types/DBIteratorOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBIteratorOptions</a></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <a href="DBIterator.html" class="tsd-signature-type tsd-kind-class">DBIterator</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-symbol">readonly </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L484">src/DB.ts:484</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L487">src/DB.ts:487</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="put" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>put</span><a href="#put" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -603,7 +634,7 @@ Use raw to put raw encrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4>
 <div class="tsd-comment tsd-typography"></div><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L312">src/DB.ts:312</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L315">src/DB.ts:315</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="put.put-2"><span class="tsd-kind-call-signature">put</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">keyPath</span>, <span class="tsd-kind-parameter">value</span>, <span class="tsd-kind-parameter">raw</span>, <span class="tsd-kind-parameter">sync</span><span class="tsd-signature-symbol">?</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span><a href="#put.put-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -619,7 +650,7 @@ Use raw to put raw encrypted buffer</p>
 <h5><code class="tsd-tag ts-flagOptional">Optional</code> <span class="tsd-kind-parameter">sync</span>: <span class="tsd-signature-type">boolean</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L318">src/DB.ts:318</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L321">src/DB.ts:321</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="removeEventListener" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>remove<wbr/>Event<wbr/>Listener</span><a href="#removeEventListener" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -637,7 +668,7 @@ Use raw to put raw encrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.removeEventListener</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:7</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:10</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="serializeEncrypt" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>serialize<wbr/>Encrypt</span><a href="#serializeEncrypt" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -652,7 +683,7 @@ Use raw to put raw encrypted buffer</p>
 <h5><span class="tsd-kind-parameter">raw</span>: <span class="tsd-signature-type">false</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L637">src/DB.ts:637</a></li></ul></aside></li>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L640">src/DB.ts:640</a></li></ul></aside></li>
 <li class="tsd-signature tsd-anchor-link" id="serializeEncrypt.serializeEncrypt-2"><span class="tsd-kind-call-signature">serialize<wbr/>Encrypt</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">value</span>, <span class="tsd-kind-parameter">raw</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span><a href="#serializeEncrypt.serializeEncrypt-2" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></li>
 <li class="tsd-description">
 <div class="tsd-parameters">
@@ -664,7 +695,7 @@ Use raw to put raw encrypted buffer</p>
 <h5><span class="tsd-kind-parameter">raw</span>: <span class="tsd-signature-type">true</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L638">src/DB.ts:638</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L641">src/DB.ts:641</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="setWorkerManager" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>set<wbr/>Worker<wbr/>Manager</span><a href="#setWorkerManager" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -677,7 +708,7 @@ Use raw to put raw encrypted buffer</p>
 <h5><span class="tsd-kind-parameter">workerManager</span>: <a href="../types/DBWorkerManagerInterface.html" class="tsd-signature-type tsd-kind-type-alias">DBWorkerManagerInterface</a></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L211">src/DB.ts:211</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L214">src/DB.ts:214</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="setupDb" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>setup<wbr/>Db</span><a href="#setupDb" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-protected">
@@ -692,7 +723,7 @@ Use raw to put raw encrypted buffer</p>
 <h5><span class="tsd-kind-parameter">options</span>: <a href="../types/native.RocksDBDatabaseOptions.html" class="tsd-signature-type tsd-kind-type-alias">RocksDBDatabaseOptions</a><span class="tsd-signature-symbol"> = {}</span></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="../types/native.RocksDBDatabase.html" class="tsd-signature-type tsd-kind-type-alias">RocksDBDatabase</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L712">src/DB.ts:712</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L722">src/DB.ts:722</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="setupRootLevels" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>setup<wbr/>Root<wbr/>Levels</span><a href="#setupRootLevels" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-protected">
@@ -700,7 +731,7 @@ Use raw to put raw encrypted buffer</p>
 <li class="tsd-description">
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L734">src/DB.ts:734</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L744">src/DB.ts:744</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited"><a id="start" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>start</span><a href="#start" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited">
@@ -714,7 +745,7 @@ Use raw to put raw encrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.start</p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L133">src/DB.ts:133</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L136">src/DB.ts:136</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited"><a id="stop" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>stop</span><a href="#stop" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited">
@@ -723,7 +754,7 @@ Use raw to put raw encrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroyStartStop.stop</p>
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L177">src/DB.ts:177</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L180">src/DB.ts:180</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="transaction" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>transaction</span><a href="#transaction" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -731,7 +762,7 @@ Use raw to put raw encrypted buffer</p>
 <li class="tsd-description">
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">ResourceAcquire</span><span class="tsd-signature-symbol">&lt;</span><a href="DBTransaction.html" class="tsd-signature-type tsd-kind-class">DBTransaction</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L219">src/DB.ts:219</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L222">src/DB.ts:222</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="unsetWorkerManager" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>unset<wbr/>Worker<wbr/>Manager</span><a href="#unsetWorkerManager" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -739,7 +770,7 @@ Use raw to put raw encrypted buffer</p>
 <li class="tsd-description">
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L215">src/DB.ts:215</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L218">src/DB.ts:218</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="withTransactionF" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>with<wbr/>TransactionF</span><a href="#withTransactionF" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -768,7 +799,7 @@ Use raw to put raw encrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">T</span><span class="tsd-signature-symbol">&gt;</span></h4></li></ul></li></ul></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">T</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L248">src/DB.ts:248</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L251">src/DB.ts:251</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="withTransactionG" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>with<wbr/>TransactionG</span><a href="#withTransactionG" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -801,7 +832,7 @@ Use raw to put raw encrypted buffer</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">AsyncGenerator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">TReturn</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">TNext</span><span class="tsd-signature-symbol">&gt;</span></h4></li></ul></li></ul></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">AsyncGenerator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type tsd-kind-type-parameter">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">TReturn</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type tsd-kind-type-parameter">TNext</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L254">src/DB.ts:254</a></li></ul></aside></li></ul></section>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L257">src/DB.ts:257</a></li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="createDB" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagStatic">Static</code> <span>createDB</span><a href="#createDB" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -814,7 +845,7 @@ Use raw to put raw encrypted buffer</p>
 <h5><span class="tsd-kind-parameter">__namedParameters</span>: <span class="tsd-signature-symbol">{ </span><br/><span>    </span><span class="tsd-kind-property">crypto</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-symbol">{ </span><br/><span>        </span><span class="tsd-kind-property">key</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Buffer</span><span class="tsd-signature-symbol">; </span><br/><span>        </span><span class="tsd-kind-property">ops</span><span class="tsd-signature-symbol">: </span><a href="../types/Crypto.html" class="tsd-signature-type tsd-kind-type-alias">Crypto</a><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">dbPath</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">deadlock</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">fresh</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">fs</span><span class="tsd-signature-symbol">?: </span><a href="../interfaces/FileSystem.html" class="tsd-signature-type tsd-kind-interface">FileSystem</a><span class="tsd-signature-symbol">; </span><br/><span>    </span><span class="tsd-kind-property">logger</span><span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type ">Logger</span><span class="tsd-signature-symbol">; </span><br/><span class="tsd-signature-symbol">}</span><span class="tsd-signature-symbol"> &amp; </span><a href="../types/DBOptions.html" class="tsd-signature-type tsd-kind-type-alias">DBOptions</a></h5></li></ul></div>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><a href="DB.html" class="tsd-signature-type tsd-kind-class">DB</a><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <ul>
-<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L37">src/DB.ts:37</a></li></ul></aside></li></ul></section></section></div>
+<li>Defined in <a href="https://github.com/MatrixAI/js-db/blob/master/src/DB.ts#L40">src/DB.ts:40</a></li></ul></aside></li></ul></section></section></div>
 <div class="col-sidebar">
 <div class="page-menu">
 <div class="tsd-navigation settings">
@@ -850,7 +881,9 @@ Use raw to put raw encrypted buffer</p>
 <li><a href="#_eventHandled_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handled]</span></a></li>
 <li><a href="#_eventHandlers_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handlers]</span></a></li>
 <li><a href="#_eventTarget_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Target]</span></a></li>
+<li><a href="#_handleEventError_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[handle<wbr/>Event<wbr/>Error]</span></a></li>
 <li><a href="#_running_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[running]</span></a></li>
+<li><a href="#_statusP_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status<wbr/>P]</span></a></li>
 <li><a href="#_status_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status]</span></a></li>
 <li><a href="#db" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>db</span></a></li>
 <li><a href="#lockBox" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>lock<wbr/>Box</span></a></li>

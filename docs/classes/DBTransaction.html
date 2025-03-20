@@ -59,6 +59,8 @@
 <a href="DBTransaction.html#_eventHandled_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handled]</span></a>
 <a href="DBTransaction.html#_eventHandlers_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handlers]</span></a>
 <a href="DBTransaction.html#_eventTarget_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Target]</span></a>
+<a href="DBTransaction.html#_handleEventError_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[handle<wbr/>Event<wbr/>Error]</span></a>
+<a href="DBTransaction.html#_statusP_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status<wbr/>P]</span></a>
 <a href="DBTransaction.html#_status_" class="tsd-index-link tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status]</span></a>
 <a href="DBTransaction.html#callbacksFailure" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>callbacks<wbr/>Failure</span></a>
 <a href="DBTransaction.html#callbacksFinally" class="tsd-index-link"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>callbacks<wbr/>Finally</span></a>
@@ -118,7 +120,7 @@
 <div class="tsd-signature"><span class="tsd-kind-property">[init<wbr/>Lock]</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type ">RWLockWriter</span></div><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.[initLock]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroy.d.ts:8</li></ul></aside></section>
+<li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroy.d.ts:9</li></ul></aside></section>
 <section class="tsd-panel tsd-member tsd-is-protected"><a id="_callbacksFailure" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><code class="tsd-tag ts-flagProtected">Protected</code> <span>_callbacks<wbr/>Failure</span><a href="#_callbacksFailure" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <div class="tsd-signature"><span class="tsd-kind-property">_callbacks<wbr/>Failure</span><span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">e</span><span class="tsd-signature-symbol">?</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> = []</span></div>
@@ -247,21 +249,21 @@
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_eventHandled_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[event<wbr/>Handled]</span><a href="#_eventHandled_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
-<li class="tsd-signature" id="_eventHandled_._eventHandled_-1"><span class="tsd-signature-symbol">get</span> [eventHandled]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">WeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></li>
+<li class="tsd-signature" id="_eventHandled_._eventHandled_-1"><span class="tsd-signature-symbol">get</span> [eventHandled]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">ReadonlyWeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></li>
 <li class="tsd-description">
-<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">WeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">ReadonlyWeakSet</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Event</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.[eventHandled]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:5</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:7</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_eventHandlers_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[event<wbr/>Handlers]</span><a href="#_eventHandlers_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
-<li class="tsd-signature" id="_eventHandlers_._eventHandlers_-1"><span class="tsd-signature-symbol">get</span> [eventHandlers]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">WeakMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventListenerOrEventListenerObject</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">EventListener</span><span class="tsd-signature-symbol">&gt;</span></li>
+<li class="tsd-signature" id="_eventHandlers_._eventHandlers_-1"><span class="tsd-signature-symbol">get</span> [eventHandlers]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">ReadonlyMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Set</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventHandlerInfo</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></li>
 <li class="tsd-description">
-<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">WeakMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventListenerOrEventListenerObject</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">EventListener</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">ReadonlyMap</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type ">Set</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">EventHandlerInfo</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.[eventHandlers]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:4</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:6</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_eventTarget_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[event<wbr/>Target]</span><a href="#_eventTarget_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -270,7 +272,36 @@
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">EventTarget</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.[eventTarget]</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:3</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:5</li></ul></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_handleEventError_" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>[handle<wbr/>Event<wbr/>Error]</span><a href="#_handleEventError_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature" id="_handleEventError_._handleEventError_-1"><span class="tsd-signature-symbol">get</span> [handleEventError]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">evt</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span></li>
+<li class="tsd-description">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">evt</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span></h4>
+<ul class="tsd-parameters">
+<li class="tsd-parameter-signature">
+<ul class="tsd-signatures tsd-is-external">
+<li class="tsd-signature" id="_handleEventError_._handleEventError_-1.__type.__type-1"><span class="tsd-signature-symbol">(</span><span class="tsd-kind-parameter">evt</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+<li class="tsd-description">
+<div class="tsd-parameters">
+<h4 class="tsd-parameters-title">Parameters</h4>
+<ul class="tsd-parameter-list">
+<li>
+<h5><span class="tsd-kind-parameter">evt</span>: <span class="tsd-signature-type ">EventError</span></h5></li></ul></div>
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4></li></ul></li></ul><aside class="tsd-sources">
+<p>Inherited from CreateDestroy.[handleEventError]</p>
+<ul>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:8</li></ul></aside></li></ul></section>
+<section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_statusP_" class="tsd-anchor"></a>
+<h3 class="tsd-anchor-link"><span>[status<wbr/>P]</span><a href="#_statusP_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
+<ul class="tsd-signatures tsd-is-inherited tsd-is-external">
+<li class="tsd-signature" id="_statusP_._statusP_-1"><span class="tsd-signature-symbol">get</span> [statusP]<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Status</span><span class="tsd-signature-symbol">&gt;</span></li>
+<li class="tsd-description">
+<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type ">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type ">Status</span><span class="tsd-signature-symbol">&gt;</span></h4><aside class="tsd-sources">
+<p>Inherited from CreateDestroy.[statusP]</p>
+<ul>
+<li>Defined in node_modules/@matrixai/async-init/dist/CreateDestroy.d.ts:8</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member tsd-is-inherited tsd-is-external"><a id="_status_" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>[status]</span><a href="#_status_" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures tsd-is-inherited tsd-is-external">
@@ -391,7 +422,7 @@
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.addEventListener</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:6</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:9</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="clear" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>clear</span><a href="#clear" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -469,7 +500,7 @@ This cannot be called until the transaction is committed or rollbacked</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.dispatchEvent</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:8</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:11</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="dump" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>dump</span><a href="#dump" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -787,7 +818,7 @@ It is intended for diagnostics</p>
 <h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4><aside class="tsd-sources">
 <p>Inherited from CreateDestroy.removeEventListener</p>
 <ul>
-<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:7</li></ul></aside></li></ul></section>
+<li>Defined in node_modules/@matrixai/events/dist/Evented.d.ts:10</li></ul></aside></li></ul></section>
 <section class="tsd-panel tsd-member"><a id="rollback" class="tsd-anchor"></a>
 <h3 class="tsd-anchor-link"><span>rollback</span><a href="#rollback" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24"><use href="#icon-anchor"></use></svg></a></h3>
 <ul class="tsd-signatures">
@@ -884,6 +915,8 @@ but at the first transactional operation</p>
 <li><a href="#_eventHandled_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handled]</span></a></li>
 <li><a href="#_eventHandlers_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Handlers]</span></a></li>
 <li><a href="#_eventTarget_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[event<wbr/>Target]</span></a></li>
+<li><a href="#_handleEventError_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[handle<wbr/>Event<wbr/>Error]</span></a></li>
+<li><a href="#_statusP_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status<wbr/>P]</span></a></li>
 <li><a href="#_status_" class="tsd-is-inherited tsd-is-external"><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>[status]</span></a></li>
 <li><a href="#callbacksFailure" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>callbacks<wbr/>Failure</span></a></li>
 <li><a href="#callbacksFinally" class=""><svg class="tsd-kind-icon" viewBox="0 0 24 24"><use href="#icon-262144"></use></svg><span>callbacks<wbr/>Finally</span></a></li>
