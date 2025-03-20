@@ -6,7 +6,7 @@ import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { withF } from '@matrixai/resources';
 import { Barrier, errors as locksErrors } from '@matrixai/async-locks';
 import * as testsUtils from './utils.js';
-import dbWorker from './workers/dbWorker.js';
+import exampleDbWorker from '#exampleDbWorker.js';
 import DB from '#DB.js';
 import DBTransaction from '#DBTransaction.js';
 import * as errors from '#errors.js';
@@ -17,7 +17,7 @@ describe(DBTransaction.name, () => {
   ]);
   const crypto = {
     key: testsUtils.generateKeySync(256),
-    ops: dbWorker,
+    ops: exampleDbWorker,
   };
   let dataDir: string;
   let db: DB;

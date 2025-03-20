@@ -695,10 +695,10 @@ class DB {
         const cipherText = utils.toArrayBuffer(cipherTextBuf);
         const result = await this.workerManager.methods.decrypt(
           {
-            key: this.crypto.key,
-            cipherText: cipherTextBuf,
+            key,
+            cipherText,
           },
-          [this.crypto.key, cipherTextBuf],
+          [key, cipherText],
         );
         decrypted = result.data;
       } else {

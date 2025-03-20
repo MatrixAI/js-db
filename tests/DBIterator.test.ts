@@ -7,7 +7,7 @@ import nodeUtil from 'util';
 import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import * as testsUtils from './utils.js';
-import dbWorker from './workers/dbWorker.js';
+import exampleDbWorker from '#exampleDbWorker.js';
 import DB from '#DB.js';
 import DBIterator from '#DBIterator.js';
 import rocksdbP from '#native/rocksdbP.js';
@@ -18,7 +18,7 @@ describe(DBIterator.name, () => {
   ]);
   const crypto = {
     key: testsUtils.generateKeySync(256),
-    ops: dbWorker,
+    ops: exampleDbWorker,
   };
   let dataDir: string;
   let db: DB;
