@@ -1,21 +1,23 @@
 {
   inputs = {
-    nixpkgs-matrix = {
-      type = "indirect";
-      id = "nixpkgs-matrix";
+    nixpkgs = {
+      type = "github";
+      owner = "NixOS";
+      repo = "nixpkgs";
+      rev = "ea5234e7073d5f44728c499192544a84244bf35a";
     };
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { nixpkgs-matrix, flake-utils, ... }:
+  outputs = { nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = nixpkgs-matrix.legacyPackages.${system};
+        pkgs = nixpkgs.legacyPackages.${system};
         shell = { ci ? false }:
           with pkgs;
           mkShell {
             nativeBuildInputs =
-              [ nodejs_20 nodejs.python clang-tools shellcheck gitAndTools.gh ];
+              [ nodejs_20 nodejs_20.python clang-tools shellcheck gitAndTools.gh ];
             # Don't set rpath for native addons
             NIX_DONT_SET_RPATH = true;
             NIX_NO_SELF_RPATH = true;
