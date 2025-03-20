@@ -5,8 +5,8 @@ import crypto from 'crypto';
 import url from 'node:url';
 import b from 'benny';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-import DB from '#DB.js';
 import { suiteCommon } from './utils/utils.js';
+import DB from '#DB.js';
 
 const logger = new Logger('DB1KiB Bench', LogLevel.WARN, [new StreamHandler()]);
 const filename = url.fileURLToPath(new URL(import.meta.url));
