@@ -2,12 +2,14 @@ import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import url from "node:url";
 import b from 'benny';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-import DB from '@/DB';
-import { suiteCommon } from './utils';
+import DB from '#DB.js';
+import { suiteCommon } from './utils/utils.js';
 
 const logger = new Logger('DB1MiB Bench', LogLevel.WARN, [new StreamHandler()]);
+const filename = url.fileURLToPath(new URL(import.meta.url));
 
 async function main() {
   const dataDir = await fs.promises.mkdtemp(
@@ -18,7 +20,7 @@ async function main() {
   const data0 = crypto.randomBytes(0);
   const data1MiB = crypto.randomBytes(1024 * 1024);
   const summary = await b.suite(
-    path.basename(__filename, path.extname(__filename)),
+    path.basename(filename, path.extname(filename)),
     b.add('get 1 MiB of data', async () => {
       await db.put('1mib', data1MiB, true);
       return async () => {
@@ -45,7 +47,7 @@ async function main() {
   return summary;
 }
 
-if (require.main === module) {
+if (process.argv[1] === url.fileURLToPath(import.meta.url)) {
   void main();
 }
 
