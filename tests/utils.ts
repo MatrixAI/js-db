@@ -1,4 +1,6 @@
-import { random, cipher, util as forgeUtil } from 'node-forge';
+import nodeForge from 'node-forge';
+
+const { random, cipher, util: forgeUtil } = nodeForge;
 
 const ivSize = 16;
 const authTagSize = 16;

@@ -12,21 +12,24 @@ import type {
   DBIteratorOptions,
   DBClearOptions,
   DBCountOptions,
-} from './types';
-import type { RocksDBDatabase, RocksDBDatabaseOptions } from './native';
-import { Transfer } from 'threads';
+} from './types.js';
+import type {
+  RocksDBDatabase,
+  RocksDBDatabaseOptions,
+} from './native/index.js';
+import nodeFs from 'node:fs';
 import Logger from '@matrixai/logger';
 import { withF, withG } from '@matrixai/resources';
 import {
   CreateDestroyStartStop,
   ready,
-} from '@matrixai/async-init/dist/CreateDestroyStartStop';
+} from '@matrixai/async-init/CreateDestroyStartStop.js';
 import { LockBox } from '@matrixai/async-locks';
-import DBIterator from './DBIterator';
-import DBTransaction from './DBTransaction';
-import { rocksdbP } from './native';
-import * as utils from './utils';
-import * as errors from './errors';
+import DBIterator from './DBIterator.js';
+import DBTransaction from './DBTransaction.js';
+import { rocksdbP } from './native/index.js';
+import * as utils from './utils.js';
+import * as errors from './errors.js';
 
 interface DB extends CreateDestroyStartStop {}
 @CreateDestroyStartStop(
@@ -38,7 +41,7 @@ class DB {
     dbPath,
     crypto,
     deadlock = false,
-    fs = require('fs'),
+    fs = nodeFs,
     logger = new Logger(this.name),
     fresh = false,
     ...dbOptions
@@ -651,18 +654,20 @@ class DB {
         // Slice-copy for transferring to worker threads
         const key = utils.toArrayBuffer(this.crypto.key);
         const plainText = utils.toArrayBuffer(plainTextBuf);
-        cipherText = await this.workerManager.call(async (w) => {
-          return await w.encrypt(
-            Transfer(key),
-            // @ts-ignore: threads.js types are wrong
-            Transfer(plainText),
-          );
-        });
-      } else {
-        cipherText = await this.crypto.ops.encrypt(
-          this.crypto.key,
-          plainTextBuf,
+        const result = await this.workerManager.methods.encrypt(
+          { key, plainText },
+          [key, plainText],
         );
+        cipherText = result.data;
+      } else {
+        const result = await this.crypto.ops.encrypt(
+          {
+            key: this.crypto.key,
+            plainText: plainTextBuf,
+          },
+          [this.crypto.key, plainTextBuf],
+        );
+        cipherText = result.data;
       }
       return utils.fromArrayBuffer(cipherText);
     }
@@ -688,18 +693,23 @@ class DB {
         // Slice-copy for transferring to worker threads
         const key = utils.toArrayBuffer(this.crypto.key);
         const cipherText = utils.toArrayBuffer(cipherTextBuf);
-        decrypted = await this.workerManager.call(async (w) => {
-          return await w.decrypt(
-            Transfer(key),
-            // @ts-ignore: threads.js types are wrong
-            Transfer(cipherText),
-          );
-        });
-      } else {
-        decrypted = await this.crypto.ops.decrypt(
-          this.crypto.key,
-          cipherTextBuf,
+        const result = await this.workerManager.methods.decrypt(
+          {
+            key,
+            cipherText,
+          },
+          [key, cipherText],
         );
+        decrypted = result.data;
+      } else {
+        const result = await this.crypto.ops.decrypt(
+          {
+            key: this.crypto.key,
+            cipherText: cipherTextBuf,
+          },
+          [this.crypto.key, cipherTextBuf],
+        );
+        decrypted = result.data;
       }
       if (decrypted == null) {
         throw new errors.ErrorDBDecrypt();

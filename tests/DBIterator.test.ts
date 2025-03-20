@@ -1,4 +1,4 @@
-import type { KeyPath } from '@/types';
+import type { KeyPath } from '#types.js';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
@@ -6,10 +6,11 @@ import nodeCrypto from 'crypto';
 import nodeUtil from 'util';
 import lexi from 'lexicographic-integer';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
-import DB from '@/DB';
-import DBIterator from '@/DBIterator';
-import rocksdbP from '@/native/rocksdbP';
-import * as testsUtils from './utils';
+import * as testsUtils from './utils.js';
+import exampleDbWorker from '#exampleDbWorker.js';
+import DB from '#DB.js';
+import DBIterator from '#DBIterator.js';
+import rocksdbP from '#native/rocksdbP.js';
 
 describe(DBIterator.name, () => {
   const logger = new Logger(`${DBIterator.name} test`, LogLevel.WARN, [
@@ -17,10 +18,7 @@ describe(DBIterator.name, () => {
   ]);
   const crypto = {
     key: testsUtils.generateKeySync(256),
-    ops: {
-      encrypt: testsUtils.encrypt,
-      decrypt: testsUtils.decrypt,
-    },
+    ops: exampleDbWorker,
   };
   let dataDir: string;
   let db: DB;

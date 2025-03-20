@@ -1,27 +1,30 @@
 import fs from 'fs';
 import path from 'path';
+import url from 'node:url';
 import b from 'benny';
 import { codeBlock } from 'common-tags';
 import packageJson from '../../package.json';
+
+const dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
 const suiteCommon = [
   b.cycle(),
   b.complete(),
   b.save({
     file: (summary) => summary.name,
-    folder: path.join(__dirname, '../results'),
+    folder: path.join(dirname, '../results'),
     version: packageJson.version,
     details: true,
   }),
   b.save({
     file: (summary) => summary.name,
-    folder: path.join(__dirname, '../results'),
+    folder: path.join(dirname, '../results'),
     version: packageJson.version,
     format: 'chart.html',
   }),
   b.complete((summary) => {
     const filePath = path.join(
-      __dirname,
+      dirname,
       '../results',
       summary.name + '_metrics.txt',
     );

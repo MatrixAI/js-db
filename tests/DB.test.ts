@@ -1,19 +1,23 @@
-import type DBTransaction from '@/DBTransaction';
-import type { KeyPath } from '@/types';
+import type DBTransaction from '#DBTransaction.js';
+import type { KeyPath } from '#types.js';
 import type { ResourceRelease } from '@matrixai/resources';
-import type { DBWorkerModule } from './workers/dbWorkerModule';
-import os from 'os';
-import path from 'path';
-import fs from 'fs';
-import nodeCrypto from 'crypto';
+import type { ExampleDBWorker } from '#exampleDbWorker.js';
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import nodeCrypto from 'node:crypto';
+import { Worker } from 'node:worker_threads';
+import url from 'node:url';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { WorkerManager } from '@matrixai/workers';
 import { withF } from '@matrixai/resources';
-import { spawn, Worker } from 'threads';
-import DB from '@/DB';
-import * as errors from '@/errors';
-import * as utils from '@/utils';
-import * as testsUtils from './utils';
+import * as testsUtils from './utils.js';
+import exampleDbWorker from '#exampleDbWorker.js';
+import DB from '#DB.js';
+import * as errors from '#errors.js';
+import * as utils from '#utils.js';
+
+const dirname = url.fileURLToPath(new URL('.', import.meta.url));
 
 describe(DB.name, () => {
   const logger = new Logger(`${DB.name} Test`, LogLevel.WARN, [
@@ -21,16 +25,16 @@ describe(DB.name, () => {
   ]);
   const crypto = {
     key: testsUtils.generateKeySync(256),
-    ops: {
-      encrypt: testsUtils.encrypt,
-      decrypt: testsUtils.decrypt,
-    },
+    ops: exampleDbWorker,
   };
   let dataDir: string;
+  let workerManager: WorkerManager<ExampleDBWorker>;
+
   beforeEach(async () => {
     dataDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'db-test-'));
   });
   afterEach(async () => {
+    await workerManager?.destroy({ force: true });
     await fs.promises.rm(dataDir, {
       force: true,
       recursive: true,
@@ -343,12 +347,13 @@ describe(DB.name, () => {
   test('parallelized get and put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const workerManager =
-      await WorkerManager.createWorkerManager<DBWorkerModule>({
-        workerFactory: () => spawn(new Worker('./workers/dbWorker')),
-        cores: 1,
-        logger,
-      });
+    workerManager = await WorkerManager.createWorkerManager({
+      workerFactory: () =>
+        new Worker(path.join(dirname, '../dist/exampleDbWorker')),
+      cores: 1,
+      manifest: exampleDbWorker,
+      logger,
+    });
     db.setWorkerManager(workerManager);
     await db.start();
     await db.put('a', 'value0');
@@ -405,12 +410,13 @@ describe(DB.name, () => {
   test('parallelized batch put and del', async () => {
     const dbPath = `${dataDir}/db`;
     const db = await DB.createDB({ dbPath, crypto, logger });
-    const workerManager =
-      await WorkerManager.createWorkerManager<DBWorkerModule>({
-        workerFactory: () => spawn(new Worker('./workers/dbWorker')),
-        cores: 4,
-        logger,
-      });
+    const workerManager = await WorkerManager.createWorkerManager({
+      workerFactory: () =>
+        new Worker(path.join(dirname, '../dist/exampleDbWorker')),
+      cores: 4,
+      manifest: exampleDbWorker,
+      logger,
+    });
     db.setWorkerManager(workerManager);
     await db.start();
     await db.batch([

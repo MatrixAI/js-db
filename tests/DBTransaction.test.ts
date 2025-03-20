@@ -1,14 +1,15 @@
-import type { KeyPath } from '@/types';
+import type { KeyPath } from '#types.js';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
 import Logger, { LogLevel, StreamHandler } from '@matrixai/logger';
 import { withF } from '@matrixai/resources';
 import { Barrier, errors as locksErrors } from '@matrixai/async-locks';
-import DB from '@/DB';
-import DBTransaction from '@/DBTransaction';
-import * as errors from '@/errors';
-import * as testsUtils from './utils';
+import * as testsUtils from './utils.js';
+import exampleDbWorker from '#exampleDbWorker.js';
+import DB from '#DB.js';
+import DBTransaction from '#DBTransaction.js';
+import * as errors from '#errors.js';
 
 describe(DBTransaction.name, () => {
   const logger = new Logger(`${DBTransaction.name} test`, LogLevel.WARN, [
@@ -16,10 +17,7 @@ describe(DBTransaction.name, () => {
   ]);
   const crypto = {
     key: testsUtils.generateKeySync(256),
-    ops: {
-      encrypt: testsUtils.encrypt,
-      decrypt: testsUtils.decrypt,
-    },
+    ops: exampleDbWorker,
   };
   let dataDir: string;
   let db: DB;

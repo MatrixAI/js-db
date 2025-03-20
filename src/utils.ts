@@ -1,5 +1,5 @@
-import type { Callback, Merge, KeyPath, LevelPath } from './types';
-import * as errors from './errors';
+import type { Callback, Merge, KeyPath, LevelPath } from './types.js';
+import * as errors from './errors.js';
 
 /**
  * Separator is a single null byte

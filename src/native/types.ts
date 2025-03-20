@@ -1,4 +1,4 @@
-import type { Opaque } from '../types';
+import type { Opaque } from '../types.js';
 
 /**
  * Note that `undefined` is not a valid value for these options

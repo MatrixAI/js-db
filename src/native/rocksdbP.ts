@@ -16,9 +16,9 @@ import type {
   RocksDBBatchOptions,
   RocksDBBatchDelOperation,
   RocksDBBatchPutOperation,
-} from './types';
-import rocksdb from './rocksdb';
-import * as utils from '../utils';
+} from './types.js';
+import rocksdb from './rocksdb.js';
+import * as utils from '../utils.js';
 
 interface RocksDBP {
   dbInit(): RocksDBDatabase;

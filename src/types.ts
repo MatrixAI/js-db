@@ -1,5 +1,5 @@
-import type fs from 'fs';
-import type { WorkerManagerInterface } from '@matrixai/workers';
+import type fs from 'node:fs';
+import type { WorkerManager } from '@matrixai/workers';
 import type {
   RocksDBDatabaseOptions,
   RocksDBIteratorOptions,
@@ -9,7 +9,7 @@ import type {
   RocksDBCountOptions,
   RocksDBSnapshot,
   RocksDBTransactionSnapshot,
-} from './native/types';
+} from './native/types.js';
 
 /**
  * Plain data dictionary
@@ -50,19 +50,24 @@ interface FileSystem {
   };
 }
 
-/**
- * Crypto utility object
- * Remember ever Node Buffer is an ArrayBuffer
- */
 type Crypto = {
-  encrypt(key: ArrayBuffer, plainText: ArrayBuffer): Promise<ArrayBuffer>;
+  encrypt(
+    data: { key: ArrayBuffer; plainText: ArrayBuffer },
+    transferList: [ArrayBuffer, ArrayBuffer],
+  ): Promise<{ data: ArrayBuffer; transferList: [ArrayBuffer] }>;
   decrypt(
-    key: ArrayBuffer,
-    cipherText: ArrayBuffer,
-  ): Promise<ArrayBuffer | undefined>;
+    data: {
+      key: ArrayBuffer;
+      cipherText: ArrayBuffer;
+    },
+    transferList: [ArrayBuffer, ArrayBuffer],
+  ): Promise<
+    | { data: ArrayBuffer; transferList: [ArrayBuffer] }
+    | { data: undefined; transferList: [] }
+  >;
 };
 
-type DBWorkerManagerInterface = WorkerManagerInterface<Crypto>;
+type DBWorkerManagerInterface = WorkerManager<Crypto>;
 
 /**
  * Path to a key
