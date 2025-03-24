@@ -13,6 +13,8 @@ export HOMEBREW_NO_ANALYTICS=1
 brew reinstall node@20
 brew link --overwrite node@20
 brew install python@3.10
-brew link --overwrite python@3.10 --force
+brew link --overwrite python@3.10
+
+echo "/opt/homebrew/opt/python@3.10/bin" >> "$GITHUB_PATH"
 
 echo "Python version: $(python3 --version)"
