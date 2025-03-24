@@ -14,3 +14,6 @@ brew reinstall node@20
 brew link --overwrite node@20
 brew install python@3.10
 brew link --overwrite python@3.10
+
+export PYTHON=$(brew --prefix python@3.10)/bin/python3
+echo "Python version: $(python3 --version)"
