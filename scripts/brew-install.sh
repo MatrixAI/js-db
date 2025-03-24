@@ -16,7 +16,11 @@ brew install python@3.10
 brew link --overwrite python@3.10
 
 PYTHON=$(brew --prefix python@3.10)/bin/python3
+PYTHONPATH=$PYTHON
+PYTHON_PATH=$PYTHON
 
-export PYTHON 
+export PYTHON
+export PYTHONPATH
+export PYTHON_PATH
 
 echo "Python version: $(python3 --version)"
