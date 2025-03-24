@@ -12,5 +12,5 @@ export HOMEBREW_NO_ANALYTICS=1
 
 brew reinstall node@20
 brew link --overwrite node@20
-brew install python@3.9
-brew link --overwrite python@3.9
+brew install python@3.10
+brew link --overwrite python@3.10
