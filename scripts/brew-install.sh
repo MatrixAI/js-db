@@ -15,8 +15,8 @@ brew link --overwrite node@20
 brew install python@3.10
 brew link --overwrite python@3.10
 
-PYTHON_PATH=$(brew --prefix python@3.10)
+PYTHON=$(brew --prefix python@3.10)/bin/python3
 
-export "$PYTHON_PATH"/bin/python3
+export PYTHON 
 
 echo "Python version: $(python3 --version)"
