@@ -17,7 +17,7 @@
           with pkgs;
           mkShell {
             nativeBuildInputs =
-              [ nodejs_20 python310 clang-tools shellcheck gitAndTools.gh ];
+              [ nodejs_20 nodejs_20.python clang-tools shellcheck gitAndTools.gh ];
             # Don't set rpath for native addons
             NIX_DONT_SET_RPATH = true;
             NIX_NO_SELF_RPATH = true;
