@@ -11,13 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  use-native-library-js-staging:
+  use-native-library-js-tag:
     permissions:
       contents: write
       actions: write
       checks: write
       pull-requests: write
-    uses: MatrixAI/.github/.github/workflows/native-library-js-tag.yml@master
+    uses: MatrixAI/.github/.github/workflows/native-library-js-tag-gyp.yml@master
     secrets:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
