@@ -19,10 +19,5 @@ jobs:
       pull-requests: write
     uses: MatrixAI/.github/.github/workflows/native-library-js-tag.yml@master
     secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      GIT_AUTHOR_EMAIL: ${{ secrets.GIT_AUTHOR_EMAIL }}
-      GIT_AUTHOR_NAME: ${{ secrets.GIT_AUTHOR_NAME }}
-      GIT_COMMITTER_EMAIL: ${{ secrets.GIT_COMMITTER_EMAIL }}
-      GIT_COMMITTER_NAME: ${{ secrets.GIT_COMMITTER_NAME }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
