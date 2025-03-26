@@ -133,7 +133,7 @@ async function main(argv = process.argv) {
   });
 
   const buildsPath = path.join(projectPath, 'build', 'Release');
-  const prebuildsPath = path.join(projectPath, 'prebuild');
+  const prebuildsPath = path.join(projectPath, 'prebuilds');
 
   const buildNames = await fs.promises.readdir(buildsPath);
   const buildName = buildNames.find((filename) => /\.node$/.test(filename));
