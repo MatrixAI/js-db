@@ -1,17 +1,17 @@
 # TYPE db_1KiB_ops gauge
-db_1KiB_ops{name="get 1 KiB of data"} 71704
-db_1KiB_ops{name="put 1 KiB of data"} 40939
-db_1KiB_ops{name="put zero data"} 49028
-db_1KiB_ops{name="put zero data then del"} 19057
+db_1KiB_ops{name="get 1 KiB of data"} 44354
+db_1KiB_ops{name="put 1 KiB of data"} 23160
+db_1KiB_ops{name="put zero data"} 29018
+db_1KiB_ops{name="put zero data then del"} 15488
 
 # TYPE db_1KiB_margin gauge
-db_1KiB_margin{name="get 1 KiB of data"} 4.8
-db_1KiB_margin{name="put 1 KiB of data"} 8.34
-db_1KiB_margin{name="put zero data"} 7.95
-db_1KiB_margin{name="put zero data then del"} 6.79
+db_1KiB_margin{name="get 1 KiB of data"} 6.24
+db_1KiB_margin{name="put 1 KiB of data"} 6.09
+db_1KiB_margin{name="put zero data"} 5.4
+db_1KiB_margin{name="put zero data then del"} 6.43
 
 # TYPE db_1KiB_samples counter
-db_1KiB_samples{name="get 1 KiB of data"} 66
+db_1KiB_samples{name="get 1 KiB of data"} 61
 db_1KiB_samples{name="put 1 KiB of data"} 59
-db_1KiB_samples{name="put zero data"} 61
-db_1KiB_samples{name="put zero data then del"} 52
+db_1KiB_samples{name="put zero data"} 59
+db_1KiB_samples{name="put zero data then del"} 51
