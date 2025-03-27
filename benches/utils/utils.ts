@@ -1,31 +1,33 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import url from 'node:url';
 import b from 'benny';
 import { codeBlock } from 'common-tags';
-import packageJson from '../../package.json';
+import packageJson from '../../package.json' assert { type: 'json' };
 
-const dirname = url.fileURLToPath(new URL('.', import.meta.url));
+const benchesPath = path.dirname(
+  path.dirname(url.fileURLToPath(import.meta.url)),
+);
 
 const suiteCommon = [
   b.cycle(),
   b.complete(),
   b.save({
     file: (summary) => summary.name,
-    folder: path.join(dirname, '../results'),
+    folder: path.join(benchesPath, 'results'),
     version: packageJson.version,
     details: true,
   }),
   b.save({
     file: (summary) => summary.name,
-    folder: path.join(dirname, '../results'),
+    folder: path.join(benchesPath, 'results'),
     version: packageJson.version,
     format: 'chart.html',
   }),
   b.complete((summary) => {
     const filePath = path.join(
-      dirname,
-      '../results',
+      benchesPath,
+      'results',
       summary.name + '_metrics.txt',
     );
     fs.writeFileSync(
@@ -61,4 +63,4 @@ const suiteCommon = [
   }),
 ];
 
-export { suiteCommon };
+export { benchesPath, suiteCommon };
