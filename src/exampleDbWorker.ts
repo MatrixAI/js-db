@@ -1,4 +1,4 @@
-import type { Crypto } from '#types.js';
+import type { Crypto } from './types.js';
 import type { WorkerManifest } from '@matrixai/workers';
 import { expose } from '@matrixai/workers';
 import nodeForge from 'node-forge';
