@@ -47,7 +47,7 @@
     "@matrixai/errors": "^2.0.1",
     "@matrixai/logger": "^4.0.1",
     "@matrixai/resources": "^2.0.0",
-    "@matrixai/workers": "^2.0.0",
+    "@matrixai/workers": "^2.0.1",
     "node-gyp-build": "4.4.0"
   },
   "devDependencies": {
