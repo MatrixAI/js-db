@@ -94,8 +94,8 @@ async function main(argv = process.argv) {
     ...(nodedir != null
       ? [`--nodedir=${nodedir}`]
       : devdir != null
-      ? [`--devdir=${devdir}`]
-      : []),
+        ? [`--devdir=${devdir}`]
+        : []),
     ...(platform === 'win32' ? [`--msvs_version=${msvsVersion}`] : []),
     `--target=${nodeTarget}`,
     '--verbose',
@@ -114,8 +114,8 @@ async function main(argv = process.argv) {
     ...(nodedir != null
       ? [`--nodedir=${nodedir}`]
       : devdir != null
-      ? [`--devdir=${devdir}`]
-      : []),
+        ? [`--devdir=${devdir}`]
+        : []),
     ...(platform === 'win32' ? [`--msvs_version=${msvsVersion}`] : []),
     `--arch=${arch}`,
     `--target=${nodeTarget}`,
