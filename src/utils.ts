@@ -171,7 +171,7 @@ function parsePath(input: Buffer): [Array<Buffer>, Buffer] {
     [output_, input_] = parseKeyActual(input_);
     output = output.concat(output_);
     return [output, input_];
-  } catch (e) {
+  } catch {
     let output: Array<Buffer> = [];
     let input_: Buffer = input;
     let output_: Array<Buffer>;
@@ -194,7 +194,7 @@ function parseLevels(
     [output_, input_] = parseLevels(input_);
     output = output.concat(output_);
     return [output, input_];
-  } catch (e) {
+  } catch {
     return [[], input];
   }
 }
