@@ -1,13 +1,17 @@
 # js-db
 
-DB is library managing key value state for MatrixAI's JavaScript/TypeScript applications.
+DB is library managing key value state for MatrixAI's JavaScript/TypeScript
+applications.
 
-This forks classic-level's C++ binding code around LevelDB 1.20. Differences from classic-level:
+This forks classic-level's C++ binding code around LevelDB 1.20. Differences
+from classic-level:
 
 - Uses TypeScript from ground-up
 - Supports Snapshot-Isolation based transactions via `DBTransaction`
-- API supports "key paths" which can be used to manipulate "levels" of nested keys
-- Value encryption (key-encryption is not supported yet) - requires additional work with block-encryption
+- API supports "key paths" which can be used to manipulate "levels" of nested
+  keys
+- Value encryption (key-encryption is not supported yet) - requires additional
+  work with block-encryption
 - Uses RocksDB
 
 ## Installation
@@ -71,11 +75,13 @@ async function main() {
 main();
 ```
 
-If you created the `DB` with a `crypto` object, then upon restarting the `DB`, you must pass in the same `crypto` object.
+If you created the `DB` with a `crypto` object, then upon restarting the `DB`,
+you must pass in the same `crypto` object.
 
 ## Development
 
-This project uses Git submodules to bring in rocksdb. **Make sure to clone recursively.**
+This project uses Git submodules to bring in rocksdb. **Make sure to clone
+recursively.**
 
 If you already cloned, run this:
 
@@ -106,7 +112,9 @@ npm run lintfix
 npm run bench
 ```
 
-View benchmarks here: https://github.com/MatrixAI/js-db/blob/master/benches/results with https://raw.githack.com/
+View benchmarks here:
+https://github.com/MatrixAI/js-db/blob/master/benches/results with
+https://raw.githack.com/
 
 ### Docs Generation
 
